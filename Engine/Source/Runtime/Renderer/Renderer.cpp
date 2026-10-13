@@ -15,8 +15,6 @@ void URenderer::Create(HWND hWindow)
 
     // 래스터라이저 상태 생성
     CreateRasterizerState();
-
-    // 깊이 스텐실 버퍼 및 블렌드 상태는 이 코드에서는 다루지 않음
 }
 
 // Direct3D 장치 및 스왑 체인을 생성하는 함수

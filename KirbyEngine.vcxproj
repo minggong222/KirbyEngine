@@ -160,6 +160,9 @@
     </Manifest>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="Engine\Source\Editor\EditorEngine.cpp" />
+    <ClCompile Include="Engine\Source\Editor\UI\ImGuiRenderer.cpp" />
+    <ClCompile Include="Engine\Source\Editor\UI\UIManager.cpp" />
     <ClCompile Include="Engine\Source\Runtime\Core\EngineStatics.cpp" />
     <ClCompile Include="Engine\Source\Runtime\Core\SimpleMath.cpp" />
     <ClCompile Include="Engine\Source\Runtime\Renderer\Renderer.cpp">
@@ -246,6 +249,7 @@
       <LinkCompiled>true</LinkCompiled>
     </ClCompile>
     <ClCompile Include="Engine\Source\Runtime\UObject\Object.cpp" />
+    <ClCompile Include="Engine\Source\Runtime\Windows\WindowsWindow.cpp" />
     <ClCompile Include="Engine\Source\ThirdParty\ImGui\imgui.cpp" />
     <ClCompile Include="Engine\Source\ThirdParty\ImGui\imgui_demo.cpp" />
     <ClCompile Include="Engine\Source\ThirdParty\ImGui\imgui_draw.cpp" />
@@ -256,6 +260,9 @@
     <ClCompile Include="main.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Engine\Source\Editor\EditorEngine.h" />
+    <ClInclude Include="Engine\Source\Editor\UI\ImGuiRenderer.h" />
+    <ClInclude Include="Engine\Source\Editor\UI\UIManager.h" />
     <ClInclude Include="Engine\Source\Runtime\Core\EngineStatics.h" />
     <ClInclude Include="Engine\Source\Runtime\Core\Math.h" />
     <ClInclude Include="Engine\Source\Runtime\Core\SimpleMath.h" />
@@ -263,6 +270,7 @@
     <ClInclude Include="Engine\Source\Runtime\Core\STL.h" />
     <ClInclude Include="Engine\Source\Runtime\Renderer\Renderer.h" />
     <ClInclude Include="Engine\Source\Runtime\UObject\Object.h" />
+    <ClInclude Include="Engine\Source\Runtime\Windows\WindowsWindow.h" />
     <ClInclude Include="FVertexSimple.h" />
     <ClInclude Include="Engine\Source\ThirdParty\ImGui\imconfig.h" />
     <ClInclude Include="Engine\Source\ThirdParty\ImGui\imgui.h" />
@@ -273,9 +281,6 @@
     <ClInclude Include="Engine\Source\ThirdParty\ImGui\imstb_textedit.h" />
     <ClInclude Include="Engine\Source\ThirdParty\ImGui\imstb_truetype.h" />
     <ClInclude Include="Sphere.h" />
-  </ItemGroup>
-  <ItemGroup>
-    <Folder Include="Engine\Source\Editor\" />
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="Engine\Resources\Shaders\shaderW0.hlsl">
