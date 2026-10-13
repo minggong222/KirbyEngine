@@ -160,6 +160,7 @@
     </Manifest>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="Engine\Source\Runtime\Core\EngineStatics.cpp" />
     <ClCompile Include="Engine\Source\Runtime\Core\SimpleMath.cpp" />
     <ClCompile Include="Engine\Source\Runtime\Renderer\Renderer.cpp">
       <RuntimeLibrary>MultiThreadedDebugDll</RuntimeLibrary>
@@ -244,6 +245,7 @@
       </AdditionalIncludeDirectories>
       <LinkCompiled>true</LinkCompiled>
     </ClCompile>
+    <ClCompile Include="Engine\Source\Runtime\UObject\Object.cpp" />
     <ClCompile Include="Engine\Source\ThirdParty\ImGui\imgui.cpp" />
     <ClCompile Include="Engine\Source\ThirdParty\ImGui\imgui_demo.cpp" />
     <ClCompile Include="Engine\Source\ThirdParty\ImGui\imgui_draw.cpp" />
@@ -254,11 +256,13 @@
     <ClCompile Include="main.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Engine\Source\Runtime\Core\EngineStatics.h" />
     <ClInclude Include="Engine\Source\Runtime\Core\Math.h" />
     <ClInclude Include="Engine\Source\Runtime\Core\SimpleMath.h" />
     <ClInclude Include="Engine\Source\Runtime\Core\SimpleMath.inl" />
     <ClInclude Include="Engine\Source\Runtime\Core\STL.h" />
     <ClInclude Include="Engine\Source\Runtime\Renderer\Renderer.h" />
+    <ClInclude Include="Engine\Source\Runtime\UObject\Object.h" />
     <ClInclude Include="FVertexSimple.h" />
     <ClInclude Include="Engine\Source\ThirdParty\ImGui\imconfig.h" />
     <ClInclude Include="Engine\Source\ThirdParty\ImGui\imgui.h" />
