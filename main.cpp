@@ -7,15 +7,17 @@
 #pragma comment(lib, "d3dcompiler")
 
 // D3D 사용에 필요한 헤더파일들을 포함합니다.
-#include "URenderer.h"
+#include "Renderer/Renderer.h"
 #include "FVertexSimple.h"
 #include "Sphere.h"
 
-#include "ImGui/imgui.h"
-#include "ImGui/imgui_internal.h"
-#include "ImGui/imgui_impl_dx11.h"
-#include "imGui/imgui_impl_win32.h"
+#include "imgui.h"
+#include "imgui_internal.h"
+#include "imgui_impl_dx11.h"
+#include "imgui_impl_win32.h"
 
+#include "Core/Math.h"
+#include "Core/STL.h"
 enum ETypePrimitive
 {
     EPT_Triangle,
@@ -85,10 +87,10 @@ FVertexSimple cube_vertices[] =
     {  0.5f, -0.5f, -0.5f,  1.0f, 0.0f, 0.5f, 1.0f }, // Bottom-right (purple)
 };
 
-extern LRESULT ImGui_ImplWin32_WndProcHandler(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
+extern LRESULT ImGui_ImplWin32_WndProcHandler(HWND hwnd, uint32 msg, WPARAM wParam, LPARAM lParam);
 
 // 각종 메시지를 처리할 함수
-LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
+LRESULT CALLBACK WndProc(HWND hWnd, uint32 message, WPARAM wParam, LPARAM lParam)
 {
     if (ImGui_ImplWin32_WndProcHandler(hWnd, message, wParam, lParam))
     {
@@ -147,12 +149,12 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     }
 
     // Renderer와 Shader 생성 이후에 버텍스 버퍼를 생성합니다.
-    UINT numVerticesTriangle = sizeof(triangle_vertices) / sizeof(FVertexSimple);
-    UINT numVerticesCube = sizeof(cube_vertices) / sizeof(FVertexSimple);
-    UINT numVerticesSphere = sizeof(sphere_vertices) / sizeof(FVertexSimple);
+    uint32 numVerticesTriangle = sizeof(triangle_vertices) / sizeof(FVertexSimple);
+    uint32 numVerticesCube = sizeof(cube_vertices) / sizeof(FVertexSimple);
+    uint32 numVerticesSphere = sizeof(sphere_vertices) / sizeof(FVertexSimple);
 
     float scaleMod = 0.1f;
-    for (UINT i = 0; i < numVerticesSphere; ++i)
+    for (uint32 i = 0; i < numVerticesSphere; ++i)
     {
         sphere_vertices[i].x *= scaleMod;
         sphere_vertices[i].y *= scaleMod;
@@ -179,7 +181,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     velocity.y = (float)(rand() % 100 - 50) * 0.001f;
 
     // FPS 제한을 위한 설정
-    const int targetFPS = 30;
+    const int32 targetFPS = 30;
     const double targetFrameTime = 1000.0 / targetFPS;  // 한 프레임의 목표 시간 (밀리초 단위)
 
     // 고성능 타이머 초기화

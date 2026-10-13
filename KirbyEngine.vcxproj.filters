@@ -16,7 +16,7 @@
     <Filter Include="Shaders">
       <UniqueIdentifier>{9df1a0db-6272-4d79-8862-23fff6c4fa75}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ImGui">
+    <Filter Include="Engine\Source\ThirdParty\ImGui">
       <UniqueIdentifier>{dc8cef4e-e5ec-4fd0-a216-768bbf51c273}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
@@ -28,25 +28,25 @@
       <Filter>소스 파일</Filter>
     </ClCompile>
     <ClCompile Include="ImGui\imgui.cpp">
-      <Filter>ImGui</Filter>
+      <Filter>Engine\Source\ThirdParty\ImGui</Filter>
     </ClCompile>
     <ClCompile Include="ImGui\imgui_demo.cpp">
-      <Filter>ImGui</Filter>
+      <Filter>Engine\Source\ThirdParty\ImGui</Filter>
     </ClCompile>
     <ClCompile Include="ImGui\imgui_draw.cpp">
-      <Filter>ImGui</Filter>
+      <Filter>Engine\Source\ThirdParty\ImGui</Filter>
     </ClCompile>
     <ClCompile Include="ImGui\imgui_impl_dx11.cpp">
-      <Filter>ImGui</Filter>
+      <Filter>Engine\Source\ThirdParty\ImGui</Filter>
     </ClCompile>
     <ClCompile Include="ImGui\imgui_impl_win32.cpp">
-      <Filter>ImGui</Filter>
+      <Filter>Engine\Source\ThirdParty\ImGui</Filter>
     </ClCompile>
     <ClCompile Include="ImGui\imgui_tables.cpp">
-      <Filter>ImGui</Filter>
+      <Filter>Engine\Source\ThirdParty\ImGui</Filter>
     </ClCompile>
     <ClCompile Include="ImGui\imgui_widgets.cpp">
-      <Filter>ImGui</Filter>
+      <Filter>Engine\Source\ThirdParty\ImGui</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -60,28 +60,28 @@
       <Filter>헤더 파일</Filter>
     </ClInclude>
     <ClInclude Include="ImGui\imconfig.h">
-      <Filter>ImGui</Filter>
+      <Filter>Engine\Source\ThirdParty\ImGui</Filter>
     </ClInclude>
     <ClInclude Include="ImGui\imgui.h">
-      <Filter>ImGui</Filter>
+      <Filter>Engine\Source\ThirdParty\ImGui</Filter>
     </ClInclude>
     <ClInclude Include="ImGui\imgui_impl_dx11.h">
-      <Filter>ImGui</Filter>
+      <Filter>Engine\Source\ThirdParty\ImGui</Filter>
     </ClInclude>
     <ClInclude Include="ImGui\imgui_impl_win32.h">
-      <Filter>ImGui</Filter>
+      <Filter>Engine\Source\ThirdParty\ImGui</Filter>
     </ClInclude>
     <ClInclude Include="ImGui\imgui_internal.h">
-      <Filter>ImGui</Filter>
+      <Filter>Engine\Source\ThirdParty\ImGui</Filter>
     </ClInclude>
     <ClInclude Include="ImGui\imstb_rectpack.h">
-      <Filter>ImGui</Filter>
+      <Filter>Engine\Source\ThirdParty\ImGui</Filter>
     </ClInclude>
     <ClInclude Include="ImGui\imstb_textedit.h">
-      <Filter>ImGui</Filter>
+      <Filter>Engine\Source\ThirdParty\ImGui</Filter>
     </ClInclude>
     <ClInclude Include="ImGui\imstb_truetype.h">
-      <Filter>ImGui</Filter>
+      <Filter>Engine\Source\ThirdParty\ImGui</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

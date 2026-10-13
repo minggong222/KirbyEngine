@@ -2,7 +2,7 @@
 #include <d3d11.h>
 #include <d3dcompiler.h>
 
-#include "URenderer.h"
+#include "Engine/Source/Runtime/Renderer/Renderer.h"
 
 // 렌더러 초기화 함수
 void URenderer::Create(HWND hWindow)
@@ -150,10 +150,10 @@ void URenderer::CreateShader()
     ID3DBlob* vertexshaderCSO;
     ID3DBlob* pixelshaderCSO;
 
-    D3DCompileFromFile(L"ShaderW0.hlsl", nullptr, nullptr, "mainVS", "vs_5_0", 0, 0, &vertexshaderCSO, nullptr);
+    D3DCompileFromFile(L"Engine/Resources/Shaders/ShaderW0.hlsl", nullptr, nullptr, "mainVS", "vs_5_0", 0, 0, &vertexshaderCSO, nullptr);
     mDevice->CreateVertexShader(vertexshaderCSO->GetBufferPointer(), vertexshaderCSO->GetBufferSize(), nullptr, &mSimpleVertexShader);
 
-    D3DCompileFromFile(L"ShaderW0.hlsl", nullptr, nullptr, "mainPS", "ps_5_0", 0, 0, &pixelshaderCSO, nullptr);
+    D3DCompileFromFile(L"Engine/Resources/Shaders/ShaderW0.hlsl", nullptr, nullptr, "mainPS", "ps_5_0", 0, 0, &pixelshaderCSO, nullptr);
     mDevice->CreatePixelShader(pixelshaderCSO->GetBufferPointer(), pixelshaderCSO->GetBufferSize(), nullptr, &mSimplePixelShader);
 
     D3D11_INPUT_ELEMENT_DESC layout[] =

@@ -1,6 +1,7 @@
 
 #include <d3d11.h>
 #include "FVertexSimple.h"
+#include "Core/Math.h"
 
 struct FConstants
 {
