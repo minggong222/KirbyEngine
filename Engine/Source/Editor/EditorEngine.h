@@ -1,4 +1,5 @@
 ﻿#pragma once
+#include "Core/Stats/FrameStats.h"
 #include "Renderer/Renderer.h"
 #include "UI/ImGuiRenderer.h"
 #include "UI/UIManager.h"
@@ -11,6 +12,8 @@ public:
     void Run();
     void Shutdown();
 private:
+    FFrameStats FrameStats;
+    
     URenderer* Renderer = nullptr;
     FUIManager* UIManager = nullptr;
     FImGuiRenderer* ImGuiRenderer = nullptr;

@@ -252,6 +252,9 @@
     </ClCompile>
     <ClCompile Include="Engine\Source\Runtime\Core\Logging\Log.cpp" />
     <ClCompile Include="Engine\Source\Runtime\Core\SimpleMath.cpp" />
+    <ClCompile Include="Engine\Source\Runtime\Core\Stats\FrameStats.cpp" />
+    <ClCompile Include="Engine\Source\Runtime\Core\Time\PlatformTime.cpp" />
+    <ClCompile Include="Engine\Source\Runtime\Core\Time\Timer.cpp" />
     <ClCompile Include="Engine\Source\Runtime\Renderer\Renderer.cpp">
       <RuntimeLibrary>MultiThreadedDebugDll</RuntimeLibrary>
       <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
@@ -356,7 +359,10 @@
     <ClInclude Include="Engine\Source\Runtime\Core\Math.h" />
     <ClInclude Include="Engine\Source\Runtime\Core\SimpleMath.h" />
     <ClInclude Include="Engine\Source\Runtime\Core\SimpleMath.inl" />
+    <ClInclude Include="Engine\Source\Runtime\Core\Stats\FrameStats.h" />
     <ClInclude Include="Engine\Source\Runtime\Core\STL.h" />
+    <ClInclude Include="Engine\Source\Runtime\Core\Time\PlatformTime.h" />
+    <ClInclude Include="Engine\Source\Runtime\Core\Time\Timer.h" />
     <ClInclude Include="Engine\Source\Runtime\Renderer\Renderer.h" />
     <ClInclude Include="Engine\Source\Runtime\UObject\Object.h" />
     <ClInclude Include="Engine\Source\Runtime\Windows\WindowsWindow.h" />

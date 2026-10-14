@@ -140,7 +140,7 @@ void URenderer::Release()
 // 스왑 체인의 백 버퍼와 프론트 버퍼를 교체하여 화면에 출력
 void URenderer::SwapBuffer()
 {
-    mSwapChain->Present(1, 0); // 1: VSync 활성화
+    mSwapChain->Present(0, 0);
 }
 
 void URenderer::CreateShader()

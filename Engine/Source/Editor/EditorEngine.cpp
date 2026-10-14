@@ -6,6 +6,7 @@
 #include "imgui_impl_win32.h"
 #include "Sphere.h"
 #include "Core/STL.h"
+#include "Core/Time/PlatformTime.h"
 
 bool FEditorEngine::Init(HINSTANCE hInstance)
 {
@@ -15,7 +16,6 @@ bool FEditorEngine::Init(HINSTANCE hInstance)
     ImGuiRenderer = new FImGuiRenderer();
     WindowsWindow = new FWindowsWindow();
     WindowsWindow->Create(hInstance, 1920, 1080);
-    // Initialize renderer
     {
         Renderer->Create(WindowsWindow->GetHWND());
         Renderer->CreateShader();
@@ -40,35 +40,21 @@ void FEditorEngine::Run()
     ID3D11Buffer* vertexBufferTriangle = Renderer->CreateVertexBuffer(triangle_vertices, sizeof(triangle_vertices));
     ID3D11Buffer* vertexBufferCube = Renderer->CreateVertexBuffer(cube_vertices, sizeof(cube_vertices));
     ID3D11Buffer* vertexBufferSphere = Renderer->CreateVertexBuffer(sphere_vertices, sizeof(sphere_vertices));*/
-    // FPS 제한을 위한 설정
-    // 타이머도 만들어야되네;
-    const int32 targetFPS = 30;
-    const double targetFrameTime = 1000.0 / targetFPS;  // 한 프레임의 목표 시간 (밀리초 단위)
 
-    // 고성능 타이머 초기화
-    LARGE_INTEGER frequency;
-    QueryPerformanceFrequency(&frequency);
-
-    LARGE_INTEGER startTime;
-    LARGE_INTEGER endTime;
+    double PreviousTime = FPlatformTime::Seconds();
     
-    double elapsedTime = 0.0f;
-    
-    // Main Loop (Quit Message가 들어오기 전까지 아래 Loop를 무한히 실행하게 됨)
     while (bIsRunning == true)
     {
+        const double CurrentTime = FPlatformTime::Seconds();
+        const double DeltaTime = CurrentTime - PreviousTime;
+        
+        PreviousTime = CurrentTime;
+        FrameStats.Update(DeltaTime);
+        
         MSG msg;
-
-        // 루프 시작 시간 기록
-        QueryPerformanceCounter(&startTime);
-
-        // 처리할 메시지가 더 이상 없을때 까지 수행
         while (PeekMessage(&msg, nullptr, 0, 0, PM_REMOVE))
         {
-            // 키 입력 메시지를 번역
             TranslateMessage(&msg);
-
-            // 메시지를 적절한 윈도우 프로시저에 전달, 메시지가 위에서 등록한 WndProc 으로 전달됨
             DispatchMessage(&msg);
 
             
@@ -79,10 +65,8 @@ void FEditorEngine::Run()
 
                 break;
             }
-            else if (msg.message == WM_KEYDOWN) // 키보드 눌렸을 때
+            else if (msg.message == WM_KEYDOWN)
             {
-                // 눌린 키가 방향키라면 해당 방향에 맞춰서
-                // offset 변수의 x, y 맴버 변수의 값을 조정합니다.
                 if (msg.wParam == VK_LEFT)
                 {
                 }
@@ -97,11 +81,6 @@ void FEditorEngine::Run()
                 }
             }
         }
-
-        ////////////////////////////////////////////
-        // 매번 실행되는 코드를 여기에 추가합니다.
-
-        // Geometry update, render
         {
             // 준비 작업
             Renderer->Prepare();
@@ -115,26 +94,7 @@ void FEditorEngine::Run()
         }
 
         ImGuiRenderer->OnRender();
-
-        // 다 그렸으면 버퍼를 교환
-        // 현재 화면에 보여지는 버퍼와 그리기 작업을 위한 버퍼를 서로 교환합니다.
         Renderer->SwapBuffer();
-
-        // 프레임 갱신 시간 고정시키기
-        do
-        {
-            Sleep(0);
-
-            // 루프 종료 시간 기록
-            QueryPerformanceCounter(&endTime);
-
-            // 한 프레임이 소요된 시간 계산 (밀리초 단위로 변환)
-            elapsedTime = (endTime.QuadPart - startTime.QuadPart) * 1000.0 / frequency.QuadPart;
-
-        } while (elapsedTime < targetFrameTime);
-
-
-        ////////////////////////////////////////////
     }
     
 }
