@@ -289,3 +289,11 @@ ID3D11DeviceContext* URenderer::GetDeviceContext()
 {
     return mDeviceContext;
 }
+
+void URenderer::Shutdown()
+{
+    //ReleaseRasterizerState();
+    ReleaseConstantBuffer();
+    ReleaseShader();
+    Release();
+}

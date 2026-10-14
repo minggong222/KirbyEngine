@@ -161,9 +161,96 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="Engine\Source\Editor\EditorEngine.cpp" />
+    <ClCompile Include="Engine\Source\Editor\UI\ConsolePanel.cpp" />
+    <ClCompile Include="Engine\Source\Editor\UI\EditorPanel.cpp" />
     <ClCompile Include="Engine\Source\Editor\UI\ImGuiRenderer.cpp" />
     <ClCompile Include="Engine\Source\Editor\UI\UIManager.cpp" />
     <ClCompile Include="Engine\Source\Runtime\Core\EngineStatics.cpp" />
+    <ClCompile Include="Engine\Source\Runtime\Core\EntryPoint.cpp">
+      <RuntimeLibrary>MultiThreadedDebugDll</RuntimeLibrary>
+      <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
+      <Optimization>Disabled</Optimization>
+      <SupportJustMyCode>true</SupportJustMyCode>
+      <AssemblerOutput>NoListing</AssemblerOutput>
+      <AssemblerListingLocation>C:\Users\JUNGLE\Documents\GitHub\KirbyEngine\Build\Intermediate\KirbyEngine\x64\Debug\</AssemblerListingLocation>
+      <UndefineAllPreprocessorDefinitions>false</UndefineAllPreprocessorDefinitions>
+      <BrowseInformation>false</BrowseInformation>
+      <BrowseInformationFile>C:\Users\JUNGLE\Documents\GitHub\KirbyEngine\Build\Intermediate\KirbyEngine\x64\Debug\</BrowseInformationFile>
+      <CompileAs>Default</CompileAs>
+      <UseDynamicDebugging>false</UseDynamicDebugging>
+      <ConformanceMode>true</ConformanceMode>
+      <DiagnosticsFormat>Column</DiagnosticsFormat>
+      <DisableLanguageExtensions>false</DisableLanguageExtensions>
+      <ErrorReporting>Prompt</ErrorReporting>
+      <ExpandAttributedSource>false</ExpandAttributedSource>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <EnableASAN>false</EnableASAN>
+      <EnableFuzzer>false</EnableFuzzer>
+      <EnableFiberSafeOptimizations>false</EnableFiberSafeOptimizations>
+      <EnableEnhancedInstructionSet>NotSet</EnableEnhancedInstructionSet>
+      <EnableVectorLength>NotSet</EnableVectorLength>
+      <FloatingPointModel>Precise</FloatingPointModel>
+      <ForceConformanceInForLoopScope>true</ForceConformanceInForLoopScope>
+      <GenerateModuleDependencies>false</GenerateModuleDependencies>
+      <GenerateSourceDependencies>false</GenerateSourceDependencies>
+      <GenerateXMLDocumentationFiles>false</GenerateXMLDocumentationFiles>
+      <InlineFunctionExpansion>Default</InlineFunctionExpansion>
+      <IntrinsicFunctions>false</IntrinsicFunctions>
+      <IgnoreStandardIncludePath>false</IgnoreStandardIncludePath>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <LanguageStandard_C>Default</LanguageStandard_C>
+      <MinimalRebuild>false</MinimalRebuild>
+      <ModuleDependenciesFile>C:\Users\JUNGLE\Documents\GitHub\KirbyEngine\Build\Intermediate\KirbyEngine\x64\Debug\</ModuleDependenciesFile>
+      <ModuleOutputFile>C:\Users\JUNGLE\Documents\GitHub\KirbyEngine\Build\Intermediate\KirbyEngine\x64\Debug\</ModuleOutputFile>
+      <OmitDefaultLibName>false</OmitDefaultLibName>
+      <FavorSizeOrSpeed>Neither</FavorSizeOrSpeed>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <ObjectFileName>C:\Users\JUNGLE\Documents\GitHub\KirbyEngine\Build\Intermediate\KirbyEngine\x64\Debug\</ObjectFileName>
+      <CallingConvention>Cdecl</CallingConvention>
+      <ProgramDataBaseFileName>C:\Users\JUNGLE\Documents\GitHub\KirbyEngine\Build\Intermediate\KirbyEngine\x64\Debug\vc145.pdb</ProgramDataBaseFileName>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <PrecompiledHeaderFile>stdafx.h</PrecompiledHeaderFile>
+      <PrecompiledHeaderOutputFile>C:\Users\JUNGLE\Documents\GitHub\KirbyEngine\Build\Intermediate\KirbyEngine\x64\Debug\KirbyEngine.pch</PrecompiledHeaderOutputFile>
+      <PreprocessToFile>false</PreprocessToFile>
+      <PreprocessKeepComments>false</PreprocessKeepComments>
+      <PreprocessSuppressLineNumbers>false</PreprocessSuppressLineNumbers>
+      <RemoveUnreferencedCodeData>true</RemoveUnreferencedCodeData>
+      <ScanSourceForModuleDependencies>false</ScanSourceForModuleDependencies>
+      <ShowIncludes>false</ShowIncludes>
+      <SourceDependenciesFile>C:\Users\JUNGLE\Documents\GitHub\KirbyEngine\Build\Intermediate\KirbyEngine\x64\Debug\</SourceDependenciesFile>
+      <SuppressStartupBanner>true</SuppressStartupBanner>
+      <BufferSecurityCheck>true</BufferSecurityCheck>
+      <SmallerTypeCheck>false</SmallerTypeCheck>
+      <SpectreMitigation>false</SpectreMitigation>
+      <StructMemberAlignment>Default</StructMemberAlignment>
+      <TrackerLogDirectory>C:\Users\JUNGLE\Documents\GitHub\KirbyEngine\Build\Intermediate\KirbyEngine\x64\Debug\KirbyEngine.tlog\</TrackerLogDirectory>
+      <TranslateIncludes>false</TranslateIncludes>
+      <MinimalRebuildFromTracking>true</MinimalRebuildFromTracking>
+      <TreatWarningAsError>false</TreatWarningAsError>
+      <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
+      <UseFullPaths>true</UseFullPaths>
+      <WarningLevel>Level3</WarningLevel>
+      <XMLDocumentationFileName>C:\Users\JUNGLE\Documents\GitHub\KirbyEngine\Build\Intermediate\KirbyEngine\x64\Debug\</XMLDocumentationFileName>
+      <DebugInformationFormat>EditAndContinue</DebugInformationFormat>
+      <IntelJCCErratum>false</IntelJCCErratum>
+      <BuildStlModules>false</BuildStlModules>
+      <TreatAngleIncludeAsExternal>false</TreatAngleIncludeAsExternal>
+      <ExternalWarningLevel>InheritWarningLevel</ExternalWarningLevel>
+      <TreatExternalTemplatesAsInternal>true</TreatExternalTemplatesAsInternal>
+      <DisableAnalyzeExternal>false</DisableAnalyzeExternal>
+      <PreprocessorDefinitions>_DEBUG;_CONSOLE;_UNICODE;UNICODE;</PreprocessorDefinitions>
+      <SDLCheck>true</SDLCheck>
+      <AdditionalIncludeDirectories>
+        C:\Users\JUNGLE\Documents\GitHub\KirbyEngine\;
+        C:\Users\JUNGLE\Documents\GitHub\KirbyEngine\Engine\Source\ThirdParty\ImGui;
+        C:\Users\JUNGLE\Documents\GitHub\KirbyEngine\Engine\Source\Editor;
+        C:\Users\JUNGLE\Documents\GitHub\KirbyEngine\Engine\Source\Runtime;
+        C:\Users\JUNGLE\Documents\GitHub\KirbyEngine\Engine\Source\ThirdParty;
+        
+      </AdditionalIncludeDirectories>
+      <LinkCompiled>true</LinkCompiled>
+    </ClCompile>
+    <ClCompile Include="Engine\Source\Runtime\Core\Logging\Log.cpp" />
     <ClCompile Include="Engine\Source\Runtime\Core\SimpleMath.cpp" />
     <ClCompile Include="Engine\Source\Runtime\Renderer\Renderer.cpp">
       <RuntimeLibrary>MultiThreadedDebugDll</RuntimeLibrary>
@@ -257,13 +344,15 @@
     <ClCompile Include="Engine\Source\ThirdParty\ImGui\imgui_impl_win32.cpp" />
     <ClCompile Include="Engine\Source\ThirdParty\ImGui\imgui_tables.cpp" />
     <ClCompile Include="Engine\Source\ThirdParty\ImGui\imgui_widgets.cpp" />
-    <ClCompile Include="main.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Engine\Source\Editor\EditorEngine.h" />
+    <ClInclude Include="Engine\Source\Editor\UI\ConsolePanel.h" />
+    <ClInclude Include="Engine\Source\Editor\UI\EditorPanel.h" />
     <ClInclude Include="Engine\Source\Editor\UI\ImGuiRenderer.h" />
     <ClInclude Include="Engine\Source\Editor\UI\UIManager.h" />
     <ClInclude Include="Engine\Source\Runtime\Core\EngineStatics.h" />
+    <ClInclude Include="Engine\Source\Runtime\Core\Logging\Log.h" />
     <ClInclude Include="Engine\Source\Runtime\Core\Math.h" />
     <ClInclude Include="Engine\Source\Runtime\Core\SimpleMath.h" />
     <ClInclude Include="Engine\Source\Runtime\Core\SimpleMath.inl" />

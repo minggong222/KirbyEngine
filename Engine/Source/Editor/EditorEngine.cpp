@@ -22,20 +22,26 @@ bool FEditorEngine::Init(HINSTANCE hInstance)
         Renderer->CreateConstantBuffer();
     }
     ImGuiRenderer->Init(WindowsWindow->GetHWND(), Renderer->GetDevice(), Renderer->GetDeviceContext());
+    
+    bIsRunning = true;
+    UE_LOG(Info, "Info");
+    UE_LOG(Error, "Error");
+    UE_LOG(Warning, "Warning");
     return true;
 }
 
 void FEditorEngine::Run()
 {
-    
+    /*
     // Renderer와 Shader 생성 이후에 버텍스 버퍼를 생성합니다.
     uint32 numVerticesTriangle = sizeof(triangle_vertices) / sizeof(FVertexSimple);
     uint32 numVerticesCube = sizeof(cube_vertices) / sizeof(FVertexSimple);
     uint32 numVerticesSphere = sizeof(sphere_vertices) / sizeof(FVertexSimple);
     ID3D11Buffer* vertexBufferTriangle = Renderer->CreateVertexBuffer(triangle_vertices, sizeof(triangle_vertices));
     ID3D11Buffer* vertexBufferCube = Renderer->CreateVertexBuffer(cube_vertices, sizeof(cube_vertices));
-    ID3D11Buffer* vertexBufferSphere = Renderer->CreateVertexBuffer(sphere_vertices, sizeof(sphere_vertices));
+    ID3D11Buffer* vertexBufferSphere = Renderer->CreateVertexBuffer(sphere_vertices, sizeof(sphere_vertices));*/
     // FPS 제한을 위한 설정
+    // 타이머도 만들어야되네;
     const int32 targetFPS = 30;
     const double targetFrameTime = 1000.0 / targetFPS;  // 한 프레임의 목표 시간 (밀리초 단위)
 
@@ -47,10 +53,9 @@ void FEditorEngine::Run()
     LARGE_INTEGER endTime;
     
     double elapsedTime = 0.0f;
-    bool bIsExit = false;
     
     // Main Loop (Quit Message가 들어오기 전까지 아래 Loop를 무한히 실행하게 됨)
-    while (bIsExit == false)
+    while (bIsRunning == true)
     {
         MSG msg;
 
@@ -66,9 +71,11 @@ void FEditorEngine::Run()
             // 메시지를 적절한 윈도우 프로시저에 전달, 메시지가 위에서 등록한 WndProc 으로 전달됨
             DispatchMessage(&msg);
 
+            
+            //입력은 누가 가지냐
             if (msg.message == WM_QUIT)
             {
-                bIsExit = true;
+                bIsRunning = false;
 
                 break;
             }
@@ -102,9 +109,9 @@ void FEditorEngine::Run()
 
             // offset을 상수 버퍼로 업데이트 합니다.
             Renderer->UpdateConstant(FVector(0.0f, 0.0f, 0.0f));
-
+            /*
             // 생성한 버텍스 버퍼를 넘겨, 실질적인 렌더링 요청
-            Renderer->RenderPrimitive(vertexBufferSphere, numVerticesSphere);
+            Renderer->RenderPrimitive(vertexBufferSphere, numVerticesSphere);*/
         }
 
         ImGuiRenderer->OnRender();
@@ -130,21 +137,10 @@ void FEditorEngine::Run()
         ////////////////////////////////////////////
     }
     
+}
+
+void FEditorEngine::Shutdown()
+{
     ImGuiRenderer->Shutdown();
-
-    // Release renderer
-    {
-        // 버텍스 버퍼 소멸은 Renderer 소멸전에 처리합니다.
-        Renderer->ReleaseVertexBuffer(vertexBufferTriangle);
-        Renderer->ReleaseVertexBuffer(vertexBufferCube);
-        Renderer->ReleaseVertexBuffer(vertexBufferSphere);
-
-        // ReleaseShader() 직전에 소멸 함수를 추가합니다.
-        Renderer->ReleaseConstantBuffer();
-
-        // 렌더러 소멸 직전에 쉐이더를 소멸 시키는 함수를 호출합니다.
-        Renderer->ReleaseShader();
-
-        Renderer->Release();
-    }
+    Renderer->Shutdown();
 }

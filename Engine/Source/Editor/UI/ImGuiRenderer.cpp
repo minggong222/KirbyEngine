@@ -15,6 +15,8 @@ void FImGuiRenderer::Init(HWND Hwnd, ID3D11Device* Device, ID3D11DeviceContext* 
         ImGui_ImplWin32_Init((void*)Hwnd);
         ImGui_ImplDX11_Init(Device, DeviceContext);
     }
+    UIManager = new FUIManager();
+    UIManager->Init();
 }
 
 void FImGuiRenderer::OnRender()
@@ -24,12 +26,7 @@ void FImGuiRenderer::OnRender()
     ImGui_ImplWin32_NewFrame();
     ImGui::NewFrame();
     
-    // 이후 ImGui UI 컨트롤 추가는 ImGui::NewFrame()과 ImGui::Render() 사이인 여기에 위치합니다.
-    ImGui::Begin("Jungle Property Window");
-    {
-        ImGui::Text("Hello Jungle World!");
-    }
-    ImGui::End();
+    UIManager->OnRender();
     
     // 이후 ImGui UI 컨트롤 추가는 ImGui::NewFrame()과 ImGui::Render() 사이인 여기에 위치합니다.
     ImGui::Render();

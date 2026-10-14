@@ -1,4 +1,4 @@
-
+#pragma once
 #include <d3d11.h>
 #include "FVertexSimple.h"
 #include "Core/Math.h"
@@ -39,6 +39,7 @@ public:
     ID3D11Device* GetDevice();
     ID3D11DeviceContext* GetDeviceContext();
 
+    void Shutdown();
 private:
     // Direct3D 11 장치(Device)와 장치 컨텍스트(Device Context) 및 스왑 체인(Swap Chain)을 관리하기 위한 포인터들
     ID3D11Device* mDevice = nullptr; // GPU와 통신하기 위한 Direct3D 장치

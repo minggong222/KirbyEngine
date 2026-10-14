@@ -36,14 +36,14 @@ void* UObject::operator new(SIZE_T size)
     void* Ptr = malloc(size);
     if (!Ptr) throw std::bad_alloc();
         
-    FEngineStatics::TotalAllocationBytes += size;
+    FEngineStatics::TotalAllocationBytes += static_cast<uint32>(size);
     FEngineStatics::TotalAllocationCount += 1;
     return Ptr;
 }
 
 void UObject::operator delete(void* ptr, SIZE_T size)
 {
-    FEngineStatics::TotalAllocationBytes -= size;
+    FEngineStatics::TotalAllocationBytes -= static_cast<uint32>(size);
     FEngineStatics::TotalAllocationCount -= 1;
     free(ptr);
 }

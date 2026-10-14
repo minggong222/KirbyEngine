@@ -1,4 +1,4 @@
-
+#pragma once
 #include <windows.h>
 
 #pragma comment(lib, "user32")
@@ -7,10 +7,6 @@
 
 #include "EditorEngine.h"
 
-#include "imgui.h"
-
-#include "Core/Math.h"
-#include "Core/STL.h"
 
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nShowCmd)
 {
@@ -20,5 +16,6 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     {
         engine->Run();
     }
+    engine->Shutdown();
     return 0;
 }
