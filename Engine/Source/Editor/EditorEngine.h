@@ -2,7 +2,7 @@
 #include "Core/Stats/FrameStats.h"
 #include "Renderer/Renderer.h"
 #include "UI/ImGuiRenderer.h"
-#include "UI/UIManager.h"
+#include "UI/PanelManager.h"
 #include "Windows/WindowsWindow.h"
 
 class FEditorEngine
@@ -15,7 +15,7 @@ private:
     FFrameStats FrameStats;
     
     URenderer* Renderer = nullptr;
-    FUIManager* UIManager = nullptr;
+    FPanelManager* UIManager = nullptr;
     FImGuiRenderer* ImGuiRenderer = nullptr;
     FWindowsWindow* WindowsWindow = nullptr;
     

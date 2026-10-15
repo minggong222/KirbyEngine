@@ -12,7 +12,7 @@ bool FEditorEngine::Init(HINSTANCE hInstance)
 {
    
     Renderer = new URenderer();
-    UIManager = new FUIManager();
+    UIManager = new FPanelManager();
     ImGuiRenderer = new FImGuiRenderer();
     WindowsWindow = new FWindowsWindow();
     WindowsWindow->Create(hInstance, 1920, 1080);

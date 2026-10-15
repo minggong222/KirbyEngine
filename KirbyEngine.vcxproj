@@ -164,7 +164,7 @@
     <ClCompile Include="Engine\Source\Editor\UI\ConsolePanel.cpp" />
     <ClCompile Include="Engine\Source\Editor\UI\EditorPanel.cpp" />
     <ClCompile Include="Engine\Source\Editor\UI\ImGuiRenderer.cpp" />
-    <ClCompile Include="Engine\Source\Editor\UI\UIManager.cpp" />
+    <ClCompile Include="Engine\Source\Editor\UI\PanelManager.cpp" />
     <ClCompile Include="Engine\Source\Runtime\Core\EngineStatics.cpp" />
     <ClCompile Include="Engine\Source\Runtime\Core\EntryPoint.cpp">
       <RuntimeLibrary>MultiThreadedDebugDll</RuntimeLibrary>
@@ -254,7 +254,6 @@
     <ClCompile Include="Engine\Source\Runtime\Core\SimpleMath.cpp" />
     <ClCompile Include="Engine\Source\Runtime\Core\Stats\FrameStats.cpp" />
     <ClCompile Include="Engine\Source\Runtime\Core\Time\PlatformTime.cpp" />
-    <ClCompile Include="Engine\Source\Runtime\Core\Time\Timer.cpp" />
     <ClCompile Include="Engine\Source\Runtime\Renderer\Renderer.cpp">
       <RuntimeLibrary>MultiThreadedDebugDll</RuntimeLibrary>
       <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
@@ -353,7 +352,7 @@
     <ClInclude Include="Engine\Source\Editor\UI\ConsolePanel.h" />
     <ClInclude Include="Engine\Source\Editor\UI\EditorPanel.h" />
     <ClInclude Include="Engine\Source\Editor\UI\ImGuiRenderer.h" />
-    <ClInclude Include="Engine\Source\Editor\UI\UIManager.h" />
+    <ClInclude Include="Engine\Source\Editor\UI\PanelManager.h" />
     <ClInclude Include="Engine\Source\Runtime\Core\EngineStatics.h" />
     <ClInclude Include="Engine\Source\Runtime\Core\Logging\Log.h" />
     <ClInclude Include="Engine\Source\Runtime\Core\Math.h" />
@@ -362,7 +361,6 @@
     <ClInclude Include="Engine\Source\Runtime\Core\Stats\FrameStats.h" />
     <ClInclude Include="Engine\Source\Runtime\Core\STL.h" />
     <ClInclude Include="Engine\Source\Runtime\Core\Time\PlatformTime.h" />
-    <ClInclude Include="Engine\Source\Runtime\Core\Time\Timer.h" />
     <ClInclude Include="Engine\Source\Runtime\Renderer\Renderer.h" />
     <ClInclude Include="Engine\Source\Runtime\UObject\Object.h" />
     <ClInclude Include="Engine\Source\Runtime\Windows\WindowsWindow.h" />
