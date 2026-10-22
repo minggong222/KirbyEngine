@@ -1,12 +1,9 @@
 ﻿#include "EditorEngine.h"
 
-#include "FVertexSimple.h"
-#include "imgui.h"
-#include "imgui_impl_dx11.h"
-#include "imgui_impl_win32.h"
-#include "Sphere.h"
+#include "Components/SphereComp.h"
 #include "Core/STL.h"
 #include "Core/Time/PlatformTime.h"
+#include "UObject/Object.h"
 
 bool FEditorEngine::Init(HINSTANCE hInstance)
 {
@@ -32,16 +29,10 @@ bool FEditorEngine::Init(HINSTANCE hInstance)
 
 void FEditorEngine::Run()
 {
-    /*
-    // Renderer와 Shader 생성 이후에 버텍스 버퍼를 생성합니다.
-    uint32 numVerticesTriangle = sizeof(triangle_vertices) / sizeof(FVertexSimple);
-    uint32 numVerticesCube = sizeof(cube_vertices) / sizeof(FVertexSimple);
-    uint32 numVerticesSphere = sizeof(sphere_vertices) / sizeof(FVertexSimple);
-    ID3D11Buffer* vertexBufferTriangle = Renderer->CreateVertexBuffer(triangle_vertices, sizeof(triangle_vertices));
-    ID3D11Buffer* vertexBufferCube = Renderer->CreateVertexBuffer(cube_vertices, sizeof(cube_vertices));
-    ID3D11Buffer* vertexBufferSphere = Renderer->CreateVertexBuffer(sphere_vertices, sizeof(sphere_vertices));*/
 
     double PreviousTime = FPlatformTime::Seconds();
+    USphereComp* Test = new USphereComp();
+    ID3D11Buffer* vertexBufferSphere = Renderer->CreateVertexBuffer(Test->GetVertex().GetData(), Test->GetVertex().Num());
     
     while (bIsRunning == true)
     {
@@ -87,10 +78,8 @@ void FEditorEngine::Run()
             Renderer->PrepareShader();
 
             // offset을 상수 버퍼로 업데이트 합니다.
-            Renderer->UpdateConstant(FVector(0.0f, 0.0f, 0.0f));
-            /*
-            // 생성한 버텍스 버퍼를 넘겨, 실질적인 렌더링 요청
-            Renderer->RenderPrimitive(vertexBufferSphere, numVerticesSphere);*/
+            Renderer->UpdateConstant(Test->GetLocation());
+            Renderer->RenderPrimitive(vertexBufferSphere, Test->GetVertex().Num());
         }
 
         ImGuiRenderer->OnRender();
