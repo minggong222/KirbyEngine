@@ -5,12 +5,6 @@
 
 void FPanelManager::Init()
 {
-    Panels.Add(new FConsolePanel());
-    Panels.Add(new FViewportPanel());
-    for (auto panel : Panels)
-    {
-        panel->Init();
-    }
 }
 
 void FPanelManager::OnRender()
@@ -23,4 +17,10 @@ void FPanelManager::OnRender()
 
 void FPanelManager::Shutdown()
 {
+}
+
+void FPanelManager::AddPanel(IEditorPanel* panel)
+{
+    Panels.Add(panel);
+    panel->Init();
 }

@@ -3,6 +3,7 @@
 #include "Renderer/Renderer.h"
 #include "UI/ImGuiRenderer.h"
 #include "UI/PanelManager.h"
+#include "UI/ViewportPanel.h"
 #include "Windows/WindowsWindow.h"
 
 class FEditorEngine
@@ -15,9 +16,11 @@ private:
     FFrameStats FrameStats;
     
     URenderer* Renderer = nullptr;
-    FPanelManager* UIManager = nullptr;
     FImGuiRenderer* ImGuiRenderer = nullptr;
     FWindowsWindow* WindowsWindow = nullptr;
+    
+    FConsolePanel* ConsolePanel = nullptr;
+    FViewportPanel* ViewportPanel = nullptr;
     
     bool bIsRunning = false;
 };

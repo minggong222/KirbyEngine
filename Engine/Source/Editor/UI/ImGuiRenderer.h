@@ -10,7 +10,7 @@ public:
     void OnRender();
     void Shutdown();
     void DrawDockHost();
-
+    FPanelManager* GetPanelManager() const {return PanelManager;}
 private:
-    FPanelManager* UIManager = nullptr;
+    FPanelManager* PanelManager = nullptr;
 };

@@ -8,6 +8,7 @@ public:
     void Init();
     void OnRender();
     void Shutdown();
+    void AddPanel(IEditorPanel* panel);
 private:
-    TArray<IEditorPanel*> Panels; 
+    TArray<IEditorPanel*> Panels;
 };

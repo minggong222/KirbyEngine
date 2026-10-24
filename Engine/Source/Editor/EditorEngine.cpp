@@ -9,7 +9,6 @@ bool FEditorEngine::Init(HINSTANCE hInstance)
 {
    
     Renderer = new URenderer();
-    UIManager = new FPanelManager();
     ImGuiRenderer = new FImGuiRenderer();
     WindowsWindow = new FWindowsWindow();
     WindowsWindow->Create(hInstance, 1920, 1080);
@@ -19,6 +18,11 @@ bool FEditorEngine::Init(HINSTANCE hInstance)
         Renderer->CreateConstantBuffer();
     }
     ImGuiRenderer->Init(WindowsWindow->GetHWND(), Renderer->GetDevice(), Renderer->GetDeviceContext());
+    
+    ViewportPanel = new FViewportPanel();
+    ImGuiRenderer->GetPanelManager()->AddPanel(ViewportPanel);
+    ConsolePanel = new FConsolePanel();
+    ImGuiRenderer->GetPanelManager()->AddPanel(ConsolePanel);
     
     bIsRunning = true;
     UE_LOG(Info, "Info");
