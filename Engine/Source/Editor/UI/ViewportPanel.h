@@ -8,7 +8,7 @@ public:
     bool Init() override;
     void Tick(float DeltaTime) override;
     void OnRender() override;
-    void SetViewportTexture(ID3D11ShaderResourceView* InSRV) { InSRV = InSRV; }
+    void SetViewportTexture(ID3D11ShaderResourceView* InSRV) { SRV = InSRV; }
 public:
     ID3D11ShaderResourceView* SRV;
 };

@@ -290,8 +290,125 @@ ID3D11DeviceContext* URenderer::GetDeviceContext()
     return mDeviceContext;
 }
 
+void URenderer::CreateViewportRenderTarget(uint32 Width, uint32 Height)
+{
+    assert(Width > 0 && Height > 0);
+    
+    D3D11_TEXTURE2D_DESC ColorDesc = {};
+    ColorDesc.Width = Width;
+    ColorDesc.Height = Height;
+    ColorDesc.MipLevels = 1;
+    ColorDesc.ArraySize = 1;
+    ColorDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+    ColorDesc.SampleDesc.Count = 1;
+    ColorDesc.Usage = D3D11_USAGE_DEFAULT;
+    ColorDesc.BindFlags = D3D11_BIND_RENDER_TARGET | D3D11_BIND_SHADER_RESOURCE;
+    
+    HRESULT hr = mDevice->CreateTexture2D(&ColorDesc, nullptr, &ViewportTexture);
+    assert(SUCCEEDED(hr));
+    (void)hr;
+    
+    hr = mDevice->CreateRenderTargetView(ViewportTexture, nullptr, &ViewportRTV);
+    assert(SUCCEEDED(hr));
+    (void)hr;
+    
+    hr = mDevice->CreateShaderResourceView(ViewportTexture, nullptr, &ViewportSRV);
+    assert(SUCCEEDED(hr));
+    (void)hr;
+    
+    D3D11_TEXTURE2D_DESC DepthDesc = {};
+    DepthDesc.Width = Width;
+    DepthDesc.Height = Height;
+    DepthDesc.MipLevels = 1;
+    DepthDesc.ArraySize = 1;
+    DepthDesc.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
+    DepthDesc.SampleDesc.Count = 1;
+    DepthDesc.Usage = D3D11_USAGE_DEFAULT;
+    DepthDesc.BindFlags = D3D11_BIND_DEPTH_STENCIL;
+    
+    hr = mDevice->CreateTexture2D(&DepthDesc, nullptr, &ViewportDepthTexture);
+    assert(SUCCEEDED(hr));
+    (void)hr;
+    
+    hr = mDevice->CreateDepthStencilView(ViewportDepthTexture, nullptr, &ViewportDSV);
+    assert(SUCCEEDED(hr));
+    (void)hr;
+    
+    D3D11_DEPTH_STENCIL_DESC StateDesc = {};
+    StateDesc.DepthEnable = TRUE;   
+    StateDesc.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ALL;
+    StateDesc.DepthFunc = D3D11_COMPARISON_LESS;
+    hr = mDevice->CreateDepthStencilState(&StateDesc, &ViewportDepthState);
+    assert(SUCCEEDED(hr));
+    (void)hr;
+    
+    ViewportRenderInfo = {0.0f,0.0f,static_cast<float>(Width),static_cast<float>(Height), 0.0f,1.0f};
+}
+
+void URenderer::BeginViewportRender()
+{
+    const float ClearColor[4] = {0.05f, 0.05f, 0.07f, 1.0f};
+    
+    mDeviceContext->ClearRenderTargetView(ViewportRTV, ClearColor);
+    mDeviceContext->ClearDepthStencilView(ViewportDSV, D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
+    
+    mDeviceContext->OMSetRenderTargets(1, &ViewportRTV, ViewportDSV);
+    mDeviceContext->RSSetViewports(1, &ViewportRenderInfo);
+    mDeviceContext->RSSetState(mRasterizerState);
+    mDeviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+    mDeviceContext->OMSetDepthStencilState(ViewportDepthState, 0);
+}
+
+void URenderer::EndViewportRender()
+{
+    mDeviceContext->OMSetRenderTargets(1, &mFrameBufferRTV, nullptr);
+    mDeviceContext->RSSetViewports(1, &mViewportInfo);
+    mDeviceContext->OMSetDepthStencilState(nullptr, 0);
+}
+
+void URenderer::ReleaseViewportRenderTarget()
+{
+    if (ViewportDepthState)
+    {
+        ViewportDepthState->Release();
+        ViewportDepthState = nullptr;
+    }
+    
+    if (ViewportDSV)
+    {
+        ViewportDSV->Release();
+        ViewportDSV = nullptr;
+    }
+    
+    if (ViewportDepthState)
+    {
+        ViewportDepthState->Release();
+        ViewportDepthState = nullptr;
+        
+    }
+    
+    if (ViewportSRV)
+    {
+        ViewportSRV->Release();
+        ViewportSRV = nullptr;
+    }
+    
+    if (ViewportRTV)
+    {
+        ViewportRTV->Release();
+        ViewportRTV = nullptr;
+    }
+    
+    if (ViewportDSV)
+    {
+        ViewportDSV->Release();
+        ViewportDSV = nullptr;
+    }
+}
+
 void URenderer::Shutdown()
 {
+    ReleaseViewportRenderTarget();
     //ReleaseRasterizerState();
     ReleaseConstantBuffer();
     ReleaseShader();

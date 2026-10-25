@@ -16,10 +16,12 @@ bool FEditorEngine::Init(HINSTANCE hInstance)
         Renderer->Create(WindowsWindow->GetHWND());
         Renderer->CreateShader();
         Renderer->CreateConstantBuffer();
+        Renderer->CreateViewportRenderTarget(1280, 720);
     }
     ImGuiRenderer->Init(WindowsWindow->GetHWND(), Renderer->GetDevice(), Renderer->GetDeviceContext());
     
     ViewportPanel = new FViewportPanel();
+    ViewportPanel->SetViewportTexture(Renderer->GetViewportSRV());
     ImGuiRenderer->GetPanelManager()->AddPanel(ViewportPanel);
     ConsolePanel = new FConsolePanel();
     ImGuiRenderer->GetPanelManager()->AddPanel(ConsolePanel);
@@ -36,7 +38,8 @@ void FEditorEngine::Run()
 
     double PreviousTime = FPlatformTime::Seconds();
     USphereComp* Test = new USphereComp();
-    ID3D11Buffer* vertexBufferSphere = Renderer->CreateVertexBuffer(Test->GetVertex().GetData(), Test->GetVertex().Num());
+    TArray<FVertexSimple> Vertices = Test->GetVertex();
+    ID3D11Buffer* vertexBufferSphere = Renderer->CreateVertexBuffer(Vertices.GetData(), static_cast<uint32>(sizeof(FVertexSimple) * Vertices.Num()));
     
     while (bIsRunning == true)
     {
@@ -79,17 +82,19 @@ void FEditorEngine::Run()
         {
             // 준비 작업
             Renderer->Prepare();
+            Renderer->BeginViewportRender();
             Renderer->PrepareShader();
-
-            // offset을 상수 버퍼로 업데이트 합니다.
             Renderer->UpdateConstant(Test->GetLocation());
-            Renderer->RenderPrimitive(vertexBufferSphere, Test->GetVertex().Num());
+            Renderer->RenderPrimitive(vertexBufferSphere, static_cast<uint32>(Vertices.Num()));
+            Renderer->EndViewportRender();
+            
         }
 
         ImGuiRenderer->OnRender();
         Renderer->SwapBuffer();
     }
-    
+    Renderer->ReleaseVertexBuffer(vertexBufferSphere);
+    delete Test;
 }
 
 void FEditorEngine::Shutdown()

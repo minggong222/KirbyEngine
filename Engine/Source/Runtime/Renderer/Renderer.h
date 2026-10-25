@@ -2,6 +2,7 @@
 #include <d3d11.h>
 #include "FVertexSimple.h"
 #include "Core/Math.h"
+#include "Core/STL.h"
 
 struct FConstants
 {
@@ -41,6 +42,12 @@ public:
 
     ID3D11ShaderResourceView* GetViewportSRV() const{ return ViewportSRV; }
     
+    // Viewport Render
+    void CreateViewportRenderTarget(uint32 Width, uint32 Height);
+    void BeginViewportRender();
+    void EndViewportRender();
+    void ReleaseViewportRenderTarget();
+    
     void Shutdown();
 private:
     // Direct3D 11 장치(Device)와 장치 컨텍스트(Device Context) 및 스왑 체인(Swap Chain)을 관리하기 위한 포인터들
@@ -67,4 +74,6 @@ private:
     ID3D11ShaderResourceView* ViewportSRV = nullptr;
     ID3D11Texture2D* ViewportDepthTexture = nullptr;
     ID3D11DepthStencilView* ViewportDSV = nullptr;
+    D3D11_VIEWPORT ViewportRenderInfo = {};
+    ID3D11DepthStencilState* ViewportDepthState = nullptr;
 };
