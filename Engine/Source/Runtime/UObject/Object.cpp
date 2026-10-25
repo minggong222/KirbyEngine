@@ -13,7 +13,25 @@ UObject::UObject()
 
 UObject::~UObject()
 {
-    GUObjectArray.RemoveAtSwap(InternalIndex);
+    const int32 Index = static_cast<uint32>(InternalIndex);
+    if (!GUObjectArray.IsValidIndex(Index))
+    {
+        assert(false && "Invalid UObject InternalIndex");
+        return;
+    }
+    UObject* MovedObject = nullptr;
+    const int32 LastIndex = GUObjectArray.Num() - 1;
+    
+    if (Index != LastIndex)
+    {
+        MovedObject = GUObjectArray[LastIndex];
+    }
+    GUObjectArray.RemoveAtSwap(Index);
+    
+    if (MovedObject != nullptr)
+    {
+        MovedObject->InternalIndex = static_cast<uint32>(Index);
+    }
 }
 
 uint32 UObject::GetUUID() const

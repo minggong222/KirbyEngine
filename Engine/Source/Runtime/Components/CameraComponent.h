@@ -7,6 +7,8 @@ public:
     UCameraComponent();
     FMatrix GetViewMatrix() const;
     FMatrix GetProjectionMatrix() const;
+    float GetMoveSpeed() const { return MoveSpeed; }
+    float GetMouseSensitivity() const { return MouseSensitivity; }
 private:
     float FieldOfView = 60.0f;
     float AspectRatio = 16.0f / 9.0f;
