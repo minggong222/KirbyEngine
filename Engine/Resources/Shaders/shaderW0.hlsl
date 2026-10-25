@@ -3,8 +3,9 @@
 // ShaderW0.hlsl 소스 파일 맨위에 아래 상수버퍼 선언을 추가 하세요.
 cbuffer constants : register(b0)
 {
-    float3 Offset;
-    float Pad;
+    float4x4 World;
+    float4x4 View;
+    float4x4 Projection;
 }
 
 struct VS_INPUT
@@ -27,7 +28,9 @@ PS_INPUT mainVS(VS_INPUT input)
     //output.position = input.position;
     
     // 상수버퍼를 통해 넘겨 받은 Offset을 더해서 버텍스를 이동 시켜 픽셀쉐이더로 넘김
-    output.position = float4(Offset, 0) + input.position;
+    float4 WorldPosition = mul(float4(input.position.xyz, 1.0f), World);
+    float4 ViewPosition = mul(WorldPosition, View);
+    output.position = mul(ViewPosition, Projection);
     
     // Pass the color to the pixel shader
     output.color = input.color;

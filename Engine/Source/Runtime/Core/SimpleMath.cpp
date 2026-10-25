@@ -88,6 +88,28 @@ void Quaternion::RotateTowards(const Quaternion& target, float maxAngle, Quatern
     }
 }
 
+Matrix Quaternion::ToMatrix() const noexcept
+{
+    const float XX = x * x;
+    const float YY = y * y;
+    const float ZZ = z * z;
+
+    const float XY = x * y;
+    const float XZ = x * z;
+    const float YZ = y * z;
+
+    const float WX = w * x;
+    const float WY = w * y;
+    const float WZ = w * z;
+
+    return Matrix(
+        1.0f - 2.0f * (YY + ZZ), 2.0f * (XY + WZ), 2.0f * (XZ - WY), 0.0f,
+        2.0f * (XY - WZ), 1.0f - 2.0f * (XX + ZZ), 2.0f * (YZ + WX), 0.0f,
+        2.0f * (XZ + WY) , 2.0f * (YZ - WX), 1.0f - 2.0f * (XX + YY), 0.0f,
+        0.0f, 0.0f, 0.0f, 1.0f
+    );
+}
+
 void Quaternion::FromToRotation(const Vector3& fromDir, const Vector3& toDir, Quaternion& result) noexcept
 {
     // Melax, "The Shortest Arc Quaternion", Game Programming Gems, Charles River Media (2000).

@@ -4,6 +4,8 @@
 
 #include "Engine/Source/Runtime/Renderer/Renderer.h"
 
+#include "Core/Math/Math.h"
+
 // 렌더러 초기화 함수
 void URenderer::Create(HWND hWindow)
 {
@@ -263,7 +265,7 @@ void URenderer::ReleaseConstantBuffer()
     }
 }
 
-void URenderer::UpdateConstant(FVector Offset)
+void URenderer::UpdateConstant(FMatrix World, FMatrix View, FMatrix Projection)
 {
     if (mConstantBuffer)
     {
@@ -273,7 +275,9 @@ void URenderer::UpdateConstant(FVector Offset)
         mDeviceContext->Map(mConstantBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &constantbufferMSR); 
         FConstants* constants = (FConstants*)constantbufferMSR.pData;
         {
-            constants->Offset = Offset;
+            constants->World = World;
+            constants->View = View;
+            constants->Projection = Projection;
         }
 
         mDeviceContext->Unmap(mConstantBuffer, 0);

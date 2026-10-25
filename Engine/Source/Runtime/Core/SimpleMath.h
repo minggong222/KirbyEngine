@@ -759,7 +759,7 @@ namespace DirectX
 
             // Computes rotation about y-axis (y), then x-axis (x), then z-axis (z)
             Vector3 ToEuler() const noexcept;
-
+            Matrix ToMatrix() const noexcept;
             // Static functions
             static Quaternion CreateFromAxisAngle(const Vector3& axis, float angle) noexcept;
 

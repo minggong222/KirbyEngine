@@ -1,5 +1,5 @@
 ﻿#pragma once
-#include "SimpleMath.h"
+#include "Core/SimpleMath.h"
 
 using FVector2D = DirectX::SimpleMath::Vector2;
 using FVector = DirectX::SimpleMath::Vector3;

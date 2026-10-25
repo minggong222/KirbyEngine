@@ -67,15 +67,19 @@ void FEditorEngine::Run()
             {
                 if (msg.wParam == VK_LEFT)
                 {
+                    Test->GetTransform().Location += FVector(-0.1f, 0.0f, 0.0f);
                 }
                 if (msg.wParam == VK_RIGHT)
                 {
+                    Test->GetTransform().Location += FVector(0.1f, 0.0f, 0.0f);
                 }
                 if (msg.wParam == VK_UP)
                 {
+                    Test->GetTransform().Location += FVector(0.0f, 0.1f, 0.0f);
                 }
                 if (msg.wParam == VK_DOWN)
                 {
+                    Test->GetTransform().Location += FVector(0.0f, -0.1f, 0.0f);
                 }
             }
         }
@@ -84,7 +88,7 @@ void FEditorEngine::Run()
             Renderer->Prepare();
             Renderer->BeginViewportRender();
             Renderer->PrepareShader();
-            Renderer->UpdateConstant(Test->GetLocation());
+            Renderer->UpdateConstant(Test->GetTransform().GetLocalMatrix(),Test->GetTransform().GetLocalMatrix(),Test->GetTransform().GetLocalMatrix());
             Renderer->RenderPrimitive(vertexBufferSphere, static_cast<uint32>(Vertices.Num()));
             Renderer->EndViewportRender();
             

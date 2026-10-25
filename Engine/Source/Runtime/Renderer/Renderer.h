@@ -1,13 +1,14 @@
 #pragma once
 #include <d3d11.h>
 #include "FVertexSimple.h"
-#include "Core/Math.h"
 #include "Core/STL.h"
+#include "Core/Math/Math.h"
 
 struct FConstants
 {
-    FVector Offset;
-    float Pad;
+    FMatrix World;
+    FMatrix View;
+    FMatrix Projection;
 };
 
 class URenderer
@@ -35,7 +36,7 @@ public:
 
     void CreateConstantBuffer();
     void ReleaseConstantBuffer();
-    void UpdateConstant(FVector Offset);
+    void UpdateConstant(FMatrix World, FMatrix View, FMatrix Projection);
 
     ID3D11Device* GetDevice();
     ID3D11DeviceContext* GetDeviceContext();
