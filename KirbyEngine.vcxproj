@@ -166,6 +166,7 @@
     <ClCompile Include="Engine\Source\Editor\UI\ImGuiRenderer.cpp" />
     <ClCompile Include="Engine\Source\Editor\UI\PanelManager.cpp" />
     <ClCompile Include="Engine\Source\Editor\UI\ViewportPanel.cpp" />
+    <ClCompile Include="Engine\Source\Runtime\Components\CameraComponent.cpp" />
     <ClCompile Include="Engine\Source\Runtime\Components\CubeComp.cpp" />
     <ClCompile Include="Engine\Source\Runtime\Components\PrimitiveComponent.cpp" />
     <ClCompile Include="Engine\Source\Runtime\Components\SceneComponent.cpp" />
@@ -361,6 +362,7 @@
     <ClInclude Include="Engine\Source\Editor\UI\ImGuiRenderer.h" />
     <ClInclude Include="Engine\Source\Editor\UI\PanelManager.h" />
     <ClInclude Include="Engine\Source\Editor\UI\ViewportPanel.h" />
+    <ClInclude Include="Engine\Source\Runtime\Components\CameraComponent.h" />
     <ClInclude Include="Engine\Source\Runtime\Components\CubeComp.h" />
     <ClInclude Include="Engine\Source\Runtime\Components\PrimitiveComponent.h" />
     <ClInclude Include="Engine\Source\Runtime\Components\SceneComponent.h" />

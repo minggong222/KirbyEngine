@@ -1,5 +1,6 @@
 ﻿#include "EditorEngine.h"
 
+#include "Components/CameraComponent.h"
 #include "Components/SphereComp.h"
 #include "Core/STL.h"
 #include "Core/Time/PlatformTime.h"
@@ -37,6 +38,7 @@ void FEditorEngine::Run()
 {
 
     double PreviousTime = FPlatformTime::Seconds();
+    UCameraComponent* MainCamera = new UCameraComponent();
     USphereComp* Test = new USphereComp();
     TArray<FVertexSimple> Vertices = Test->GetVertex();
     ID3D11Buffer* vertexBufferSphere = Renderer->CreateVertexBuffer(Vertices.GetData(), static_cast<uint32>(sizeof(FVertexSimple) * Vertices.Num()));
@@ -67,7 +69,7 @@ void FEditorEngine::Run()
             {
                 if (msg.wParam == VK_LEFT)
                 {
-                    Test->GetTransform().Location += FVector(-0.1f, 0.0f, 0.0f);
+                    Test->GetTransform().Location = Test->GetTransform().Location + FVector(-0.1f, 0.0f, 0.0f);
                 }
                 if (msg.wParam == VK_RIGHT)
                 {
@@ -88,7 +90,7 @@ void FEditorEngine::Run()
             Renderer->Prepare();
             Renderer->BeginViewportRender();
             Renderer->PrepareShader();
-            Renderer->UpdateConstant(Test->GetTransform().GetLocalMatrix(),Test->GetTransform().GetLocalMatrix(),Test->GetTransform().GetLocalMatrix());
+            Renderer->UpdateConstant(Test->GetTransform().GetLocalMatrix(),FMatrix::Identity,FMatrix::Identity);
             Renderer->RenderPrimitive(vertexBufferSphere, static_cast<uint32>(Vertices.Num()));
             Renderer->EndViewportRender();
             
