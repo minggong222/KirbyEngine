@@ -5,7 +5,7 @@
 UCameraComponent::UCameraComponent()
 {
     SetTransform(FTransform(
-        FVector(0.0f, 0.0f, -3.0f),
+        FVector(-3.0f, 0.0f, 0.0f),
         FVector(0.0f, 0.0f, 0.0f),
         FVector(1.0f, 1.0f, 1.0f)
     ));
@@ -15,10 +15,8 @@ FMatrix UCameraComponent::GetViewMatrix() const
 {
     const FTransform CameraTransform = GetTransform();
     const FVector CameraPosition = CameraTransform.Location;
-    const FMatrix RotationMatrix = CameraTransform.Rotation.Quaternion().ToMatrix();
-    
-    const FVector Forward = RotationMatrix.Forward();
-    const FVector Up = RotationMatrix.Up();
+    const FVector Forward = CameraTransform.GetForward();
+    const FVector Up = CameraTransform.GetUp();
     
     return FMatrix::CreateLookAt(CameraPosition, CameraPosition + Forward, Up);
 }
@@ -31,7 +29,7 @@ FMatrix UCameraComponent::GetProjectionMatrix() const
         return FMatrix::CreateOrthographic(OrthoWidth, OrthoHeight, NearClipPlane, FarClipPlane);
     }
     
-    const float FovRadians = FieldOfView * PI / 180.0f;
+    const float FovRadians = FieldOfView * PI_PRECISE / 180.0f;
     
     return FMatrix::CreatePerspectiveFieldOfView(FovRadians, AspectRatio, NearClipPlane, FarClipPlane);
 }

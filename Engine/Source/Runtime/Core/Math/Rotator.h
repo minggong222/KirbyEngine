@@ -8,7 +8,8 @@ public:
     FRotator();
     FRotator(float P, float Y, float R);
     FRotator(FVector V);
-
+    explicit FRotator(const FQuat& InQuat);
+    
     static FRotator Identitiy;
 
     FQuat Quaternion() const;
@@ -23,9 +24,9 @@ public:
         return FRotator(Pitch * Scalar, Yaw * Scalar, Roll * Scalar);
     }
     
-    float Pitch;
-    float Yaw;
-    float Roll;
+    float Pitch = 0.0f;
+    float Yaw = 0.0f;
+    float Roll = 0.0f;
 };
 
 FRotator operator+(FRotator Rot, const FVector& Vec);

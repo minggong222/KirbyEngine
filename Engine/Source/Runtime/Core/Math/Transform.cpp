@@ -14,20 +14,26 @@ FMatrix FTransform::GetLocalMatrix() const
 
 FVector FTransform::GetForward() const
 {
-    return FVector::Forward;
-}
-
-FVector FTransform::GetUp() const
-{
-    return FVector::Up;
+    const FMatrix M = GetOrientation().ToMatrix();
+    
+    return FVector(M.m[0][0], M.m[0][1], M.m[0][2]);
 }
 
 FVector FTransform::GetRight() const
 {
-    return FVector::Right;
+    const FMatrix M = GetOrientation().ToMatrix();
+    
+    return FVector(M.m[1][0], M.m[1][1], M.m[1][2]);
+}
+
+FVector FTransform::GetUp() const
+{
+    const FMatrix M = GetOrientation().ToMatrix();
+    
+    return FVector(M.m[2][0], M.m[2][1], M.m[2][2]);
 }
 
 FQuat FTransform::GetOrientation() const
 {
-    return FQuat::Identity;
+    return Rotation.Quaternion();
 }

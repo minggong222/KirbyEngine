@@ -6,7 +6,7 @@ class FTransform
 {
 public:
     FTransform() = default;
-    FTransform(FVector InL, FVector InR, FVector InS = FVector::Zero)
+    FTransform(FVector InL, FRotator InR, FVector InS = FVector::One)
         : Location(InL), Rotation(InR), Scale3D(InS){}
     
     FMatrix GetLocalMatrix() const;
@@ -17,6 +17,6 @@ public:
     FQuat GetOrientation() const;
     
     FVector Location = FVector::Zero;
-    FRotator Rotation = FVector::Zero;
-    FVector Scale3D = FVector(1.0f, 1.0f, 1.0f);
+    FRotator Rotation = FRotator();
+    FVector Scale3D = FVector::One;
 };

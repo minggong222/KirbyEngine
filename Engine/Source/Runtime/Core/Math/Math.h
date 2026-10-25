@@ -11,3 +11,13 @@ using FPlane = DirectX::SimpleMath::Plane;
 using FRay = DirectX::SimpleMath::Ray;
 using FIntRect = DirectX::SimpleMath::Rectangle;
 using FViewport = DirectX::SimpleMath::Viewport;
+
+namespace EngineAxis
+{
+    inline const FVector Forward = FVector(1.0f, 0.0f, 0.0f);
+    inline const FVector Right = FVector(0.0f, 1.0f, 0.0f);
+    inline const FVector Up = FVector(0.0f, 0.0f, 1.0f);
+    inline const FVector Backward = FVector(-1.0f, 0.0f, 0.0f);
+    inline const FVector Left = FVector(0.0f, -1.0f, 0.0f);
+    inline const FVector Down = FVector(0.0f, 0.0f, -1.0f);
+}

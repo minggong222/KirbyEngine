@@ -67,21 +67,35 @@ void FEditorEngine::Run()
             }
             else if (msg.message == WM_KEYDOWN)
             {
-                if (msg.wParam == VK_LEFT)
+                FTransform TestTransform = Test->GetTransform();
+                bool bTransformChanged = true;
+                
+                switch (msg.wParam)
                 {
-                    Test->GetTransform().Location = Test->GetTransform().Location + FVector(-0.1f, 0.0f, 0.0f);
+                case VK_LEFT:
+                    TestTransform.Location.y -= 0.1f;
+                    break;
+
+                case VK_RIGHT:
+                    TestTransform.Location.y += 0.1f;
+                    break;
+
+                case VK_UP:
+                    TestTransform.Location.z += 0.1f;
+                    break;
+
+                case VK_DOWN:
+                    TestTransform.Location.z -= 0.1f;
+                    break;
+
+                default:
+                    bTransformChanged = false;
+                    break;
                 }
-                if (msg.wParam == VK_RIGHT)
+
+                if (bTransformChanged)
                 {
-                    Test->GetTransform().Location += FVector(0.1f, 0.0f, 0.0f);
-                }
-                if (msg.wParam == VK_UP)
-                {
-                    Test->GetTransform().Location += FVector(0.0f, 0.1f, 0.0f);
-                }
-                if (msg.wParam == VK_DOWN)
-                {
-                    Test->GetTransform().Location += FVector(0.0f, -0.1f, 0.0f);
+                    Test->SetTransform(TestTransform);
                 }
             }
         }
