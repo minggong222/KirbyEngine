@@ -3,9 +3,9 @@
 // ShaderW0.hlsl 소스 파일 맨위에 아래 상수버퍼 선언을 추가 하세요.
 cbuffer constants : register(b0)
 {
-    float4x4 World;
-    float4x4 View;
-    float4x4 Projection;
+    row_major float4x4 World;
+    row_major float4x4 View;
+    row_major float4x4 Projection;
 }
 
 struct VS_INPUT

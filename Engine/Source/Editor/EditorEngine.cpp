@@ -90,7 +90,10 @@ void FEditorEngine::Run()
             Renderer->Prepare();
             Renderer->BeginViewportRender();
             Renderer->PrepareShader();
-            Renderer->UpdateConstant(Test->GetTransform().GetLocalMatrix(),FMatrix::Identity,FMatrix::Identity);
+            const FMatrix World = Test->GetTransform().GetLocalMatrix();
+            const FMatrix View = MainCamera->GetViewMatrix();
+            const FMatrix Projection = MainCamera->GetProjectionMatrix();
+            Renderer->UpdateConstant(World, View, Projection);
             Renderer->RenderPrimitive(vertexBufferSphere, static_cast<uint32>(Vertices.Num()));
             Renderer->EndViewportRender();
             
