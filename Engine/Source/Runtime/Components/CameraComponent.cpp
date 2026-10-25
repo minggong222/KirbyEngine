@@ -5,7 +5,7 @@
 UCameraComponent::UCameraComponent()
 {
     SetTransform(FTransform(
-        FVector(0.0f, 0.0f, 0.0f),
+        FVector(0.0f, 0.0f, -3.0f),
         FVector(0.0f, 0.0f, 0.0f),
         FVector(1.0f, 1.0f, 1.0f)
     ));
@@ -13,7 +13,7 @@ UCameraComponent::UCameraComponent()
 
 FMatrix UCameraComponent::GetViewMatrix() const
 {
-    const FTransform CameraTransform = FTransform();
+    const FTransform CameraTransform = GetTransform();
     const FVector CameraPosition = CameraTransform.Location;
     const FMatrix RotationMatrix = CameraTransform.Rotation.Quaternion().ToMatrix();
     
