@@ -1,4 +1,5 @@
 ﻿#pragma once
+#include "EditorCameraController.h"
 #include "Core/Stats/FrameStats.h"
 #include "Renderer/Renderer.h"
 #include "UI/ImGuiRenderer.h"
@@ -14,6 +15,8 @@ public:
     void Shutdown();
 private:
     FFrameStats FrameStats;
+    
+    FEditorCameraController CameraController;
     
     URenderer* Renderer = nullptr;
     FImGuiRenderer* ImGuiRenderer = nullptr;

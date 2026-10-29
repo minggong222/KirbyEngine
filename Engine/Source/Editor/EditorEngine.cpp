@@ -1,5 +1,6 @@
 ﻿#include "EditorEngine.h"
 
+#include "EditorCameraController.h"
 #include "Components/CameraComponent.h"
 #include "Components/SphereComp.h"
 #include "Core/STL.h"
@@ -44,9 +45,6 @@ void FEditorEngine::Run()
     TArray<FVertexSimple> Vertices = Test->GetVertex();
     ID3D11Buffer* vertexBufferSphere = Renderer->CreateVertexBuffer(Vertices.GetData(), static_cast<uint32>(sizeof(FVertexSimple) * Vertices.Num()));
     
-    HWND WindowHandle = WindowsWindow->GetHWND();
-
-    bool bCameraLookActive = false;
     
     while (bIsRunning == true)
     {
@@ -72,95 +70,7 @@ void FEditorEngine::Run()
             }
         }
         
-        const bool bRightMouseDown = (GetAsyncKeyState(VK_RBUTTON) & 0x8000) != 0;
-        
-        if (bRightMouseDown && !bCameraLookActive)
-        {
-            bCameraLookActive = true;
-            
-            SetCapture(WindowHandle);
-            ShowCursor(FALSE);
-            
-            RECT ClientRect{};
-            GetClientRect(WindowHandle, &ClientRect);
-            POINT Center = {(ClientRect.left + ClientRect.right) / 2, (ClientRect.top + ClientRect.bottom) / 2};
-            ClientToScreen(WindowHandle, &Center);
-            SetCursorPos(Center.x, Center.y);
-        }
-        else if(!bRightMouseDown && bCameraLookActive)
-        {
-            bCameraLookActive = false;
-            if (GetCapture() == WindowHandle)
-            {
-                ReleaseCapture();
-            }
-            ShowCursor(TRUE);
-        }
-        
-        if (bCameraLookActive)
-        {
-            RECT ClientRect{};
-            GetClientRect(WindowHandle, &ClientRect);
-            POINT Center = { (ClientRect.left+ClientRect.right) / 2, (ClientRect.top+ClientRect.bottom) / 2 };
-            
-            ClientToScreen(WindowHandle, &Center);
-            
-            POINT MousePosition{};
-            GetCursorPos(&MousePosition);
-            
-            const float DeltaX = static_cast<float>(MousePosition.x - Center.x);
-            const float DeltaY = static_cast<float>(MousePosition.y - Center.y);
-            FTransform CameraTransform = MainCamera->GetTransform();
-            
-            CameraTransform.Rotation.Yaw += DeltaX * MainCamera->GetMouseSensitivity();
-            CameraTransform.Rotation.Pitch -= DeltaY * MainCamera->GetMouseSensitivity();
-            
-            CameraTransform.Rotation.Pitch = std::clamp(CameraTransform.Rotation.Pitch, -89.0f, 89.0f);
-            
-            const FVector Forward = CameraTransform.GetForward();
-            const FVector Right = CameraTransform.GetRight();
-            
-            FVector MoveDirection = FVector::Zero;
-            
-            if (GetAsyncKeyState('W') & 0x8000)
-            {
-                MoveDirection += Forward;
-            }
-
-            if (GetAsyncKeyState('S') & 0x8000)
-            {
-                MoveDirection -= Forward;
-            }
-
-            if (GetAsyncKeyState('D') & 0x8000)
-            {
-                MoveDirection += Right;
-            }
-
-            if (GetAsyncKeyState('A') & 0x8000)
-            {
-                MoveDirection -= Right;
-            }
-            
-            if (GetAsyncKeyState('E') & 0x8000)
-            {
-                MoveDirection += EngineAxis::Up;
-            }
-
-            if (GetAsyncKeyState('Q') & 0x8000)
-            {
-                MoveDirection -= EngineAxis::Up;
-            }
-            
-            if (MoveDirection.LengthSquared() > EPSILON_1E_6)
-            {
-                MoveDirection.Normalize();
-                
-                CameraTransform.Location += MoveDirection * (MainCamera->GetMoveSpeed() * static_cast<float>(DeltaTime));
-            }
-            MainCamera->SetTransform(CameraTransform);
-            SetCursorPos(Center.x, Center.y);
-        }
+        CameraController.Update(*MainCamera, *WindowsWindow, static_cast<float>(DeltaTime));
         
         {
             // 준비 작업
@@ -180,14 +90,7 @@ void FEditorEngine::Run()
         Renderer->SwapBuffer();
     }
     
-    if (bCameraLookActive)
-    {
-        if (GetCapture() == WindowHandle)
-        {
-            ReleaseCapture();
-        }
-        ShowCursor(TRUE);
-    }
+   CameraController.Stop(*WindowsWindow);
     
     Renderer->ReleaseVertexBuffer(vertexBufferSphere);
     delete Test;

@@ -160,6 +160,7 @@
     </Manifest>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="Engine\Source\Editor\EditorCameraController.cpp" />
     <ClCompile Include="Engine\Source\Editor\EditorEngine.cpp" />
     <ClCompile Include="Engine\Source\Editor\UI\ConsolePanel.cpp" />
     <ClCompile Include="Engine\Source\Editor\UI\EditorPanel.cpp" />
@@ -356,6 +357,7 @@
     <ClCompile Include="Engine\Source\ThirdParty\ImGui\imgui_widgets.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Engine\Source\Editor\EditorCameraController.h" />
     <ClInclude Include="Engine\Source\Editor\EditorEngine.h" />
     <ClInclude Include="Engine\Source\Editor\UI\ConsolePanel.h" />
     <ClInclude Include="Engine\Source\Editor\UI\EditorPanel.h" />
