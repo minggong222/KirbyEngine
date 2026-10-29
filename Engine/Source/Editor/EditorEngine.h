@@ -3,8 +3,8 @@
 #include "Core/Stats/FrameStats.h"
 #include "Renderer/Renderer.h"
 #include "UI/ImGuiRenderer.h"
-#include "UI/PanelManager.h"
-#include "UI/ViewportPanel.h"
+#include "UI/Panels/ConsolePanel.h"
+#include "UI/Panels/ViewportPanel.h"
 #include "Windows/WindowsWindow.h"
 
 class FEditorEngine

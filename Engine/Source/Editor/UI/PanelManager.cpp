@@ -1,7 +1,5 @@
 ﻿#include "PanelManager.h"
 
-#include "ViewportPanel.h"
-
 void FPanelManager::Init()
 {
 }

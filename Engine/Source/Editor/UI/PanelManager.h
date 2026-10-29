@@ -1,6 +1,6 @@
 ﻿#pragma once
-#include "ConsolePanel.h"
 #include "Core/STL.h"
+#include "Panels/EditorPanel.h"
 
 class FPanelManager
 {
