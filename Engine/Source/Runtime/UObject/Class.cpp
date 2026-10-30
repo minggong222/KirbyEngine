@@ -55,7 +55,7 @@ const FProperty* FTypeInfo::FindProperty(const char* InName) const
     }
     const FString SearchName(InName);
     
-    for (int32 Index = Properties.Num() - 1; Index > 0; --Index)
+    for (int32 Index = Properties.Num() - 1; Index >= 0; --Index)
     {
         if (Properties[Index]->GetName() == SearchName)
         {
@@ -87,7 +87,7 @@ UClass::UClass(const char* InName, const UClass* InSuperClass, SIZE_T InClassSiz
 
 UClass* UClass::StaticClass()
 {
-    static UClass* ClassInfo = new UClass("UClass", UClass::StaticClass(), sizeof(UClass));
+    static UClass* ClassInfo = new UClass("UClass", UObject::StaticClass(), sizeof(UClass));
     return ClassInfo;
 }
 

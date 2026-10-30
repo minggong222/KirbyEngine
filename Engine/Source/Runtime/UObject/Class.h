@@ -176,7 +176,7 @@ public:
         
         TValue* Target = static_cast<TValue*>(GetValuePtr(Instance));
         
-        if (Target != nullptr)
+        if (Target == nullptr)
         {
             return false;
         }
