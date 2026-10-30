@@ -2,6 +2,21 @@
 
 #include "Core/Math/MathUtility.h"
 
+IMPLEMENT_CLASS(UCameraComponent, USceneComponent)
+
+void UCameraComponent::RegisterProperties(UClass& ClassInfo)
+{
+    REGISTER_PROPERTY_META(ClassInfo, UCameraComponent, FieldOfView, "Field of View", "Camera", Property_Visible | Property_Editable);
+    REGISTER_PROPERTY_META(ClassInfo, UCameraComponent, AspectRatio, "Aspect Ratio", "Camera", Property_Visible | Property_Editable);
+    REGISTER_PROPERTY_META(ClassInfo, UCameraComponent, NearClipPlane, "Near Clip Plane", "Camera", Property_Visible | Property_Editable);
+    REGISTER_PROPERTY_META(ClassInfo, UCameraComponent, FarClipPlane, "Far Clip Plane", "Camera", Property_Visible | Property_Editable);
+    REGISTER_PROPERTY_META(ClassInfo, UCameraComponent, bIsOrthogonal, "Orthographic", "Camera", Property_Visible | Property_Editable);
+    REGISTER_PROPERTY_META(ClassInfo, UCameraComponent, OrthoWidth, "Orthographic Width", "Camera", Property_Visible | Property_Editable);
+    REGISTER_PROPERTY_META(ClassInfo, UCameraComponent, MoveSpeed, "Move Speed", "Camera", Property_Visible | Property_Editable);
+    REGISTER_PROPERTY_META(ClassInfo, UCameraComponent, MouseSensitivity, "Mouse Sensitivity", "Camera", Property_Visible | Property_Editable);
+    REGISTER_PROPERTY_META(ClassInfo, UCameraComponent, WheelSpeed, "Wheel Speed", "Camera", Property_Visible | Property_Editable);
+}
+
 UCameraComponent::UCameraComponent()
 {
     SetTransform(FTransform(

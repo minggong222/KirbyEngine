@@ -3,6 +3,7 @@
 
 class UPrimitiveComponent : public USceneComponent
 {
+    DECLARE_CLASS(UPrimitiveComponent, USceneComponent)
 public:
     
 };

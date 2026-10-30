@@ -1,5 +1,6 @@
 ﻿#include "Object.h"
 
+#include "Class.h"
 #include "Core/EngineStatics.h"
 
 TArray<UObject*> GUObjectArray;
@@ -47,6 +48,28 @@ void UObject::SetUUID(uint32 uuid)
 uint32 UObject::GetInternalIndex() const
 {
     return InternalIndex;
+}
+
+UClass* UObject::StaticClass()
+{
+    static UClass* ClassInfo = new UClass("UObject", nullptr, sizeof(UObject));
+    return ClassInfo;
+}
+
+UClass* UObject::GetClass() const
+{
+    return StaticClass();
+}
+
+bool UObject::IsA(const UClass* InClass) const
+{
+    if (InClass == nullptr)
+    {
+        return false;
+    }
+    const UClass* ActualClass = GetClass();
+    
+    return ActualClass != nullptr && ActualClass->IsChildOf(InClass);
 }
 
 void* UObject::operator new(SIZE_T size)
