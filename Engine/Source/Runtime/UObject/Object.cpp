@@ -52,7 +52,7 @@ uint32 UObject::GetInternalIndex() const
 
 UClass* UObject::StaticClass()
 {
-    static UClass* ClassInfo = new UClass("UObject", nullptr, sizeof(UObject));
+    static UClass* ClassInfo = new UClass("UObject", nullptr, sizeof(UObject), []() -> UObject* { return new UObject(); });
     return ClassInfo;
 }
 

@@ -4,6 +4,7 @@
 
 class USphereComp : public UPrimitiveComponent
 {
+	DECLARE_CLASS(USphereComp, UPrimitiveComponent);
 public:
     TArray<FVertexSimple> GetVertex() { return Vertices; }
 private:

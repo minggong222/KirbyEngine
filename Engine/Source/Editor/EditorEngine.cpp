@@ -3,6 +3,7 @@
 #include "EditorCameraController.h"
 #include "Components/CameraComponent.h"
 #include "Components/SphereComp.h"
+#include "Components/CubeComp.h"
 #include "Core/STL.h"
 #include "Core/Math/MathUtility.h"
 #include "Core/Time/PlatformTime.h"

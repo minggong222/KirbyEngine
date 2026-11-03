@@ -242,14 +242,30 @@ FProperty* MakeProperty(const char* Name, TValue TOwner::* Member, uint32 Flags 
     return new TMemberProperty<TOwner, TValue>(Name, Member, Flags, DisplayName, Category, ValueTypeInfo);
 }
 
+using FObjectConstructor = UObject* (*)();
+
 class UClass : public UObject, public FTypeInfo
 {
 public:
-    UClass(const char* InName, const UClass* InSuperClass, SIZE_T InClassSize);
+    UClass(const char* InName, const UClass* InSuperClass, SIZE_T InClassSize, FObjectConstructor InConstructor = nullptr);
     
     static UClass* StaticClass();
     UClass* GetClass() const override;
+private:
+    friend UObject* NewObject(const UClass* InClass);
+    UObject* ConstructObject() const;
+    FObjectConstructor Constructor = nullptr;
 };
+
+UObject* NewObject(const UClass* InClass);
+
+template<typename T>
+T* NewObject()
+{
+    static_assert(std::is_base_of_v<UObject, T>, "T must derive from UObject");
+    return static_cast<T*>(NewObject(T::StaticClass()));
+}
+
 template<typename T>
 T* Cast(UObject* Object)
 {
@@ -291,7 +307,8 @@ UClass* ClassName::StaticClass()                                    \
     static UClass* ClassInfo = new UClass(                          \
         #ClassName,                                                 \
         SuperClassName::StaticClass(),                              \
-        sizeof(ClassName)                                           \
+        sizeof(ClassName),                                          \
+        []() -> UObject* { return new ClassName(); }                \
     );                                                              \
     static const bool bRegistered = []()                            \
     {                                                               \

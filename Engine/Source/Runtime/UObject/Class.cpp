@@ -80,8 +80,8 @@ void FTypeInfo::GetProperties(TArray<const FProperty*>& OutProperties, bool bInc
     }
 }
 
-UClass::UClass(const char* InName, const UClass* InSuperClass, SIZE_T InClassSize)
-    : UObject(), FTypeInfo(InName, InClassSize, InSuperClass)
+UClass::UClass(const char* InName, const UClass* InSuperClass, SIZE_T InClassSize, FObjectConstructor InConstructor)
+    : UObject(), FTypeInfo(InName, InClassSize, InSuperClass), Constructor(InConstructor)
 {
 }
 
@@ -94,4 +94,22 @@ UClass* UClass::StaticClass()
 UClass* UClass::GetClass() const
 {
     return StaticClass();
+}
+
+UObject* UClass::ConstructObject() const
+{
+    if (Constructor == nullptr)
+    {
+        return nullptr;
+    }
+    return Constructor();
+}
+
+UObject* NewObject(const UClass* InClass)
+{
+    if (InClass == nullptr)
+    {
+        return nullptr;
+    }
+    return InClass->ConstructObject();
 }
