@@ -1,6 +1,7 @@
 ﻿#include "EditorEngine.h"
 
 #include "EditorCameraController.h"
+#include "EditorObjectPicker.h"
 #include "Components/CameraComponent.h"
 #include "Components/SphereComp.h"
 #include "Components/CubeComp.h"
@@ -90,6 +91,42 @@ void FEditorEngine::Run()
             if (ClientWidth > 0 && ClientHeight > 0)
             {
                 Renderer->ResizeBackBuffer(static_cast<uint32>(ClientWidth), static_cast<uint32>(ClientHeight));
+            }
+        }
+        
+        float ClickU = 0.0f;
+        float ClickV = 0.0f;
+        
+        if (ViewportPanel->ConsumeClick(ClickU, ClickV))
+        {
+            const uint32 PickingWidth = Renderer->GetViewportWidth();
+            const uint32 PickingHeight = Renderer->GetViewportHeight();
+            
+            if (PickingWidth > 0 && PickingHeight > 0)
+            {
+                const FViewport PickingViewport(0.0f, 0.0f, static_cast<float>(PickingWidth), static_cast<float>(PickingHeight), 0.0f, 1.0f);
+                const float PixelX = ClickU * static_cast<float>(PickingWidth);
+                const float PixelY = ClickV * static_cast<float>(PickingHeight);
+                const FMatrix View = MainCamera->GetViewMatrix();
+                const FMatrix Projection = MainCamera->GetProjectionMatrix();
+                const FVector NearPoint = PickingViewport.Unproject(FVector(PixelX, PixelY, 0.0f), Projection, View, FMatrix::Identity);
+                const FVector FarPoint = PickingViewport.Unproject(FVector(PixelX, PixelY, 1.0f), Projection, View, FMatrix::Identity);
+                FVector WorldDirection = FarPoint - NearPoint;
+                const float DirectionLengthSquared = WorldDirection.LengthSquared();
+                if (std::isfinite(DirectionLengthSquared) && DirectionLengthSquared > EPSILON_1E_12)
+                {
+                    WorldDirection.Normalize();
+                    const FRay WorldRay(NearPoint, WorldDirection);
+                    ObjectContext.SelectedObject = EditorPicking::FindNearestObject(ObjectContext, WorldRay);
+                }
+                else
+                {
+                    ObjectContext.SelectedObject = nullptr;
+                }
+            }
+            else
+            {
+                ObjectContext.SelectedObject = nullptr;
             }
         }
         

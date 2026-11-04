@@ -10,7 +10,7 @@
 
 namespace EditorPicking
 {
-    UObject* FindeNearestObject(FEditorObjectContext& Context, const FRay& WorldRay)
+    UObject* FindNearestObject(FEditorObjectContext& Context, const FRay& WorldRay)
     {
         UObject* ClosestObject = nullptr;
         float ClosestT = (std::numeric_limits<float>::max)();

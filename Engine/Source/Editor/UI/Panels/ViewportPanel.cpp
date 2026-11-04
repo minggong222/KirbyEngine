@@ -23,9 +23,23 @@ void FViewportPanel::OnRender()
         const uint32 Width = static_cast<uint32>(AvailableSize.x * ScaleX + 0.5f);
         const uint32 Height = static_cast<uint32>(AvailableSize.y * ScaleY + 0.5f);
         SetDesiredSize(Width, Height);
-        if (SRV)
+        if (SRV != nullptr)
         {
             ImGui::Image((ImTextureID)SRV, AvailableSize);
+            if (ImGui::IsItemHovered() && ImGui::IsMouseClicked(ImGuiMouseButton_Left))
+            {
+                const ImVec2 ImageMin = ImGui::GetItemRectMin();
+                const ImVec2 ImageMax = ImGui::GetItemRectMax();
+                const ImVec2 MousePos = ImGui::GetIO().MousePos;
+                const float ImageWidth = ImageMax.x - ImageMin.x;
+                const float ImageHeight = ImageMax.y - ImageMin.y;
+                if (ImageWidth > 0.0f && ImageHeight > 0.0f)
+                {
+                    ClickU = (MousePos.x - ImageMin.x) / ImageWidth;
+                    ClickV = (MousePos.y - ImageMin.y) / ImageHeight;
+                    bHasPendingSize = true;
+                }
+            }
         }
     }
     ImGui::End();
@@ -55,5 +69,17 @@ bool FViewportPanel::ConsumeDesiredSize(uint32& OutWidth, uint32& OutHeight)
     OutWidth = DesiredWidth;
     OutHeight = DesiredHeight;
     bHasPendingSize = false;
+    return true;
+}
+
+bool FViewportPanel::ConsumeClick(float& OutU, float& OutV)
+{
+    if (!bHasPendingClick)
+    {
+        return false;
+    }
+    OutU = ClickU;
+    OutV = ClickV;
+    bHasPendingClick = false;
     return true;
 }

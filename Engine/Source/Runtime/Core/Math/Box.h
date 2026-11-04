@@ -54,27 +54,31 @@ public:
         {
             return false;
         }
-        
+
         const float Origin[3] = { Ray.position.x, Ray.position.y, Ray.position.z };
         const float Direction[3] = { Ray.direction.x, Ray.direction.y, Ray.direction.z };
         const float BoxMin[3] = { Min.x, Min.y, Min.z };
         const float BoxMax[3] = { Max.x, Max.y, Max.z };
-        if (Direction[0] == 0.0f && Direction[1] == 0.0f && Direction[2] == 0.0f)
+        const float DirectionLengthSquared = Direction[0] * Direction[0] + Direction[1] * Direction[1] + Direction[2] * Direction[2];
+
+        if (!std::isfinite(DirectionLengthSquared) || DirectionLengthSquared <= 1.0e-12f)
         {
             return false;
         }
-        
+
         float TEnter = -(std::numeric_limits<float>::max)();
         float TExit = (std::numeric_limits<float>::max)();
-        
+
+        constexpr float ParallelEpsilon = 1.0e-8f;
+
         for (int Axis = 0; Axis < 3; ++Axis)
         {
             const float O = Origin[Axis];
             const float D = Direction[Axis];
-            
-            if (D == 0.0f)
+
+            if (std::fabs(D) <= ParallelEpsilon)
             {
-                if (O < BoxMin[Axis] || D > BoxMax[Axis])
+                if (O < BoxMin[Axis] || O > BoxMax[Axis])
                 {
                     return false;
                 }
@@ -90,7 +94,7 @@ public:
             }
             
             TEnter = (std::max)(TEnter, T1);
-            TExit = (std::min)(TExit, T1);
+            TExit = (std::min)(TExit, T2);
             
             if (TEnter > TExit)
             {
@@ -101,9 +105,7 @@ public:
         {
             return false;
         }
-        
-        OutT = TEnter >= 0.0f ? TEnter : TExit;
-        
+        OutT = (std::max)(TEnter, 0.0f);
         return true;
     }
     
