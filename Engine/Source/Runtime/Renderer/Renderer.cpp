@@ -94,16 +94,16 @@ void URenderer::CreateFrameBuffer()
 // 프레임 버퍼를 해제하는 함수
 void URenderer::ReleaseFrameBuffer()
 {
-    if (mFrameBuffer)
-    {
-        mFrameBuffer->Release();
-        mFrameBuffer = nullptr;
-    }
-
     if (mFrameBufferRTV)
     {
         mFrameBufferRTV->Release();
         mFrameBufferRTV = nullptr;
+    }
+    
+    if (mFrameBuffer)
+    {
+        mFrameBuffer->Release();
+        mFrameBuffer = nullptr;
     }
 }
 
@@ -294,6 +294,29 @@ ID3D11DeviceContext* URenderer::GetDeviceContext()
     return mDeviceContext;
 }
 
+void URenderer::ResizeBackBuffer(uint32 Width, uint32 Height)
+{
+    if (Width == 0 || Height == 0)
+    {
+        return;
+    }
+    if (mViewportInfo.Width == static_cast<float>(Width) && mViewportInfo.Height == static_cast<float>(Height))
+    {
+        return;
+    }
+    
+    mDeviceContext->OMSetRenderTargets(0, nullptr, nullptr);
+    ReleaseFrameBuffer();
+    HRESULT hr = mSwapChain->ResizeBuffers(0, Width, Height, DXGI_FORMAT_UNKNOWN, 0);
+    if (FAILED(hr))
+    {
+        CreateFrameBuffer();
+        return;
+    }
+    CreateFrameBuffer();
+    mViewportInfo = {0.0f, 0.0f, static_cast<float>(Width), static_cast<float>(Height), 0.0f, 1.0f };
+}
+
 void URenderer::CreateViewportRenderTarget(uint32 Width, uint32 Height)
 {
     assert(Width > 0 && Height > 0);
@@ -347,6 +370,22 @@ void URenderer::CreateViewportRenderTarget(uint32 Width, uint32 Height)
     (void)hr;
     
     ViewportRenderInfo = {0.0f,0.0f,static_cast<float>(Width),static_cast<float>(Height), 0.0f,1.0f};
+    ViewportWidth = Width;
+    ViewportHeight = Height;
+}
+
+void URenderer::ResizeViewportRenderTarget(uint32 Width, uint32 Height)
+{
+    if (Width == 0 || Height == 0)
+    {
+        return;
+    }
+    if (ViewportTexture != nullptr && ViewportWidth == Width && ViewportHeight == Height)
+    {
+        return;
+    }
+    ReleaseViewportRenderTarget();
+    CreateViewportRenderTarget(Width, Height);
 }
 
 void URenderer::BeginViewportRender()
@@ -372,42 +411,54 @@ void URenderer::EndViewportRender()
 
 void URenderer::ReleaseViewportRenderTarget()
 {
-    if (ViewportDepthState)
+    if (mDeviceContext)
     {
-        ViewportDepthState->Release();
-        ViewportDepthState = nullptr;
+        mDeviceContext->OMSetRenderTargets(0, nullptr, nullptr);
+
+        ID3D11ShaderResourceView* NullSRV = nullptr;
+        mDeviceContext->PSSetShaderResources(0, 1, &NullSRV);
     }
-    
-    if (ViewportDSV)
-    {
-        ViewportDSV->Release();
-        ViewportDSV = nullptr;
-    }
-    
-    if (ViewportDepthState)
-    {
-        ViewportDepthState->Release();
-        ViewportDepthState = nullptr;
-        
-    }
-    
+
     if (ViewportSRV)
     {
         ViewportSRV->Release();
         ViewportSRV = nullptr;
     }
-    
+
     if (ViewportRTV)
     {
         ViewportRTV->Release();
         ViewportRTV = nullptr;
     }
-    
+
     if (ViewportDSV)
     {
         ViewportDSV->Release();
         ViewportDSV = nullptr;
     }
+
+    if (ViewportDepthState)
+    {
+        ViewportDepthState->Release();
+        ViewportDepthState = nullptr;
+    }
+
+    if (ViewportTexture)
+    {
+        ViewportTexture->Release();
+        ViewportTexture = nullptr;
+    }
+
+    if (ViewportDepthTexture)
+    {
+        ViewportDepthTexture->Release();
+        ViewportDepthTexture = nullptr;
+    }
+
+    ViewportWidth = 0;
+    ViewportHeight = 0;
+
+    ViewportRenderInfo = {};
 }
 
 void URenderer::Shutdown()

@@ -40,14 +40,19 @@ public:
 
     ID3D11Device* GetDevice();
     ID3D11DeviceContext* GetDeviceContext();
-
-    ID3D11ShaderResourceView* GetViewportSRV() const{ return ViewportSRV; }
     
-    // Viewport Render
+    void ResizeBackBuffer(uint32 Width, uint32 Height);
+
     void CreateViewportRenderTarget(uint32 Width, uint32 Height);
+    void ResizeViewportRenderTarget(uint32 Width, uint32 Height);
     void BeginViewportRender();
     void EndViewportRender();
     void ReleaseViewportRenderTarget();
+
+    uint32 GetViewportWidth() const { return ViewportWidth; }
+    uint32 GetViewportHeight() const { return ViewportHeight; }
+
+    ID3D11ShaderResourceView* GetViewportSRV() const{ return ViewportSRV; }
     
     void Shutdown();
 private:
@@ -77,4 +82,6 @@ private:
     ID3D11DepthStencilView* ViewportDSV = nullptr;
     D3D11_VIEWPORT ViewportRenderInfo = {};
     ID3D11DepthStencilState* ViewportDepthState = nullptr;
+    uint32 ViewportWidth = 0;
+    uint32 ViewportHeight = 0;
 };

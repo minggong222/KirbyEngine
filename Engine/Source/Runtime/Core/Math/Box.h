@@ -64,7 +64,7 @@ public:
             return false;
         }
         
-        float TEnter = (std::numeric_limits<float>::max)();
+        float TEnter = -(std::numeric_limits<float>::max)();
         float TExit = (std::numeric_limits<float>::max)();
         
         for (int Axis = 0; Axis < 3; ++Axis)

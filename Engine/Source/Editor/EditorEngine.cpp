@@ -18,11 +18,15 @@ bool FEditorEngine::Init(HINSTANCE hInstance)
     ImGuiRenderer = new FImGuiRenderer();
     WindowsWindow = new FWindowsWindow();
     WindowsWindow->Create(hInstance, 1920, 1080);
+    RECT ClientRect = {};
+    GetClientRect(WindowsWindow->GetHWND(), &ClientRect);
+    const uint32 InitialWidth = ClientRect.right > ClientRect.left ? static_cast<uint32>(ClientRect.right - ClientRect.left) : 1;
+    const uint32 InitialHeight = ClientRect.bottom > ClientRect.top ? static_cast<uint32>(ClientRect.bottom - ClientRect.top) : 1;  
     {
         Renderer->Create(WindowsWindow->GetHWND());
         Renderer->CreateShader();
         Renderer->CreateConstantBuffer();
-        Renderer->CreateViewportRenderTarget(1280, 720);
+        Renderer->CreateViewportRenderTarget(InitialWidth, InitialHeight);
     }
     ImGuiRenderer->Init(WindowsWindow->GetHWND(), Renderer->GetDevice(), Renderer->GetDeviceContext());
     
@@ -48,6 +52,12 @@ void FEditorEngine::Run()
     double PreviousTime = FPlatformTime::Seconds();
     UCameraComponent* MainCamera = new UCameraComponent();
     
+    if (Renderer->GetViewportWidth() > 0 && Renderer->GetViewportHeight() > 0)
+    {
+        const float AspectRatio = static_cast<float>(Renderer->GetViewportWidth()) / static_cast<float>(Renderer->GetViewportHeight());
+        MainCamera->SetAspectRatio(AspectRatio);
+    }
+    
     while (bIsRunning == true)
     {
         const double CurrentTime = FPlatformTime::Seconds();
@@ -72,6 +82,32 @@ void FEditorEngine::Run()
             }
         }
         
+        RECT ClientRect = {};
+        if (GetClientRect(WindowsWindow->GetHWND(), &ClientRect))
+        {
+            const LONG ClientWidth = ClientRect.right - ClientRect.left;
+            const LONG ClientHeight = ClientRect.bottom - ClientRect.top;
+            if (ClientWidth > 0 && ClientHeight > 0)
+            {
+                Renderer->ResizeBackBuffer(static_cast<uint32>(ClientWidth), static_cast<uint32>(ClientHeight));
+            }
+        }
+        
+        uint32 DesiredWidth = 0;
+        uint32 DesiredHeight = 0;
+        if (ViewportPanel->ConsumeDesiredSize(DesiredWidth, DesiredHeight))
+        {
+            Renderer->ResizeViewportRenderTarget(DesiredWidth, DesiredHeight);
+            ViewportPanel->SetViewportTexture(Renderer->GetViewportSRV());
+        }
+        
+        const uint32 ViewportWidth = Renderer->GetViewportWidth();
+        const uint32 ViewportHeight = Renderer->GetViewportHeight();
+        if (ViewportWidth > 0 && ViewportHeight > 0)
+        {
+            const float AspectRatio = static_cast<float>(ViewportWidth) / static_cast<float>(ViewportHeight);
+            MainCamera->SetAspectRatio(AspectRatio);
+        }
         CameraController.Update(*MainCamera, *WindowsWindow, static_cast<float>(DeltaTime));
         
         {

@@ -48,3 +48,11 @@ FMatrix UCameraComponent::GetProjectionMatrix() const
     
     return FMatrix::CreatePerspectiveFieldOfView(FovRadians, AspectRatio, NearClipPlane, FarClipPlane);
 }
+
+void UCameraComponent::SetAspectRatio(float InAspectRatio)
+{
+    if (InAspectRatio > 0.0f)
+    {
+        AspectRatio = InAspectRatio;
+    }
+}
