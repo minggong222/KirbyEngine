@@ -5,56 +5,15 @@
 #include "Components/CameraComponent.h"
 #include "Components/SphereComp.h"
 #include "Components/CubeComp.h"
+#include "Components/StaticMeshComponent.h"
 #include "Core/STL.h"
 #include "Core/Math/MathUtility.h"
 #include "Core/Time/PlatformTime.h"
+#include "Resources/PrimitiveMeshAssets.h"
 #include "UI/Panels/DetailsPanel.h"
 #include "UI/Panels/ObjectListPanel.h"
 #include "UObject/Object.h"
-
-namespace 
-{
-    FStaticMeshData* CreateStaticMeshData(TArray<FVertexSimple>&& SourceVertices, URenderer& InRenderer)
-    {
-        if (SourceVertices.Num() < 3 || SourceVertices.Num() % 3 != 0)
-        {
-            return nullptr;
-        }
-        
-        FStaticMeshData* MeshData = new FStaticMeshData();
-        MeshData->Positions.Reserve(SourceVertices.Num());
-        for (const FVertexSimple& Vertex : SourceVertices)
-        {
-            const FVector Position(Vertex.x, Vertex.y, Vertex.z);
-            MeshData->Positions.Add(Position);
-            MeshData->LocalBounds.Add(Position);
-        }
-        MeshData->VertexCount = SourceVertices.Num();
-        const UINT ByteWidth = static_cast<UINT>(sizeof(FVertexSimple) * SourceVertices.Num());
-        MeshData->VertexBuffer = InRenderer.CreateVertexBuffer(SourceVertices.GetData(), ByteWidth);
-        if (MeshData->VertexBuffer == nullptr)
-        {
-            delete MeshData;
-            return nullptr;
-        }
-        return MeshData;
-    }
-    
-    void DestroyStaticMeshData(FStaticMeshData*& MeshData, URenderer& InRenderer)
-    {
-        if (MeshData == nullptr)
-        {
-            return;
-        }
-        if (MeshData->VertexBuffer != nullptr)
-        {
-            InRenderer.ReleaseVertexBuffer(MeshData->VertexBuffer);
-            MeshData->VertexBuffer = nullptr;
-        }
-        delete MeshData;
-        MeshData = nullptr;
-    }
-}
+#include "Resources/StaticMesh.h"
 
 bool FEditorEngine::Init(HINSTANCE hInstance)
 {
@@ -72,11 +31,11 @@ bool FEditorEngine::Init(HINSTANCE hInstance)
         Renderer->CreateShader();
         Renderer->CreateConstantBuffer();
         Renderer->CreateViewportRenderTarget(InitialWidth, InitialHeight);
-        CubeMeshData = CreateStaticMeshData(UCubeComp::CreateMeshVertices(), *Renderer);
-        SphereMeshData = CreateStaticMeshData(USphereComp::CreateMeshVertices(), *Renderer);
-        if (CubeMeshData == nullptr || SphereMeshData == nullptr)
+        if (!RegisterBuiltinStaticMeshes(AssetManager, *Renderer))
         {
-            UE_LOG(Error, "Failed to create primitive mesh resources");
+            UE_LOG(Error, "Failed to register builtin static meshes");
+            AssetManager.Shutdown();
+            Renderer->Shutdown();
             return false;
         }
     }
@@ -87,7 +46,7 @@ bool FEditorEngine::Init(HINSTANCE hInstance)
     ImGuiRenderer->GetPanelManager()->AddPanel(ViewportPanel);
     ConsolePanel = new FConsolePanel();
     ImGuiRenderer->GetPanelManager()->AddPanel(ConsolePanel);
-    ObjectListPanel = new FObjectListPanel(&ObjectContext, CubeMeshData, SphereMeshData);
+    ObjectListPanel = new FObjectListPanel(&ObjectContext, &AssetManager);
     ImGuiRenderer->GetPanelManager()->AddPanel(ObjectListPanel);
     DetailsPanel = new FDetailsPanel(&ObjectContext);
     ImGuiRenderer->GetPanelManager()->AddPanel(DetailsPanel);
@@ -178,28 +137,30 @@ void FEditorEngine::Run()
                     continue;
                 }
                 
-                UPrimitiveComponent* Primitive = Cast<UPrimitiveComponent>(Object);
+                UStaticMeshComponent* Component = Cast<UStaticMeshComponent>(Object);
                 
-                if (Primitive == nullptr)
+                if (Component == nullptr)
                 {
                     continue;
                 }
                 
-                const FStaticMeshData* MeshData = Primitive->GetStaticMeshData();
+                const UStaticMesh* Mesh  = Component->GetStaticMesh();
                 
-                if (MeshData == nullptr)
+                if (Mesh  == nullptr)
                 {
                     continue;
                 }
                 
-                if (MeshData->VertexBuffer == nullptr || MeshData->VertexCount == 0)
+                const FStaticMeshRenderData& RenderData = Mesh->GetRenderData();
+                
+                if (RenderData.VertexBuffer == nullptr || RenderData.VertexCount == 0)
                 {
                     continue;
                 }
                 
-                const FMatrix World = Primitive->GetTransform().GetLocalMatrix();
+                const FMatrix World = Component->GetTransform().GetLocalMatrix();
                 Renderer->UpdateConstant(World, View, Projection);
-                Renderer->RenderPrimitive(MeshData->VertexBuffer, MeshData->VertexCount);
+                Renderer->RenderPrimitive(RenderData.VertexBuffer, RenderData.VertexCount);
             }
             Renderer->EndViewportRender();            
         }
@@ -225,8 +186,7 @@ void FEditorEngine::Shutdown()
     ObjectContext.Objects.Reset();
     ObjectContext.SelectedObject = nullptr;
     ImGuiRenderer->Shutdown();
-    DestroyStaticMeshData(CubeMeshData, *Renderer);
-    DestroyStaticMeshData(SphereMeshData, *Renderer);
+    AssetManager.Shutdown();
     Renderer->Shutdown();
 }
 

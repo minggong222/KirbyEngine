@@ -3,7 +3,7 @@
 #include "Core/STL.h"
 #include "Core/Math/Box.h"
 
-struct FStaticMeshData
+struct FStaticMeshRenderData
 {
     TArray<FVector> Positions;
     FBox LocalBounds;

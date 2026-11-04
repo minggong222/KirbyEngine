@@ -1,43 +1,60 @@
 ﻿#include "ObjectListPanel.h"
 
 #include "imgui.h"
+
+#include "Resources/StaticMesh.h"
+#include "Resources/PrimitiveMeshAssets.h"
+
+#include "Components/StaticMeshComponent.h"
 #include "Components/CameraComponent.h"
-#include "Components/CubeComp.h"
-#include "Components/SphereComp.h"
+#include "Resources/AssetManager.h"
+
 #include "UObject/Class.h"
 
-template<typename TObject>
-static void SpawnEditorObject(FEditorObjectContext& Context, const FStaticMeshData* InMeshData)
+namespace
 {
-    TObject* NewInstance = NewObject<TObject>();
-    if (NewInstance == nullptr)
+    void SpawnStaticMeshObject(FEditorObjectContext& Context, UStaticMesh* InMesh)
     {
-        return;
-    }
-    
-    if (UPrimitiveComponent* Primitive = Cast<UPrimitiveComponent>(NewInstance))
-    {
-        if (InMeshData == nullptr)
+        if (InMesh == nullptr)
         {
-            delete NewInstance;
             return;
         }
-        Primitive->SetStaticMeshData(InMeshData);
-    }
-    if (USceneComponent* Scene = Cast<USceneComponent>(NewInstance))
-    {
-        FTransform Transform = Scene->GetTransform();
+
+        UStaticMeshComponent* NewInstance = NewObject<UStaticMeshComponent>();
+
+        if (NewInstance == nullptr)
+        {
+            return;
+        }
+
+        NewInstance->SetStaticMesh(InMesh);
+        FTransform Transform = NewInstance->GetTransform();
         Transform.Location.y += static_cast<float>(Context.Objects.Num()) * 1.5f;
-        Scene->SetTransform(Transform);
+        NewInstance->SetTransform(Transform);
+        Context.Objects.Add(NewInstance);
+        Context.SelectedObject = NewInstance;
     }
-    
-    Context.Objects.Add(NewInstance);
-    Context.SelectedObject = NewInstance;
+
+    void SpawnCameraObject(FEditorObjectContext& Context)
+    {
+        UCameraComponent* NewInstance = NewObject<UCameraComponent>();
+
+        if (NewInstance == nullptr)
+        {
+            return;
+        }
+
+        FTransform Transform = NewInstance->GetTransform();
+        Transform.Location.y += static_cast<float>(Context.Objects.Num()) * 1.5f;
+        NewInstance->SetTransform(Transform);
+        Context.Objects.Add(NewInstance);
+        Context.SelectedObject = NewInstance;
+    }
 }
 
 bool FObjectListPanel::Init()
 {
-    return Context != nullptr && CubeMeshData != nullptr && SphereMeshData != nullptr;
+    return Context != nullptr && AssetManager != nullptr;
 }
 
 void FObjectListPanel::Tick(float DeltaTime)
@@ -46,34 +63,37 @@ void FObjectListPanel::Tick(float DeltaTime)
 
 void FObjectListPanel::OnRender()
 {
-    if (Context == nullptr)
+    if (Context == nullptr || AssetManager == nullptr)
     {
-        return ;
+        return;
     }
-    
+
     if (!ImGui::Begin("Object List"))
     {
         ImGui::End();
         return;
     }
-    
+
     if (ImGui::Button("Sphere"))
     {
-        SpawnEditorObject<USphereComp>(*Context, SphereMeshData);
+        UStaticMesh* SphereMesh = AssetManager->Find<UStaticMesh>(BuiltinAssetPaths::Sphere);
+        SpawnStaticMeshObject(*Context, SphereMesh);
     }
 
     ImGui::SameLine();
 
     if (ImGui::Button("Cube"))
     {
-        SpawnEditorObject<UCubeComp>(*Context, CubeMeshData);
+        UStaticMesh* CubeMesh = AssetManager->Find<UStaticMesh>(BuiltinAssetPaths::Cube);
+
+        SpawnStaticMeshObject(*Context, CubeMesh);
     }
 
     ImGui::SameLine();
 
     if (ImGui::Button("Camera"))
     {
-        SpawnEditorObject<UCameraComponent>(*Context, nullptr);
+        SpawnCameraObject(*Context);
     }
 
     ImGui::Separator();

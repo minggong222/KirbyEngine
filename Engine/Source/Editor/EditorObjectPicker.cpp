@@ -8,6 +8,8 @@
 #include <cmath>
 #include <limits>
 
+#include "Components/StaticMeshComponent.h"
+#include "Resources/StaticMesh.h"
 namespace EditorPicking
 {
     namespace 
@@ -50,33 +52,35 @@ namespace EditorPicking
                 {
                     continue;
                 }
-                UPrimitiveComponent* Primitive = Cast<UPrimitiveComponent>(Object);
+                UStaticMeshComponent* Component = Cast<UStaticMeshComponent>(Object);
 
-                if (Primitive == nullptr)
+                if (Component == nullptr)
                 {
                     continue;
                 }
 
-                const FStaticMeshData* MeshData = Primitive->GetStaticMeshData();
+                const UStaticMesh* Mesh = Component->GetStaticMesh();
 
-                if (MeshData == nullptr)
+                if (Mesh == nullptr)
                 {
                     continue;
                 }
 
-                const TArray<FVector>& Positions = MeshData->Positions;
+                const FStaticMeshRenderData& MeshData = Mesh->GetRenderData();
+
+                const TArray<FVector>& Positions = MeshData.Positions;
 
                 if (Positions.Num() < 3 || Positions.Num() % 3 != 0)
                 {
                     continue;
                 }
 
-                if (!MeshData->LocalBounds.IsValid())
+                if (!MeshData.LocalBounds.IsValid())
                 {
                     continue;
                 }
 
-                const FMatrix WorldMatrix = Primitive->GetTransform().GetLocalMatrix();
+                const FMatrix WorldMatrix = Component->GetTransform().GetLocalMatrix();
 
                 const float Determinant = WorldMatrix.Determinant();
 
@@ -113,7 +117,7 @@ namespace EditorPicking
                 
                 float BoundsHitT = 0.0f;
 
-                if (!MeshData->LocalBounds.Intersect(LocalBoundsRay, BoundsHitT))
+                if (!MeshData.LocalBounds.Intersect(LocalBoundsRay, BoundsHitT))
                 {
                     continue;
                 }

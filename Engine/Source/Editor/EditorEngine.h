@@ -3,6 +3,7 @@
 #include "EditorObjectContext.h"
 #include "Core/Stats/FrameStats.h"
 #include "Renderer/Renderer.h"
+#include "Resources/AssetManager.h"
 #include "UI/ImGuiRenderer.h"
 #include "UI/Panels/ConsolePanel.h"
 #include "UI/Panels/ViewportPanel.h"
@@ -36,8 +37,7 @@ private:
     FConsolePanel* ConsolePanel = nullptr;
     FViewportPanel* ViewportPanel = nullptr;
     
-    FStaticMeshData* CubeMeshData = nullptr;
-    FStaticMeshData* SphereMeshData = nullptr;
+    FAssetManager AssetManager;
     
     bool bIsRunning = false;
 };
