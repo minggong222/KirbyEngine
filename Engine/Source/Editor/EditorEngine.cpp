@@ -7,6 +7,8 @@
 #include "Core/STL.h"
 #include "Core/Math/MathUtility.h"
 #include "Core/Time/PlatformTime.h"
+#include "UI/Panels/DetailsPanel.h"
+#include "UI/Panels/ObjectListPanel.h"
 #include "UObject/Object.h"
 
 bool FEditorEngine::Init(HINSTANCE hInstance)
@@ -29,7 +31,10 @@ bool FEditorEngine::Init(HINSTANCE hInstance)
     ImGuiRenderer->GetPanelManager()->AddPanel(ViewportPanel);
     ConsolePanel = new FConsolePanel();
     ImGuiRenderer->GetPanelManager()->AddPanel(ConsolePanel);
-    
+    ObjectListPanel = new FObjectListPanel(&ObjectContext, Renderer);
+    ImGuiRenderer->GetPanelManager()->AddPanel(ObjectListPanel);
+    DetailsPanel = new FDetailsPanel(&ObjectContext);
+    ImGuiRenderer->GetPanelManager()->AddPanel(DetailsPanel);
     bIsRunning = true;
     UE_LOG(Info, "Info");
     UE_LOG(Error, "Error");
@@ -42,10 +47,6 @@ void FEditorEngine::Run()
 
     double PreviousTime = FPlatformTime::Seconds();
     UCameraComponent* MainCamera = new UCameraComponent();
-    USphereComp* Test = new USphereComp();
-    TArray<FVertexSimple> Vertices = Test->GetVertex();
-    ID3D11Buffer* vertexBufferSphere = Renderer->CreateVertexBuffer(Vertices.GetData(), static_cast<uint32>(sizeof(FVertexSimple) * Vertices.Num()));
-    
     
     while (bIsRunning == true)
     {
@@ -78,13 +79,33 @@ void FEditorEngine::Run()
             Renderer->Prepare();
             Renderer->BeginViewportRender();
             Renderer->PrepareShader();
-            const FMatrix World = Test->GetTransform().GetLocalMatrix();
             const FMatrix View = MainCamera->GetViewMatrix();
             const FMatrix Projection = MainCamera->GetProjectionMatrix();
-            Renderer->UpdateConstant(World, View, Projection);
-            Renderer->RenderPrimitive(vertexBufferSphere, static_cast<uint32>(Vertices.Num()));
-            Renderer->EndViewportRender();
             
+            for (const FEditorObjectEntry& Entry : ObjectContext.Objects)
+            {
+                UObject* Object = Entry.Object;
+                if (Object == nullptr)
+                {
+                    continue;
+                }
+                
+                if (Entry.VertexBuffer == nullptr || Entry.VertexCount == 0)
+                {
+                    continue;
+                }
+                
+                USceneComponent* Scene = Cast<USceneComponent>(Object);
+                if (Scene == nullptr)
+                {
+                    continue;
+                }
+                
+                const FMatrix World = Scene->GetTransform().GetLocalMatrix();
+                Renderer->UpdateConstant(World, View, Projection);
+                Renderer->RenderPrimitive(Entry.VertexBuffer, Entry.VertexCount);
+            }
+            Renderer->EndViewportRender();            
         }
 
         ImGuiRenderer->OnRender();
@@ -92,15 +113,28 @@ void FEditorEngine::Run()
     }
     
    CameraController.Stop(*WindowsWindow);
-    
-    Renderer->ReleaseVertexBuffer(vertexBufferSphere);
-    delete Test;
     delete MainCamera;
     
 }
 
 void FEditorEngine::Shutdown()
 {
+    for (FEditorObjectEntry& Entry : ObjectContext.Objects)
+    {
+        if (Entry.VertexBuffer != nullptr)
+        {
+            Renderer->ReleaseVertexBuffer(Entry.VertexBuffer);
+            Entry.VertexBuffer = nullptr;
+        }
+        
+        if (Entry.Object != nullptr)
+        {
+            delete Entry.Object;
+            Entry.Object = nullptr;
+        }
+    }
+    ObjectContext.Objects.Reset();
+    ObjectContext.SelectedObject = nullptr;
     ImGuiRenderer->Shutdown();
     Renderer->Shutdown();
 }

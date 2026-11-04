@@ -1,11 +1,15 @@
 ﻿#pragma once
 #include "EditorCameraController.h"
+#include "EditorObjectContext.h"
 #include "Core/Stats/FrameStats.h"
 #include "Renderer/Renderer.h"
 #include "UI/ImGuiRenderer.h"
 #include "UI/Panels/ConsolePanel.h"
 #include "UI/Panels/ViewportPanel.h"
 #include "Windows/WindowsWindow.h"
+
+class FObjectListPanel;
+class FDetailsPanel;
 
 class FEditorEngine
 {
@@ -15,6 +19,10 @@ public:
     void Shutdown();
 private:
     FFrameStats FrameStats;
+    
+    FEditorObjectContext ObjectContext;
+    FObjectListPanel* ObjectListPanel = nullptr;
+    FDetailsPanel* DetailsPanel = nullptr;
     
     FEditorCameraController CameraController;
     

@@ -165,6 +165,8 @@
     <ClCompile Include="Engine\Source\Editor\UI\ImGuiRenderer.cpp" />
     <ClCompile Include="Engine\Source\Editor\UI\PanelManager.cpp" />
     <ClCompile Include="Engine\Source\Editor\UI\Panels\ConsolePanel.cpp" />
+    <ClCompile Include="Engine\Source\Editor\UI\Panels\DetailsPanel.cpp" />
+    <ClCompile Include="Engine\Source\Editor\UI\Panels\ObjectListPanel.cpp" />
     <ClCompile Include="Engine\Source\Editor\UI\Panels\ViewportPanel.cpp" />
     <ClCompile Include="Engine\Source\Runtime\Components\CameraComponent.cpp" />
     <ClCompile Include="Engine\Source\Runtime\Components\CubeComp.cpp" />
@@ -359,10 +361,13 @@
   <ItemGroup>
     <ClInclude Include="Engine\Source\Editor\EditorCameraController.h" />
     <ClInclude Include="Engine\Source\Editor\EditorEngine.h" />
+    <ClInclude Include="Engine\Source\Editor\EditorObjectContext.h" />
     <ClInclude Include="Engine\Source\Editor\UI\ImGuiRenderer.h" />
     <ClInclude Include="Engine\Source\Editor\UI\PanelManager.h" />
     <ClInclude Include="Engine\Source\Editor\UI\Panels\ConsolePanel.h" />
+    <ClInclude Include="Engine\Source\Editor\UI\Panels\DetailsPanel.h" />
     <ClInclude Include="Engine\Source\Editor\UI\Panels\EditorPanel.h" />
+    <ClInclude Include="Engine\Source\Editor\UI\Panels\ObjectListPanel.h" />
     <ClInclude Include="Engine\Source\Editor\UI\Panels\ViewportPanel.h" />
     <ClInclude Include="Engine\Source\Runtime\Components\CameraComponent.h" />
     <ClInclude Include="Engine\Source\Runtime\Components\CubeComp.h" />
