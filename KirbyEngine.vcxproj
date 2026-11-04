@@ -389,6 +389,7 @@
     <ClInclude Include="Engine\Source\Runtime\Core\STL.h" />
     <ClInclude Include="Engine\Source\Runtime\Core\Time\PlatformTime.h" />
     <ClInclude Include="Engine\Source\Runtime\Renderer\Renderer.h" />
+    <ClInclude Include="Engine\Source\Runtime\Resources\StaticMeshData.h" />
     <ClInclude Include="Engine\Source\Runtime\UObject\Class.h" />
     <ClInclude Include="Engine\Source\Runtime\UObject\Object.h" />
     <ClInclude Include="Engine\Source\Runtime\Windows\WindowsWindow.h" />

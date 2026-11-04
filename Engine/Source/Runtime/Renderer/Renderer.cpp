@@ -226,16 +226,27 @@ void URenderer::RenderPrimitive(ID3D11Buffer* pBuffer, UINT numVertices)
 
 ID3D11Buffer* URenderer::CreateVertexBuffer(FVertexSimple* vertices, UINT byteWidth)
 {
+    if (mDevice == nullptr || vertices == nullptr || byteWidth == 0)
+    {
+        return nullptr;
+    }
     // 2. Create a vertex buffer
     D3D11_BUFFER_DESC vertexbufferdesc = {};
     vertexbufferdesc.ByteWidth = byteWidth;
     vertexbufferdesc.Usage = D3D11_USAGE_IMMUTABLE; // will never be updated 
     vertexbufferdesc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
 
-    D3D11_SUBRESOURCE_DATA vertexbufferSRD = { vertices };
+    D3D11_SUBRESOURCE_DATA vertexbufferSRD = {};
+    vertexbufferSRD.pSysMem = vertices;
 
-    ID3D11Buffer* vertexBuffer;
-    mDevice->CreateBuffer(&vertexbufferdesc, &vertexbufferSRD, &vertexBuffer);
+    ID3D11Buffer* vertexBuffer = nullptr;
+
+    const HRESULT hr = mDevice->CreateBuffer(&vertexbufferdesc, &vertexbufferSRD, &vertexBuffer);
+
+    if (FAILED(hr))
+    {
+        return nullptr;
+    }
 
     return vertexBuffer;
 }

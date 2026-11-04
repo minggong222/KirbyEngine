@@ -12,6 +12,50 @@
 #include "UI/Panels/ObjectListPanel.h"
 #include "UObject/Object.h"
 
+namespace 
+{
+    FStaticMeshData* CreateStaticMeshData(TArray<FVertexSimple>&& SourceVertices, URenderer& InRenderer)
+    {
+        if (SourceVertices.Num() < 3 || SourceVertices.Num() % 3 != 0)
+        {
+            return nullptr;
+        }
+        
+        FStaticMeshData* MeshData = new FStaticMeshData();
+        MeshData->Positions.Reserve(SourceVertices.Num());
+        for (const FVertexSimple& Vertex : SourceVertices)
+        {
+            const FVector Position(Vertex.x, Vertex.y, Vertex.z);
+            MeshData->Positions.Add(Position);
+            MeshData->LocalBounds.Add(Position);
+        }
+        MeshData->VertexCount = SourceVertices.Num();
+        const UINT ByteWidth = static_cast<UINT>(sizeof(FVertexSimple) * SourceVertices.Num());
+        MeshData->VertexBuffer = InRenderer.CreateVertexBuffer(SourceVertices.GetData(), ByteWidth);
+        if (MeshData->VertexBuffer == nullptr)
+        {
+            delete MeshData;
+            return nullptr;
+        }
+        return MeshData;
+    }
+    
+    void DestroyStaticMeshData(FStaticMeshData*& MeshData, URenderer& InRenderer)
+    {
+        if (MeshData == nullptr)
+        {
+            return;
+        }
+        if (MeshData->VertexBuffer != nullptr)
+        {
+            InRenderer.ReleaseVertexBuffer(MeshData->VertexBuffer);
+            MeshData->VertexBuffer = nullptr;
+        }
+        delete MeshData;
+        MeshData = nullptr;
+    }
+}
+
 bool FEditorEngine::Init(HINSTANCE hInstance)
 {
    
@@ -28,6 +72,13 @@ bool FEditorEngine::Init(HINSTANCE hInstance)
         Renderer->CreateShader();
         Renderer->CreateConstantBuffer();
         Renderer->CreateViewportRenderTarget(InitialWidth, InitialHeight);
+        CubeMeshData = CreateStaticMeshData(UCubeComp::CreateMeshVertices(), *Renderer);
+        SphereMeshData = CreateStaticMeshData(USphereComp::CreateMeshVertices(), *Renderer);
+        if (CubeMeshData == nullptr || SphereMeshData == nullptr)
+        {
+            UE_LOG(Error, "Failed to create primitive mesh resources");
+            return false;
+        }
     }
     ImGuiRenderer->Init(WindowsWindow->GetHWND(), Renderer->GetDevice(), Renderer->GetDeviceContext());
     
@@ -36,7 +87,7 @@ bool FEditorEngine::Init(HINSTANCE hInstance)
     ImGuiRenderer->GetPanelManager()->AddPanel(ViewportPanel);
     ConsolePanel = new FConsolePanel();
     ImGuiRenderer->GetPanelManager()->AddPanel(ConsolePanel);
-    ObjectListPanel = new FObjectListPanel(&ObjectContext, Renderer);
+    ObjectListPanel = new FObjectListPanel(&ObjectContext, CubeMeshData, SphereMeshData);
     ImGuiRenderer->GetPanelManager()->AddPanel(ObjectListPanel);
     DetailsPanel = new FDetailsPanel(&ObjectContext);
     ImGuiRenderer->GetPanelManager()->AddPanel(DetailsPanel);
@@ -93,42 +144,7 @@ void FEditorEngine::Run()
                 Renderer->ResizeBackBuffer(static_cast<uint32>(ClientWidth), static_cast<uint32>(ClientHeight));
             }
         }
-        
-        float ClickU = 0.0f;
-        float ClickV = 0.0f;
-        
-        if (ViewportPanel->ConsumeClick(ClickU, ClickV))
-        {
-            const uint32 PickingWidth = Renderer->GetViewportWidth();
-            const uint32 PickingHeight = Renderer->GetViewportHeight();
-            
-            if (PickingWidth > 0 && PickingHeight > 0)
-            {
-                const FViewport PickingViewport(0.0f, 0.0f, static_cast<float>(PickingWidth), static_cast<float>(PickingHeight), 0.0f, 1.0f);
-                const float PixelX = ClickU * static_cast<float>(PickingWidth);
-                const float PixelY = ClickV * static_cast<float>(PickingHeight);
-                const FMatrix View = MainCamera->GetViewMatrix();
-                const FMatrix Projection = MainCamera->GetProjectionMatrix();
-                const FVector NearPoint = PickingViewport.Unproject(FVector(PixelX, PixelY, 0.0f), Projection, View, FMatrix::Identity);
-                const FVector FarPoint = PickingViewport.Unproject(FVector(PixelX, PixelY, 1.0f), Projection, View, FMatrix::Identity);
-                FVector WorldDirection = FarPoint - NearPoint;
-                const float DirectionLengthSquared = WorldDirection.LengthSquared();
-                if (std::isfinite(DirectionLengthSquared) && DirectionLengthSquared > EPSILON_1E_12)
-                {
-                    WorldDirection.Normalize();
-                    const FRay WorldRay(NearPoint, WorldDirection);
-                    ObjectContext.SelectedObject = EditorPicking::FindNearestObject(ObjectContext, WorldRay);
-                }
-                else
-                {
-                    ObjectContext.SelectedObject = nullptr;
-                }
-            }
-            else
-            {
-                ObjectContext.SelectedObject = nullptr;
-            }
-        }
+        ProcessViewportPicking(*MainCamera);
         
         uint32 DesiredWidth = 0;
         uint32 DesiredHeight = 0;
@@ -155,28 +171,35 @@ void FEditorEngine::Run()
             const FMatrix View = MainCamera->GetViewMatrix();
             const FMatrix Projection = MainCamera->GetProjectionMatrix();
             
-            for (const FEditorObjectEntry& Entry : ObjectContext.Objects)
+            for (UObject* Object : ObjectContext.Objects)
             {
-                UObject* Object = Entry.Object;
                 if (Object == nullptr)
                 {
                     continue;
                 }
                 
-                if (Entry.VertexBuffer == nullptr || Entry.VertexCount == 0)
+                UPrimitiveComponent* Primitive = Cast<UPrimitiveComponent>(Object);
+                
+                if (Primitive == nullptr)
                 {
                     continue;
                 }
                 
-                USceneComponent* Scene = Cast<USceneComponent>(Object);
-                if (Scene == nullptr)
+                const FStaticMeshData* MeshData = Primitive->GetStaticMeshData();
+                
+                if (MeshData == nullptr)
                 {
                     continue;
                 }
                 
-                const FMatrix World = Scene->GetTransform().GetLocalMatrix();
+                if (MeshData->VertexBuffer == nullptr || MeshData->VertexCount == 0)
+                {
+                    continue;
+                }
+                
+                const FMatrix World = Primitive->GetTransform().GetLocalMatrix();
                 Renderer->UpdateConstant(World, View, Projection);
-                Renderer->RenderPrimitive(Entry.VertexBuffer, Entry.VertexCount);
+                Renderer->RenderPrimitive(MeshData->VertexBuffer, MeshData->VertexCount);
             }
             Renderer->EndViewportRender();            
         }
@@ -192,22 +215,38 @@ void FEditorEngine::Run()
 
 void FEditorEngine::Shutdown()
 {
-    for (FEditorObjectEntry& Entry : ObjectContext.Objects)
+    for (UObject* Object : ObjectContext.Objects)
     {
-        if (Entry.VertexBuffer != nullptr)
+        if (Object != nullptr)
         {
-            Renderer->ReleaseVertexBuffer(Entry.VertexBuffer);
-            Entry.VertexBuffer = nullptr;
-        }
-        
-        if (Entry.Object != nullptr)
-        {
-            delete Entry.Object;
-            Entry.Object = nullptr;
+            delete Object;
         }
     }
     ObjectContext.Objects.Reset();
     ObjectContext.SelectedObject = nullptr;
     ImGuiRenderer->Shutdown();
+    DestroyStaticMeshData(CubeMeshData, *Renderer);
+    DestroyStaticMeshData(SphereMeshData, *Renderer);
     Renderer->Shutdown();
+}
+
+void FEditorEngine::ProcessViewportPicking(const UCameraComponent& Camera)
+{
+    float U = 0.0f;
+    float V = 0.0f;
+    if (!ViewportPanel->ConsumeClick(U, V))
+    {
+        return;
+    }
+    
+    const uint32 Width = Renderer->GetViewportWidth();
+    const uint32 Height = Renderer->GetViewportHeight();
+    
+    if (Width == 0 || Height == 0)
+    {
+        ObjectContext.SelectedObject = nullptr;
+        return;
+    }
+    
+    ObjectContext.SelectedObject = EditorPicking::PickObject(ObjectContext, U, V, Width, Height, Camera.GetViewMatrix(), Camera.GetProjectionMatrix());
 }

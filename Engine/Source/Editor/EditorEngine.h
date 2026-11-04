@@ -8,6 +8,7 @@
 #include "UI/Panels/ViewportPanel.h"
 #include "Windows/WindowsWindow.h"
 
+struct FStaticMeshData;
 class FObjectListPanel;
 class FDetailsPanel;
 
@@ -18,6 +19,8 @@ public:
     void Run();
     void Shutdown();
 private:
+    void ProcessViewportPicking(const UCameraComponent& Camera);
+    
     FFrameStats FrameStats;
     
     FEditorObjectContext ObjectContext;
@@ -32,6 +35,9 @@ private:
     
     FConsolePanel* ConsolePanel = nullptr;
     FViewportPanel* ViewportPanel = nullptr;
+    
+    FStaticMeshData* CubeMeshData = nullptr;
+    FStaticMeshData* SphereMeshData = nullptr;
     
     bool bIsRunning = false;
 };
