@@ -162,6 +162,7 @@
   <ItemGroup>
     <ClCompile Include="Engine\Source\Editor\EditorCameraController.cpp" />
     <ClCompile Include="Engine\Source\Editor\EditorEngine.cpp" />
+    <ClCompile Include="Engine\Source\Editor\EditorObjectPicker.cpp" />
     <ClCompile Include="Engine\Source\Editor\UI\ImGuiRenderer.cpp" />
     <ClCompile Include="Engine\Source\Editor\UI\PanelManager.cpp" />
     <ClCompile Include="Engine\Source\Editor\UI\Panels\ConsolePanel.cpp" />
@@ -362,6 +363,7 @@
     <ClInclude Include="Engine\Source\Editor\EditorCameraController.h" />
     <ClInclude Include="Engine\Source\Editor\EditorEngine.h" />
     <ClInclude Include="Engine\Source\Editor\EditorObjectContext.h" />
+    <ClInclude Include="Engine\Source\Editor\EditorObjectPicker.h" />
     <ClInclude Include="Engine\Source\Editor\UI\ImGuiRenderer.h" />
     <ClInclude Include="Engine\Source\Editor\UI\PanelManager.h" />
     <ClInclude Include="Engine\Source\Editor\UI\Panels\ConsolePanel.h" />
@@ -376,6 +378,7 @@
     <ClInclude Include="Engine\Source\Runtime\Components\SphereComp.h" />
     <ClInclude Include="Engine\Source\Runtime\Core\EngineStatics.h" />
     <ClInclude Include="Engine\Source\Runtime\Core\Logging\Log.h" />
+    <ClInclude Include="Engine\Source\Runtime\Core\Math\Box.h" />
     <ClInclude Include="Engine\Source\Runtime\Core\Math\Math.h" />
     <ClInclude Include="Engine\Source\Runtime\Core\Math\MathUtility.h" />
     <ClInclude Include="Engine\Source\Runtime\Core\Math\Rotator.h" />

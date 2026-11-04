@@ -6,6 +6,8 @@ class UCubeComp : public UPrimitiveComponent
 {
     DECLARE_CLASS(UCubeComp, UPrimitiveComponent)
 public:
+    UCubeComp();
+    
     TArray<FVertexSimple> GetVertex() { return Vertices; }
 private:
     TArray<FVertexSimple> Vertices = 
