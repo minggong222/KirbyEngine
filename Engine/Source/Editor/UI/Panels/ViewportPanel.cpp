@@ -37,7 +37,7 @@ void FViewportPanel::OnRender()
                 {
                     ClickU = (MousePos.x - ImageMin.x) / ImageWidth;
                     ClickV = (MousePos.y - ImageMin.y) / ImageHeight;
-                    bHasPendingSize = true;
+                    bHasPendingClick = true;
                 }
             }
         }
