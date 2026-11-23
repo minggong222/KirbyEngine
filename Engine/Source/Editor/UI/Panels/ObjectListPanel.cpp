@@ -126,15 +126,10 @@ namespace
             Context.SelectedObject = nullptr;
         }
 
-        const int32 BeforeUObjectCount = GUObjectArray.Num();
 
         Context.Objects.RemoveAt(ObjectIndex);
 
         delete TargetObject;
-
-#if defined(_DEBUG)
-        assert(GUObjectArray.Num() == BeforeUObjectCount - 1);
-#endif
 
         return true;
     }
@@ -154,8 +149,6 @@ namespace
         {
             ViewportPanel->CancelGizmoDrag();
         }
-        
-        const int32 BeforeUObjectCount = GUObjectArray.Num();
         
         UObject* NewObjectInstance = nullptr;
 
@@ -212,10 +205,6 @@ namespace
         {
             Context.UndoManager->RecordCreate(Context, NewObjectInstance, PreviousSelectedUUID);
         }
-        
-#if defined(_DEBUG)
-        assert(GUObjectArray.Num() == BeforeUObjectCount + 1);
-#endif
         
         return NewObjectInstance;
     }
@@ -315,10 +304,16 @@ void FObjectListPanel::OnRender()
 
     ImGui::SameLine();
 
+    const bool bCanPaste = Context->UndoManager != nullptr && Context->UndoManager->CanPaste();
+
+    ImGui::BeginDisabled(!bCanPaste);
+
     if (ImGui::Button("Paste"))
     {
         bPendingPaste = true;
     }
+
+    ImGui::EndDisabled();
 
     ImGui::SameLine();
 

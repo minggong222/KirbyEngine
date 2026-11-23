@@ -29,7 +29,8 @@ private:
     enum class EHistoryType
     {
         Transform,
-        ObjectPresence
+        ObjectPresence,
+        Property
     };
 
     enum class EObjectType
@@ -62,6 +63,13 @@ private:
         FTransform BeforeTransform;
         FTransform AfterTransform;
 
+        FString PropertyName;
+        EPropertyType PropertyType = EPropertyType::Unknown;
+        FPropertyValue BeforePropertyValue;
+        FPropertyValue AfterPropertyValue;
+
+        int32 ObjectIndex = INDEX_NONE;
+
         bool bBeforePresent = true;
         bool bAfterPresent = true;
 
@@ -69,6 +77,14 @@ private:
         uint32 AfterSelectedUUID = 0;
     };
 
+    struct FPendingPropertyEdit
+    {
+        uint32 ObjectUUID = 0;
+        FString PropertyName;
+        EPropertyType PropertyType = EPropertyType::Unknown;
+        FPropertyValue BeforeValue;
+    };
+    
 public:
     void Clear()
     {
@@ -76,6 +92,7 @@ public:
         RedoStack.clear();
         ClipboardSnapshot.reset();
         ClipboardPasteCount = 0;
+        PendingPropertyEdit.reset();
     }
 
     bool CanUndo() const
@@ -120,6 +137,11 @@ public:
             return nullptr;
         }
 
+        if (Context.TransformGizmo != nullptr)
+        {
+            Context.TransformGizmo->CancelDrag();
+        }
+
         const uint32 PreviousSelectedUUID = Context.SelectedObject != nullptr ? Context.SelectedObject->GetUUID() : 0;
 
         FObjectSnapshot PasteSnapshot = *ClipboardSnapshot;
@@ -142,6 +164,56 @@ public:
 
         return NewObjectInstance;
     }
+    
+    bool BeginPropertyEdit(const FEditorObjectContext& Context, UObject* Object, const FProperty* Property)
+    {
+        if (Object == nullptr || Property == nullptr || !Property->IsEditable())
+        {
+            return false;
+        }
+
+        const uint32 ObjectUUID = Object->GetUUID();
+
+        if (PendingPropertyEdit.has_value() && PendingPropertyEdit->ObjectUUID == ObjectUUID && PendingPropertyEdit->PropertyName == Property->GetName())
+        {
+            return true;
+        }
+
+        CommitPendingPropertyEdit(Context);
+
+        const void* ValuePtr = Property->GetValuePtr(Object);
+        FPropertyValue BeforeValue;
+
+        if (!ReadPropertyValue(Property->GetType(), ValuePtr, BeforeValue))
+        {
+            return false;
+        }
+
+        FPendingPropertyEdit Pending;
+        Pending.ObjectUUID = ObjectUUID;
+        Pending.PropertyName = Property->GetName();
+        Pending.PropertyType = Property->GetType();
+        Pending.BeforeValue = std::move(BeforeValue);
+
+        PendingPropertyEdit = std::move(Pending);
+
+        return true;
+    }
+
+    bool EndPropertyEdit(const FEditorObjectContext& Context, UObject* Object, const FProperty* Property)
+    {
+        if (!PendingPropertyEdit.has_value() || Object == nullptr || Property == nullptr)
+        {
+            return false;
+        }
+
+        if (PendingPropertyEdit->ObjectUUID != Object->GetUUID() || PendingPropertyEdit->PropertyName != Property->GetName())
+        {
+            return false;
+        }
+
+        return CommitPendingPropertyEdit(Context);
+    }
 
     void RecordCreate(const FEditorObjectContext& Context, UObject* Object, uint32 PreviousSelectedUUID)
     {
@@ -152,7 +224,7 @@ public:
         {
             return;
         }
-
+        Entry.ObjectIndex = Context.Objects.Find(Object);
         Entry.Type = EHistoryType::ObjectPresence;
         Entry.bBeforePresent = false;
         Entry.bAfterPresent = true;
@@ -164,14 +236,27 @@ public:
 
     void RecordDelete(const FEditorObjectContext& Context, UObject* Object)
     {
-        (void)Context;
-        FHistoryEntry Entry;
-
-        if (Object == nullptr || !CaptureObject(Object, Entry.Object))
+        if (Object == nullptr)
         {
             return;
         }
 
+        CommitPendingPropertyEdit(Context);
+
+        FHistoryEntry Entry;
+
+        if (!CaptureObject(Object, Entry.Object))
+        {
+            return;
+        }
+
+        Entry.ObjectIndex = Context.Objects.Find(Object);
+
+        if (Entry.ObjectIndex == INDEX_NONE)
+        {
+            return;
+        }
+        CommitPendingPropertyEdit(Context);
         Entry.Type = EHistoryType::ObjectPresence;
         Entry.bBeforePresent = true;
         Entry.bAfterPresent = false;
@@ -202,6 +287,8 @@ public:
 
     void Undo(FEditorObjectContext& Context)
     {
+        CommitPendingPropertyEdit(Context);
+        
         if (Context.TransformGizmo != nullptr)
         {
             Context.TransformGizmo->CancelDrag();
@@ -226,6 +313,8 @@ public:
 
     void Redo(FEditorObjectContext& Context)
     {
+        CommitPendingPropertyEdit(Context);
+        
         if (Context.TransformGizmo != nullptr)
         {
             Context.TransformGizmo->CancelDrag();
@@ -264,7 +353,157 @@ private:
             std::fabs(A.Scale3D.y - B.Scale3D.y) > Tolerance ||
             std::fabs(A.Scale3D.z - B.Scale3D.z) > Tolerance;
     }
+    
+    static bool ReadPropertyValue(EPropertyType Type, const void* ValuePtr, FPropertyValue& OutValue)
+    {
+        if (ValuePtr == nullptr)
+        {
+            return false;
+        }
 
+        switch (Type)
+        {
+        case EPropertyType::Bool:
+            OutValue = *static_cast<const bool*>(ValuePtr);
+            return true;
+
+        case EPropertyType::Int32:
+            OutValue = *static_cast<const int32*>(ValuePtr);
+            return true;
+
+        case EPropertyType::UInt32:
+            OutValue = *static_cast<const uint32*>(ValuePtr);
+            return true;
+
+        case EPropertyType::Float:
+            OutValue = *static_cast<const float*>(ValuePtr);
+            return true;
+
+        case EPropertyType::Double:
+            OutValue = *static_cast<const double*>(ValuePtr);
+            return true;
+
+        case EPropertyType::String:
+            OutValue = *static_cast<const FString*>(ValuePtr);
+            return true;
+
+        case EPropertyType::Vector:
+            OutValue = *static_cast<const FVector*>(ValuePtr);
+            return true;
+
+        case EPropertyType::Rotator:
+            OutValue = *static_cast<const FRotator*>(ValuePtr);
+            return true;
+
+        case EPropertyType::Transform:
+            OutValue = *static_cast<const FTransform*>(ValuePtr);
+            return true;
+
+        default:
+            return false;
+        }
+    }
+
+    static bool ArePropertyValuesEqual(EPropertyType Type, const FPropertyValue& A, const FPropertyValue& B)
+    {
+        constexpr float Tolerance = 0.0001f;
+
+        switch (Type)
+        {
+        case EPropertyType::Bool:
+            return std::get<bool>(A) == std::get<bool>(B);
+
+        case EPropertyType::Int32:
+            return std::get<int32>(A) == std::get<int32>(B);
+
+        case EPropertyType::UInt32:
+            return std::get<uint32>(A) == std::get<uint32>(B);
+
+        case EPropertyType::Float:
+            return std::fabs(std::get<float>(A) - std::get<float>(B)) <= Tolerance;
+
+        case EPropertyType::Double:
+            return std::fabs(std::get<double>(A) - std::get<double>(B)) <= Tolerance;
+
+        case EPropertyType::String:
+            return std::get<FString>(A) == std::get<FString>(B);
+
+        case EPropertyType::Vector:
+        {
+            const FVector& Left = std::get<FVector>(A);
+            const FVector& Right = std::get<FVector>(B);
+
+            return std::fabs(Left.x - Right.x) <= Tolerance && std::fabs(Left.y - Right.y) <= Tolerance && std::fabs(Left.z - Right.z) <= Tolerance;
+        }
+
+        case EPropertyType::Rotator:
+        {
+            const FRotator& Left = std::get<FRotator>(A);
+            const FRotator& Right = std::get<FRotator>(B);
+
+            return std::fabs(Left.Pitch - Right.Pitch) <= Tolerance && std::fabs(Left.Yaw - Right.Yaw) <= Tolerance && std::fabs(Left.Roll - Right.Roll) <= Tolerance;
+        }
+
+        case EPropertyType::Transform:
+            return !IsTransformDifferent(std::get<FTransform>(A), std::get<FTransform>(B));
+
+        default:
+            return false;
+        }
+    }
+
+    bool CommitPendingPropertyEdit(const FEditorObjectContext& Context)
+    {
+        if (!PendingPropertyEdit.has_value())
+        {
+            return false;
+        }
+
+        FPendingPropertyEdit Pending = std::move(*PendingPropertyEdit);
+        PendingPropertyEdit.reset();
+
+        UObject* Object = FindObject(Context, Pending.ObjectUUID);
+
+        if (Object == nullptr || Object->GetClass() == nullptr)
+        {
+            return false;
+        }
+
+        const FProperty* Property = Object->GetClass()->FindProperty(Pending.PropertyName.c_str());
+
+        if (Property == nullptr)
+        {
+            return false;
+        }
+
+        const void* ValuePtr = Property->GetValuePtr(Object);
+        FPropertyValue AfterValue;
+
+        if (!ReadPropertyValue(Property->GetType(), ValuePtr, AfterValue))
+        {
+            return false;
+        }
+
+        if (ArePropertyValuesEqual(Pending.PropertyType, Pending.BeforeValue, AfterValue))
+        {
+            return true;
+        }
+
+        FHistoryEntry Entry;
+        Entry.Type = EHistoryType::Property;
+        Entry.Object.UUID = Pending.ObjectUUID;
+        Entry.PropertyName = Pending.PropertyName;
+        Entry.PropertyType = Pending.PropertyType;
+        Entry.BeforePropertyValue = std::move(Pending.BeforeValue);
+        Entry.AfterPropertyValue = std::move(AfterValue);
+        Entry.BeforeSelectedUUID = Pending.ObjectUUID;
+        Entry.AfterSelectedUUID = Pending.ObjectUUID;
+
+        PushEntry(std::move(Entry));
+
+        return true;
+    }
+    
     static UObject* FindObject(const FEditorObjectContext& Context, uint32 UUID)
     {
         if (UUID == 0)
@@ -498,6 +737,34 @@ private:
                 return false;
             }
         }
+        else if (Entry.Type == EHistoryType::Property)
+        {
+            UObject* Object = FindObject(Context, Entry.Object.UUID);
+
+            if (Object == nullptr || Object->GetClass() == nullptr)
+            {
+                return false;
+            }
+
+            const FProperty* Property = Object->GetClass()->FindProperty(Entry.PropertyName.c_str());
+
+            if (Property == nullptr)
+            {
+                return false;
+            }
+
+            const FPropertyValue& Value = bUndo ? Entry.BeforePropertyValue : Entry.AfterPropertyValue;
+
+            const bool bApplied = std::visit([&](const auto& TypedValue)
+            {
+                return Property->SetValue(Object, Entry.PropertyType, &TypedValue);
+            }, Value);
+
+            if (!bApplied)
+            {
+                return false;
+            }
+        }
         else
         {
             const bool bShouldExist = bUndo ? Entry.bBeforePresent : Entry.bAfterPresent;
@@ -512,7 +779,16 @@ private:
                     return false;
                 }
 
-                Context.Objects.Add(RestoredObject);
+                int32 InsertIndex = Entry.ObjectIndex;
+
+                if (InsertIndex == INDEX_NONE)
+                {
+                    InsertIndex = Context.Objects.Num();
+                }
+
+                InsertIndex = std::clamp(InsertIndex, 0, Context.Objects.Num());
+
+                Context.Objects.Insert(RestoredObject, InsertIndex);
             }
             else if (!bShouldExist && ExistingObject != nullptr)
             {
@@ -548,4 +824,6 @@ private:
 
     std::optional<FObjectSnapshot> ClipboardSnapshot;
     uint32 ClipboardPasteCount = 0;
+    
+    std::optional<FPendingPropertyEdit> PendingPropertyEdit;
 };

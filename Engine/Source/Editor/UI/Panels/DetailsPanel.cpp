@@ -2,8 +2,9 @@
 
 #include "imgui.h"
 #include "UObject/Class.h"
+#include "EditorUndoManager.h"
 
-static void DrawProperty(UObject* Object, const FProperty* Property)
+static void DrawProperty(FEditorObjectContext* Context, UObject* Object, const FProperty* Property)
 {
     if (Object == nullptr || Property == nullptr)
     {
@@ -29,7 +30,17 @@ static void DrawProperty(UObject* Object, const FProperty* Property)
     {
         if (bChanged && bEditable)
         {
+            if (Context != nullptr && Context->UndoManager != nullptr)
+            {
+                Context->UndoManager->BeginPropertyEdit(*Context, Object, Property);
+            }
+
             Property->SetValue(Object, Property->GetType(), NewValue);
+        }
+
+        if (bEditable && Context != nullptr && Context->UndoManager != nullptr && ImGui::IsItemDeactivatedAfterEdit())
+        {
+            Context->UndoManager->EndPropertyEdit(*Context, Object, Property);
         }
     };
     
@@ -103,11 +114,9 @@ static void DrawProperty(UObject* Object, const FProperty* Property)
 
         std::memcpy(Buffer, CurrentValue.c_str(), CopySize);
 
-        if (ImGui::InputText(Label.c_str(), Buffer, sizeof(Buffer)))
-        {
-            FString NewValue(Buffer);
-            CommitValue(true, &NewValue);
-        }
+        const bool bChanged = ImGui::InputText(Label.c_str(), Buffer, sizeof(Buffer));
+        FString NewValue(Buffer);
+        CommitValue(bChanged, &NewValue);
 
         break;
     }
@@ -144,16 +153,21 @@ static void DrawProperty(UObject* Object, const FProperty* Property)
 
         if (ImGui::TreeNode(Label.c_str()))
         {
-            bool bChanged = false;
-            bChanged |= ImGui::DragFloat3("Location", &Value.Location.x, 0.1f);
+            const bool bLocationChanged = ImGui::DragFloat3("Location", &Value.Location.x, 0.1f);
+            CommitValue(bLocationChanged, &Value);
+
             float Rotation[3] = {Value.Rotation.Pitch, Value.Rotation.Yaw, Value.Rotation.Roll};
-            if (ImGui::DragFloat3("Rotation", Rotation, 0.1f))
+            const bool bRotationChanged = ImGui::DragFloat3("Rotation", Rotation, 0.1f);
+
+            if (bRotationChanged)
             {
                 Value.Rotation = FRotator(Rotation[0], Rotation[1], Rotation[2]);
-                bChanged = true;
             }
-            bChanged |= ImGui::DragFloat3("Scale", &Value.Scale3D.x, 0.1f);
-            CommitValue(bChanged, &Value);
+
+            CommitValue(bRotationChanged, &Value);
+
+            const bool bScaleChanged = ImGui::DragFloat3("Scale", &Value.Scale3D.x, 0.1f);
+            CommitValue(bScaleChanged, &Value);
             ImGui::TreePop();
         }
         break;
@@ -234,7 +248,7 @@ void FDetailsPanel::OnRender()
         {
             if (Property->GetCategory() == Category)
             {
-                DrawProperty(SelectedObject, Property);
+                DrawProperty(Context, SelectedObject, Property);
             }
         }
     }
