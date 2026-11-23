@@ -558,7 +558,7 @@ bool FEditorTransformGizmo::Draw(FEditorObjectContext& Context, const FMatrix& V
     }
 
     const ETransformGizmoMode DrawMode = bDragStillTargetsSelection ? DragMode : CurrentMode;
-    const ETransformCoordinateSpace DrawSpace = bDragStillTargetsSelection ? DragSpace : CoordinateSpace;
+    const ETransformCoordinateSpace DrawSpace = DrawMode == ETransformGizmoMode::Scale ? ETransformCoordinateSpace::Local : (bDragStillTargetsSelection ? DragSpace : CoordinateSpace);
 
     const EGizmoHandle ActiveDragHandle = bDragStillTargetsSelection ? PreviousDragHandle : EGizmoHandle::None;
 
@@ -907,7 +907,7 @@ bool FEditorTransformGizmo::BeginDrag(USceneComponent* Component, EGizmoHandle H
     DragStartMouse = MousePosition;
 
     DragMode = CurrentMode;
-    DragSpace = CoordinateSpace;
+    DragSpace = DragMode == ETransformGizmoMode::Scale ? ETransformCoordinateSpace::Local : CoordinateSpace;
 
     const int32 AxisIndex = GetAxisIndex(Handle);
 
