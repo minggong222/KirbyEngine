@@ -95,29 +95,18 @@ namespace EditorPicking
 
                 const FVector LocalDirection = FVector::TransformNormal(WorldRay.direction, InverseWorld);
 
-                const float LocalDirectionLengthSquared  = LocalDirection.LengthSquared();
+                const float LocalDirectionLengthSquared = LocalDirection.LengthSquared();
 
-                if (!std::isfinite(LocalDirectionLengthSquared ) || LocalDirectionLengthSquared  <= EPSILON_1E_12)
-                {
-                    continue;
-                }
-                
-                const float LocalDirectionLength = std::sqrt(LocalDirectionLengthSquared);
-                if (!std::isfinite(LocalDirectionLength) || LocalDirectionLength <= 0.0f)
+                if (!std::isfinite(LocalDirectionLengthSquared) || LocalDirectionLengthSquared <= EPSILON_1E_12)
                 {
                     continue;
                 }
 
-                const FRay LocalBoundsRay(LocalOrigin, LocalDirection);
-                
-                FVector NormalizedLocalDirection = LocalDirection;
-                NormalizedLocalDirection.Normalize();
-
-                const FRay LocalTriangleRay(LocalOrigin, NormalizedLocalDirection);
+                const FRay LocalRay(LocalOrigin, LocalDirection);
                 
                 float BoundsHitT = 0.0f;
 
-                if (!MeshData.LocalBounds.Intersect(LocalBoundsRay, BoundsHitT))
+                if (!MeshData.LocalBounds.Intersect(LocalRay, BoundsHitT))
                 {
                     continue;
                 }
@@ -139,7 +128,7 @@ namespace EditorPicking
 
                     float TriangleHitT = 0.0f;
 
-                    if (!LocalTriangleRay.Intersects(V0, V1, V2, TriangleHitT))
+                    if (!LocalRay.Intersects(V0, V1, V2, TriangleHitT))
                     {
                         continue;
                     }

@@ -177,7 +177,10 @@ void FViewportPanel::OnRender()
 
             if (ObjectContext != nullptr)
             {
-                bGizmoConsumed = TransformGizmo.Draw(*ObjectContext, ViewMatrix, ProjectionMatrix, ImGui::GetWindowDrawList(), ImageMin, ImageSize, bImageHovered);
+                ImDrawList* DrawList = ImGui::GetWindowDrawList();
+                DrawList->PushClipRect(ImageMin, ImageMax, true);
+                bGizmoConsumed = TransformGizmo.Draw(*ObjectContext, ViewMatrix, ProjectionMatrix, DrawList, ImageMin, ImageSize, bImageHovered);
+                DrawList->PopClipRect();
             }
 
             if (bImageHovered && ImGui::IsMouseClicked(ImGuiMouseButton_Left) && !bGizmoConsumed)
