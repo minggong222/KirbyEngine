@@ -1169,8 +1169,8 @@ void FEditorTransformGizmo::UpdateDrag(const ImVec2& MousePosition, const ImVec2
                 NewTransform.Scale3D.z = SnapValue(NewTransform.Scale3D.z, ScaleSnap);
 
                 NewTransform.Scale3D.x = std::fabs(NewTransform.Scale3D.x) < GIZMO_MIN_SCALE ? std::copysign(GIZMO_MIN_SCALE, NewTransform.Scale3D.x) : NewTransform.Scale3D.x;
-                NewTransform.Scale3D.y = std::fabs(NewTransform.Scale3D.y) < GIZMO_MIN_SCALE ? GIZMO_MIN_SCALE : NewTransform.Scale3D.y;
-                NewTransform.Scale3D.z = std::fabs(NewTransform.Scale3D.z) < GIZMO_MIN_SCALE ? GIZMO_MIN_SCALE : NewTransform.Scale3D.z;
+                NewTransform.Scale3D.y = std::fabs(NewTransform.Scale3D.y) < GIZMO_MIN_SCALE ? std::copysign(GIZMO_MIN_SCALE, NewTransform.Scale3D.y) : NewTransform.Scale3D.y;
+                NewTransform.Scale3D.z = std::fabs(NewTransform.Scale3D.z) < GIZMO_MIN_SCALE ? std::copysign(GIZMO_MIN_SCALE, NewTransform.Scale3D.z) : NewTransform.Scale3D.z;
             }
         }
         else
@@ -1203,7 +1203,7 @@ void FEditorTransformGizmo::UpdateDrag(const ImVec2& MousePosition, const ImVec2
 
                 if (std::fabs(NewScale) < GIZMO_MIN_SCALE)
                 {
-                    NewScale = GIZMO_MIN_SCALE;
+                    NewScale = std::copysign(GIZMO_MIN_SCALE, NewScale);
                 }
             }
 

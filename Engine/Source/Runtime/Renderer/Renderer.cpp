@@ -246,12 +246,17 @@ void URenderer::Release()
 // 스왑 체인의 백 버퍼와 프론트 버퍼를 교체하여 화면에 출력
 void URenderer::SwapBuffer()
 {
-    if (mDeviceContext == nullptr || ViewportRTV == nullptr || ViewportDSV == nullptr || ViewportDepthState == nullptr)
+    if (mSwapChain == nullptr)
     {
         return;
     }
-    
-    mSwapChain->Present(0, 0);
+
+    const HRESULT hr = mSwapChain->Present(0, 0);
+
+    if (FAILED(hr))
+    {
+        OutputDebugStringA("[Renderer] Present failed.\n");
+    }
 }
 
 void URenderer::CreateShader()
@@ -390,7 +395,7 @@ void URenderer::Prepare()
 
 void URenderer::PrepareShader()
 {
-    if (mDeviceContext == nullptr || ViewportRTV == nullptr || ViewportDSV == nullptr || ViewportDepthState == nullptr)
+    if (mDeviceContext == nullptr || mSimpleVertexShader == nullptr || mSimplePixelShader == nullptr || mSimpleInputLayout == nullptr)
     {
         return;
     }
@@ -408,7 +413,7 @@ void URenderer::PrepareShader()
 
 void URenderer::RenderPrimitive(ID3D11Buffer* pBuffer, UINT numVertices, bool bRenderOutline)
 {
-    if (mDeviceContext == nullptr || ViewportRTV == nullptr || ViewportDSV == nullptr || ViewportDepthState == nullptr)
+    if (mDeviceContext == nullptr || pBuffer == nullptr || mRasterizerState == nullptr || (bRenderOutline && mOutlineRasterizerState == nullptr))
     {
         return;
     }
@@ -680,6 +685,11 @@ void URenderer::BeginViewportRender()
 
 void URenderer::EndViewportRender()
 {
+    if (mDeviceContext == nullptr || mFrameBufferRTV == nullptr)
+    {
+        return;
+    }
+
     mDeviceContext->OMSetRenderTargets(1, &mFrameBufferRTV, nullptr);
     mDeviceContext->RSSetViewports(1, &mViewportInfo);
     mDeviceContext->OMSetDepthStencilState(nullptr, 0);

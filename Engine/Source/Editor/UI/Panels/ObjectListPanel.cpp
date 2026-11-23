@@ -142,12 +142,13 @@ namespace
     UObject* DuplicateObject(FEditorObjectContext& Context, FViewportPanel* ViewportPanel)
     {
         UObject* SourceObject = Context.SelectedObject;
-        const uint32 PreviousSelectedUUID = SourceObject->GetUUID();
-        
+
         if (SourceObject == nullptr)
         {
             return nullptr;
         }
+
+        const uint32 PreviousSelectedUUID = SourceObject->GetUUID();
 
         if (ViewportPanel != nullptr)
         {
@@ -324,7 +325,7 @@ void FObjectListPanel::OnRender()
 
     if (bWindowFocused && !IO.WantTextInput)
     {
-        if (IO.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_D, false))
+        if (IO.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_W, false))
         {
             bPendingDuplicate = true;
         }
@@ -363,7 +364,7 @@ void FObjectListPanel::OnRender()
         {
             Context->SelectedObject = Object;
 
-            if (ImGui::MenuItem("Duplicate", "Ctrl+D"))
+            if (ImGui::MenuItem("Duplicate", "Ctrl+W"))
             {
                 bPendingDuplicate = true;
             }
