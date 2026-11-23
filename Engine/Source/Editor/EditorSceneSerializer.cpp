@@ -1,4 +1,8 @@
-﻿#include "EditorSceneSerializer.h"
+﻿#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <Windows.h>
+#include "EditorSceneSerializer.h"
 
 #include "EditorObjectContext.h"
 
@@ -13,6 +17,7 @@
 #include "Resources/StaticMesh.h"
 
 #include "UObject/Object.h"
+#include "UObject/Class.h"
 
 #include "Json/Dom/JsonObject.h"
 #include "Json/Serialization/JsonSerializer.h"
@@ -24,17 +29,21 @@
 #include <iterator>
 #include <limits>
 #include <string>
+#include <cstdint>
 #include <unordered_set>
 
 extern TArray<UObject*> GUObjectArray;
 
 namespace
 {
+    constexpr std::uintmax_t MaxSceneFileBytes = 64ull * 1024ull * 1024ull;
+    
     struct FSceneObjectRecord
     {
         uint32 UUID = 0;
         FTransform Transform;
         UStaticMesh* StaticMesh = nullptr;
+        TSharedPtr<FJsonObject> CameraSettings;
         bool bIsCamera = false;
     };
 
@@ -54,6 +63,111 @@ namespace
         JsonObject.SetArrayField("Location", MakeNumberArray(Transform.Location.x, Transform.Location.y, Transform.Location.z));
         JsonObject.SetArrayField("Rotation", MakeNumberArray(Transform.Rotation.Pitch, Transform.Rotation.Yaw, Transform.Rotation.Roll));
         JsonObject.SetArrayField("Scale", MakeNumberArray(Transform.Scale3D.x, Transform.Scale3D.y, Transform.Scale3D.z));
+    }
+    
+    bool WriteCameraSettings(FJsonObject& JsonObject, const UCameraComponent& Camera)
+    {
+        TArray<const FProperty*> Properties;
+        Camera.GetClass()->GetProperties(Properties, true);
+
+        FJsonObject Settings;
+
+        for (const FProperty* Property : Properties)
+        {
+            if (Property->GetName().ToStd() == "Transform")
+            {
+                continue;
+            }
+
+            const void* ValuePtr = Property->GetValuePtr(&Camera);
+
+            if (ValuePtr == nullptr)
+            {
+                return false;
+            }
+
+            switch (Property->GetType())
+            {
+            case EPropertyType::Bool:
+                Settings.SetBoolField(Property->GetName(), *static_cast<const bool*>(ValuePtr));
+                break;
+
+            case EPropertyType::Float:
+                Settings.SetNumberField(Property->GetName(), *static_cast<const float*>(ValuePtr));
+                break;
+
+            default:
+                return false;
+            }
+        }
+
+        JsonObject.SetObjectField("Settings", std::move(Settings));
+        return true;
+    }
+    
+    bool ApplyCameraSettings(UCameraComponent& Camera, const FJsonObject* Settings)
+    {
+        if (Settings == nullptr)
+        {
+            return true;
+        }
+
+        TArray<const FProperty*> Properties;
+        Camera.GetClass()->GetProperties(Properties, true);
+
+        for (const FProperty* Property : Properties)
+        {
+            if (Property->GetName().ToStd() == "Transform")
+            {
+                continue;
+            }
+
+            const TSharedPtr<FJsonValue> Value = Settings->GetField(Property->GetName());
+
+            if (!Value.IsValid())
+            {
+                continue;
+            }
+
+            switch (Property->GetType())
+            {
+            case EPropertyType::Bool:
+                {
+                    bool ConvertedValue = false;
+
+                    if (!Value->TryGetBool(ConvertedValue) || !Property->SetValue(&Camera, EPropertyType::Bool, &ConvertedValue))
+                    {
+                        return false;
+                    }
+
+                    break;
+                }
+
+            case EPropertyType::Float:
+                {
+                    double Number = 0.0;
+
+                    if (!Value->TryGetNumber(Number) || !std::isfinite(Number) || std::fabs(Number) > (std::numeric_limits<float>::max)())
+                    {
+                        return false;
+                    }
+
+                    const float ConvertedValue = static_cast<float>(Number);
+
+                    if (!Property->SetValue(&Camera, EPropertyType::Float, &ConvertedValue))
+                    {
+                        return false;
+                    }
+
+                    break;
+                }
+
+            default:
+                return false;
+            }
+        }
+
+        return true;
     }
 
     bool ReadNumberArray3(const FJsonObject& JsonObject, const FString& FieldName, double OutValues[3])
@@ -177,6 +291,19 @@ namespace
                 return false;
             }
 
+            if (bIsCamera && ObjectData->HasField("Settings"))
+            {
+                const TSharedPtr<FJsonValue> SettingsValue = ObjectData->GetField("Settings");
+                const FJsonObject* SettingsObject = nullptr;
+
+                if (!TryGetJsonObject(SettingsValue, SettingsObject))
+                {
+                    return false;
+                }
+
+                Record.CameraSettings = SettingsValue->AsObject();
+            }
+
             if (!bIsCamera)
             {
                 FString Type;
@@ -272,6 +399,12 @@ bool FSceneSerializer::Save(const std::filesystem::path& FilePath, const FEditor
             FJsonObject CameraData;
             WriteTransform(CameraData, Camera->GetTransform());
 
+            if (!WriteCameraSettings(CameraData, *Camera))
+            {
+                UE_LOG(Error, "Scene Save failed: Unsupported camera property type");
+                return false;
+            }
+
             Cameras->SetObjectField(std::to_string(Object->GetUUID()).c_str(), std::move(CameraData));
         }
         else
@@ -293,11 +426,20 @@ bool FSceneSerializer::Save(const std::filesystem::path& FilePath, const FEditor
         return false;
     }
 
-    std::ofstream OutputFile(FilePath, std::ios::binary | std::ios::out | std::ios::trunc);
+    std::filesystem::path TemporaryPath = FilePath;
+    TemporaryPath += L".tmp";
+
+    auto RemoveTemporaryFile = [&TemporaryPath]()
+    {
+        std::error_code RemoveError;
+        std::filesystem::remove(TemporaryPath, RemoveError);
+    };
+
+    std::ofstream OutputFile(TemporaryPath, std::ios::binary | std::ios::out | std::ios::trunc);
 
     if (!OutputFile.is_open())
     {
-        UE_LOG(Error, "Scene Save failed: Cannot open output file");
+        UE_LOG(Error, "Scene Save failed: Cannot open temporary file");
         return false;
     }
 
@@ -308,7 +450,26 @@ bool FSceneSerializer::Save(const std::filesystem::path& FilePath, const FEditor
 
     if (!OutputFile.good())
     {
+        OutputFile.close();
+        RemoveTemporaryFile();
         UE_LOG(Error, "Scene Save failed: File write error");
+        return false;
+    }
+
+    OutputFile.close();
+
+    if (OutputFile.fail())
+    {
+        RemoveTemporaryFile();
+        UE_LOG(Error, "Scene Save failed: File close error");
+        return false;
+    }
+
+    if (!MoveFileExW(TemporaryPath.c_str(), FilePath.c_str(), MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH))
+    {
+        const DWORD ErrorCode = GetLastError();
+        RemoveTemporaryFile();
+        UE_LOG(Error, "Scene Save failed: Cannot replace target file (%u)", static_cast<uint32>(ErrorCode));
         return false;
     }
 
@@ -331,11 +492,32 @@ bool FSceneSerializer::Load(const std::filesystem::path& FilePath, FEditorObject
         return false;
     }
 
+    std::error_code FileSizeError;
+    const std::uintmax_t FileSize = std::filesystem::file_size(FilePath, FileSizeError);
+
+    if (FileSizeError)
+    {
+        UE_LOG(Error, "Scene Load failed: Cannot query input file size");
+        return false;
+    }
+
+    if (FileSize > MaxSceneFileBytes)
+    {
+        UE_LOG(Error, "Scene Load failed: File exceeds maximum size");
+        return false;
+    }
+
     std::string JsonText((std::istreambuf_iterator<char>(InputFile)), std::istreambuf_iterator<char>());
 
     if (InputFile.bad())
     {
         UE_LOG(Error, "Scene Load failed: File read error");
+        return false;
+    }
+
+    if (JsonText.size() > MaxSceneFileBytes)
+    {
+        UE_LOG(Error, "Scene Load failed: File exceeds maximum size");
         return false;
     }
 
@@ -450,6 +632,14 @@ bool FSceneSerializer::Load(const std::filesystem::path& FilePath, FEditorObject
             if (Camera != nullptr)
             {
                 Camera->SetTransform(Record.Transform);
+
+                if (!ApplyCameraSettings(*Camera, Record.CameraSettings.Get()))
+                {
+                    delete Camera;
+                    DestroyStagedObjects();
+                    UE_LOG(Error, "Scene Load failed: Invalid camera settings");
+                    return false;
+                }
             }
 
             NewObjectInstance = Camera;

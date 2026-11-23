@@ -409,6 +409,7 @@
     <ClInclude Include="Engine\Source\Runtime\Json\Dom\JsonValue.h" />
     <ClInclude Include="Engine\Source\Runtime\Json\Serialization\JsonReader.h" />
     <ClInclude Include="Engine\Source\Runtime\Json\Serialization\JsonSerializer.h" />
+    <ClInclude Include="Engine\Source\Runtime\Json\Serialization\JsonUTF8.h" />
     <ClInclude Include="Engine\Source\Runtime\Json\Serialization\JsonWriter.h" />
     <ClInclude Include="Engine\Source\Runtime\Renderer\Renderer.h" />
     <ClInclude Include="Engine\Source\Runtime\Resources\Asset.h" />

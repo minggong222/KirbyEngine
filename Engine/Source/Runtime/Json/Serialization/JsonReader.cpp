@@ -1,6 +1,7 @@
 ﻿#include "JsonReader.h"
 
 #include "Json/Dom/JsonObject.h"
+#include "JsonUTF8.h"
 
 #include <charconv>
 #include <cmath>
@@ -23,6 +24,13 @@ bool FJsonReader::Read(TSharedPtr<FJsonValue>& OutValue, FString& OutError)
     if (Source.size() > MaxInputBytes)
     {
         Fail("JSON input exceeds maximum size");
+        OutError = FString(ErrorMessage);
+        return false;
+    }
+    
+    if (!JsonUTF8::IsValid(Source))
+    {
+        Fail("JSON input is not valid UTF-8");
         OutError = FString(ErrorMessage);
         return false;
     }

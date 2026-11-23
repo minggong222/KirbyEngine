@@ -14,7 +14,7 @@ private:
     bool WriteObject(const FJsonObject& Object, uint32 Depth);
     bool WriteArray(const TArray<TSharedPtr<FJsonValue>>& Values, uint32 Depth);
 
-    void WriteString(const FString& Value);
+    bool WriteString(const FString& Value);
     void WriteIndent(uint32 Depth);
     bool WriteNumber(double Number);
 

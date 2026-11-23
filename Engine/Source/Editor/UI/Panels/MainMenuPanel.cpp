@@ -74,7 +74,6 @@ void FMainMenuPanel::SaveScene(bool bSaveAs)
 
     if (!FSceneSerializer::Save(TargetPath, *Context))
     {
-        UE_LOG(Error, "Failed to save scene");
         return;
     }
 

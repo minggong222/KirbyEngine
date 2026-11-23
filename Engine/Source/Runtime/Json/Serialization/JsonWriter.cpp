@@ -1,6 +1,7 @@
 ﻿#include "JsonWriter.h"
 
 #include "Json/Dom/JsonObject.h"
+#include "JsonUTF8.h"
 
 #include <charconv>
 #include <cmath>
@@ -61,8 +62,7 @@ bool FJsonWriter::WriteValue(const TSharedPtr<FJsonValue>& Value, uint32 Depth)
         return WriteNumber(Value->AsNumber());
 
     case EJson::String:
-        WriteString(Value->AsString());
-        return true;
+        return WriteString(Value->AsString());
 
     case EJson::Array:
         return WriteArray(Value->AsArray(), Depth);
@@ -113,7 +113,11 @@ bool FJsonWriter::WriteObject(const FJsonObject& Object, uint32 Depth)
             WriteIndent(Depth + 1);
         }
 
-        WriteString(Key);
+        if (!WriteString(Key))
+        {
+            return false;
+        }
+
         Output += bPrettyPrint ? ": " : ":";
 
         if (!WriteValue(Value, Depth + 1))
@@ -164,13 +168,20 @@ bool FJsonWriter::WriteArray(const TArray<TSharedPtr<FJsonValue>>& Values, uint3
     return true;
 }
 
-void FJsonWriter::WriteString(const FString& Value)
+bool FJsonWriter::WriteString(const FString& Value)
 {
     static constexpr char HexDigits[] = "0123456789ABCDEF";
 
+    const std::string& Text = Value.ToStd();
+
+    if (!JsonUTF8::IsValid(Text))
+    {
+        return Fail("JSON string contains invalid UTF-8");
+    }
+
     Output.push_back('"');
 
-    for (unsigned char Character : Value.ToStd())
+    for (unsigned char Character : Text)
     {
         switch (Character)
         {
@@ -198,6 +209,7 @@ void FJsonWriter::WriteString(const FString& Value)
     }
 
     Output.push_back('"');
+    return true;
 }
 
 void FJsonWriter::WriteIndent(uint32 Depth)
