@@ -500,7 +500,21 @@
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>
 
-  <Target Name="GenerateKirbyReflection" BeforeTargets="ClCompile">
+  <ItemGroup>
+    <KirbyReflectionInput Include="$(MSBuildProjectDirectory)\Engine\Source\Runtime\**\*.h" />
+    <KirbyReflectionInput Include="$(MSBuildProjectDirectory)\Engine\Programs\KirbyHeaderTool\Main.cpp" />
+    <KirbyReflectionInput Include="$(MSBuildProjectDirectory)\Engine\Programs\KirbyHeaderTool\HeaderParser.cpp" />
+    <KirbyReflectionInput Include="$(MSBuildProjectDirectory)\Engine\Programs\KirbyHeaderTool\HeaderParser.h" />
+    <KirbyReflectionInput Include="$(MSBuildProjectDirectory)\Engine\Programs\KirbyHeaderTool\CodeGenerator.cpp" />
+    <KirbyReflectionInput Include="$(MSBuildProjectDirectory)\Engine\Programs\KirbyHeaderTool\CodeGenerator.h" />
+    <KirbyReflectionInput Include="$(MSBuildProjectDirectory)\Engine\Programs\KirbyHeaderTool\KirbyHeaderTool.vcxproj" />
+  </ItemGroup>
+
+  <Target Name="GenerateKirbyReflection"
+          BeforeTargets="ClCompile"
+          Inputs="@(KirbyReflectionInput)"
+          Outputs="$(IntDir)Generated\KirbyReflection.stamp;$(IntDir)Generated\KirbyEngine.generated.cpp">
+
     <Message Importance="High" Text="[KirbyHeaderTool] Generating reflection code..." />
 
     <MSBuild
@@ -511,6 +525,12 @@
     <MakeDir Directories="$(IntDir)Generated" />
 
     <Exec Command="&quot;$(MSBuildProjectDirectory)\Build\Bin\Tools\$(Platform)\$(Configuration)\KirbyHeaderTool.exe&quot; --input-dir &quot;$(MSBuildProjectDirectory)\Engine\Source\Runtime&quot; --output-dir &quot;$(IntDir)Generated&quot;" />
+
+    <Touch Files="$(IntDir)Generated\KirbyReflection.stamp" AlwaysCreate="true" />
+  </Target>
+
+  <Target Name="CleanKirbyReflection" AfterTargets="Clean">
+    <RemoveDir Directories="$(IntDir)Generated" />
   </Target>
 
 </Project>
