@@ -108,24 +108,28 @@ bool FJsonObject::TryGetStringField(const FString& FieldName, FString& OutValue)
 
 bool FJsonObject::TryGetArrayField(const FString& FieldName, const TArray<TSharedPtr<FJsonValue>>*& OutValue) const
 {
+    OutValue = nullptr;
     const TSharedPtr<FJsonValue> Value = GetField(FieldName);
     return Value.IsValid() && Value->TryGetArray(OutValue);
 }
 
 bool FJsonObject::TryGetArrayField(const FString& FieldName, TArray<TSharedPtr<FJsonValue>>*& OutValue)
 {
+    OutValue = nullptr;
     const TSharedPtr<FJsonValue> Value = GetField(FieldName);
     return Value.IsValid() && Value->TryGetArray(OutValue);
 }
 
 bool FJsonObject::TryGetObjectField(const FString& FieldName, const TSharedPtr<FJsonObject>*& OutValue) const
 {
+    OutValue = nullptr;
     const TSharedPtr<FJsonValue> Value = GetField(FieldName);
     return Value.IsValid() && Value->TryGetObject(OutValue);
 }
 
 bool FJsonObject::TryGetObjectField(const FString& FieldName, TSharedPtr<FJsonObject>*& OutValue)
 {
+    OutValue = nullptr;
     const TSharedPtr<FJsonValue> Value = GetField(FieldName);
     return Value.IsValid() && Value->TryGetObject(OutValue);
 }

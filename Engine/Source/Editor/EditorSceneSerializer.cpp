@@ -205,7 +205,7 @@ namespace
                 }
             }
 
-            OutMaxUUID = max(OutMaxUUID, Record.UUID);
+            OutMaxUUID = (std::max)(OutMaxUUID, Record.UUID);
             OutRecords.Add(std::move(Record));
         }
 
@@ -381,9 +381,6 @@ bool FSceneSerializer::Load(const std::filesystem::path& FilePath, FEditorObject
         return false;
     }
 
-    UStaticMeshComponent::StaticClass();
-    UCameraComponent::StaticClass();
-
     TArray<FSceneObjectRecord> Records;
     TSet<uint32> SeenUUIDs;
     uint32 MaxUUID = 0;
@@ -428,7 +425,7 @@ bool FSceneSerializer::Load(const std::filesystem::path& FilePath, FEditorObject
         return false;
     }
 
-    FEngineStatics::NextUUID = max(FEngineStatics::NextUUID, SavedNextUUID);
+    FEngineStatics::NextUUID = (std::max)(FEngineStatics::NextUUID, SavedNextUUID);
 
     TArray<UObject*> StagedObjects;
 
@@ -453,7 +450,6 @@ bool FSceneSerializer::Load(const std::filesystem::path& FilePath, FEditorObject
             if (Camera != nullptr)
             {
                 Camera->SetTransform(Record.Transform);
-                Camera->SetUUID(Record.UUID);
             }
 
             NewObjectInstance = Camera;
@@ -466,7 +462,6 @@ bool FSceneSerializer::Load(const std::filesystem::path& FilePath, FEditorObject
             {
                 Component->SetStaticMesh(Record.StaticMesh);
                 Component->SetTransform(Record.Transform);
-                Component->SetUUID(Record.UUID);
             }
 
             NewObjectInstance = Component;
@@ -489,15 +484,17 @@ bool FSceneSerializer::Load(const std::filesystem::path& FilePath, FEditorObject
 
     Context.Objects.Reset();
 
-    for (UObject* StagedObject : StagedObjects)
+    for (int32 Index = 0; Index < StagedObjects.Num(); ++Index)
     {
+        UObject* StagedObject = StagedObjects[Index];
+        StagedObject->SetUUID(Records[Index].UUID);
         Context.Objects.Add(StagedObject);
     }
 
     StagedObjects.Reset();
     Context.SelectedObject = nullptr;
 
-    FEngineStatics::NextUUID = max(FEngineStatics::NextUUID, SavedNextUUID);
+    FEngineStatics::NextUUID = (std::max)(FEngineStatics::NextUUID, SavedNextUUID);
 
     UE_LOG(Info, "Scene loaded: %s", FilePath.string().c_str());
     return true;
