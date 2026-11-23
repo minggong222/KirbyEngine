@@ -7,6 +7,7 @@
 
 #include "Components/CubeComp.h"
 #include "Components/SphereComp.h"
+#include "Components/PlaneComp.h"
 
 #include "UObject/Class.h"
 
@@ -40,5 +41,10 @@ bool RegisterBuiltinStaticMeshes(FAssetManager& AssetManager, URenderer& Rendere
         return CreatePrimitiveMesh(Renderer, USphereComp::CreateMeshVertices());
     });
     
-    return Cube != nullptr && Sphere != nullptr;
+    UStaticMesh* Plane = AssetManager.Load<UStaticMesh>(BuiltinAssetPaths::Plane, [&Renderer]()
+    {
+        return CreatePrimitiveMesh(Renderer, UPlaneComp::CreateMeshVertices());
+    });
+    
+    return Cube != nullptr && Sphere != nullptr && Plane != nullptr;
 }

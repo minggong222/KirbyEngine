@@ -91,6 +91,14 @@ void FObjectListPanel::OnRender()
 
     ImGui::SameLine();
 
+    if (ImGui::Button("Plane"))
+    {
+        UStaticMesh* PlaneMesh = AssetManager->Find<UStaticMesh>(BuiltinAssetPaths::Plane);
+        SpawnStaticMeshObject(*Context, PlaneMesh);
+    }
+    
+    ImGui::SameLine();
+
     if (ImGui::Button("Camera"))
     {
         SpawnCameraObject(*Context);

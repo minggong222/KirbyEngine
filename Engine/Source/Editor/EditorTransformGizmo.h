@@ -38,6 +38,30 @@ public:
     bool Draw(FEditorObjectContext& Context, const FMatrix& View, const FMatrix& Projection, ImDrawList* DrawList, const ImVec2& ImageMin, const ImVec2& ImageSize, bool bImageHovered);
     
     void CancelDrag();
+    
+    void SetMode(ETransformGizmoMode InMode)
+    {
+        if (CurrentMode != InMode)
+        {
+            CancelDrag();
+            CurrentMode = InMode;
+        }
+    }
+
+    ETransformGizmoMode GetMode() const
+    {
+        return CurrentMode;
+    }
+
+    void SetCoordinateSpace(ETransformCoordinateSpace InSpace)
+    {
+        CoordinateSpace = InSpace;
+    }
+
+    ETransformCoordinateSpace GetCoordinateSpace() const
+    {
+        return CoordinateSpace;
+    }
 private:
     bool BeginDrag(USceneComponent* Component, EGizmoHandle Handle, const FTransform& Transform, const FVector Axes[3],
         const ImVec2& MousePosition, const ImVec2& ImageMin, const ImVec2& ImageSize, const FMatrix& View, const FMatrix& Projection, float GizmoWorldSize);

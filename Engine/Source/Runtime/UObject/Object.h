@@ -21,10 +21,10 @@ public:
     
     template<typename T>
     bool IsA() const { return IsA(T::StaticClass()); }
-    
-    void* operator new(SIZE_T size);
-    void operator delete(void* ptr, SIZE_T size);
 private:
     uint32 UUID;
     uint32 InternalIndex;
 };
+
+
+extern TArray<UObject*> GUObjectArray;

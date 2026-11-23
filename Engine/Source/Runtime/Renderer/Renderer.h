@@ -9,6 +9,9 @@ struct FConstants
     FMatrix World;
     FMatrix View;
     FMatrix Projection;
+
+    uint32 IsSelected = 0;
+    float Padding[3] = {};
 };
 
 class URenderer
@@ -36,7 +39,7 @@ public:
 
     void CreateConstantBuffer();
     void ReleaseConstantBuffer();
-    void UpdateConstant(FMatrix World, FMatrix View, FMatrix Projection);
+    void UpdateConstant(FMatrix World, FMatrix View, FMatrix Projection, bool bIsSelected);
 
     ID3D11Device* GetDevice();
     ID3D11DeviceContext* GetDeviceContext();

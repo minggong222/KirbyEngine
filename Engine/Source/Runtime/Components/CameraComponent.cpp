@@ -16,7 +16,7 @@ UCameraComponent::UCameraComponent()
 
 FMatrix UCameraComponent::GetViewMatrix() const
 {
-    const FTransform CameraTransform = GetTransform();
+    const FTransform CameraTransform = GetWorldTransform();
     const FVector CameraPosition = CameraTransform.Location;
     const FVector Forward = CameraTransform.GetForward();
     const FVector Up = CameraTransform.GetUp();

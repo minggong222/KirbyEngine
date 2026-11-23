@@ -276,7 +276,7 @@ void URenderer::ReleaseConstantBuffer()
     }
 }
 
-void URenderer::UpdateConstant(FMatrix World, FMatrix View, FMatrix Projection)
+void URenderer::UpdateConstant(FMatrix World, FMatrix View, FMatrix Projection, bool bIsSelected)
 {
     if (mConstantBuffer)
     {
@@ -289,6 +289,7 @@ void URenderer::UpdateConstant(FMatrix World, FMatrix View, FMatrix Projection)
             constants->World = World;
             constants->View = View;
             constants->Projection = Projection;
+            constants->IsSelected = bIsSelected ? 1u : 0u;
         }
 
         mDeviceContext->Unmap(mConstantBuffer, 0);

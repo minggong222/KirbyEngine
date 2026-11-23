@@ -462,6 +462,9 @@ private:
     int32 Count = 0;
 };
 
+template <typename T>
+using TLinkedList = TDoubleLinkedList<T>;
+
 // -----------------------------------------------------------------------------
 // TBitArray: std::vector<bool>-backed compatibility subset.
 // -----------------------------------------------------------------------------

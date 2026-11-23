@@ -566,7 +566,7 @@ bool FEditorTransformGizmo::Draw(FEditorObjectContext& Context, const FMatrix& V
     // TRANSFORM / AXES
     // ============================================================
 
-    const FTransform Transform = SelectedComponent->GetTransform();
+    const FTransform Transform = SelectedComponent->GetWorldTransform();
 
     FVector Axes[3] =
     {
@@ -1148,7 +1148,7 @@ void FEditorTransformGizmo::UpdateDrag(const ImVec2& MousePosition, const ImVec2
     // APPLY TRANSFORM
     // ============================================================
 
-    DraggedComponent->SetTransform(NewTransform);
+    DraggedComponent->SetWorldTransform(NewTransform);
 }
 
 void FEditorTransformGizmo::EndDrag()

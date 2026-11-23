@@ -13,6 +13,7 @@
 #include "UI/Panels/DetailsPanel.h"
 #include "UI/Panels/ObjectListPanel.h"
 #include "UI/Panels/MainMenuPanel.h"
+#include "UI/Panels/StatsPanel.h"
 #include "UObject/Object.h"
 #include "Resources/StaticMesh.h"
 
@@ -53,8 +54,11 @@ bool FEditorEngine::Init(HINSTANCE hInstance)
     ImGuiRenderer->GetPanelManager()->AddPanel(ObjectListPanel);
     DetailsPanel = new FDetailsPanel(&ObjectContext);
     ImGuiRenderer->GetPanelManager()->AddPanel(DetailsPanel);
+    StatsPanel = new FStatsPanel(&FrameStats, &ObjectContext);
+    ImGuiRenderer->GetPanelManager()->AddPanel(StatsPanel);
     MainMenuPanel = new FMainMenuPanel(&ObjectContext, &AssetManager, WindowsWindow->GetHWND(), MainCamera);
     ImGuiRenderer->GetPanelManager()->AddPanel(MainMenuPanel);
+    
     bIsRunning = true;
     UE_LOG(Info, "Info");
     UE_LOG(Error, "Error");
@@ -165,8 +169,8 @@ void FEditorEngine::Run()
                     continue;
                 }
                 
-                const FMatrix World = Component->GetTransform().GetLocalMatrix();
-                Renderer->UpdateConstant(World, View, Projection);
+                const FMatrix World = Component->GetWorldMatrix();
+                Renderer->UpdateConstant(World, View, Projection, Object == ObjectContext.SelectedObject);
                 Renderer->RenderPrimitive(RenderData.VertexBuffer, RenderData.VertexCount);
             }
             Renderer->EndViewportRender();            

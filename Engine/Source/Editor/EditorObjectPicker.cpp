@@ -80,7 +80,7 @@ namespace EditorPicking
                     continue;
                 }
 
-                const FMatrix WorldMatrix = Component->GetTransform().GetLocalMatrix();
+                const FMatrix WorldMatrix = Component->GetWorldMatrix();
 
                 const float Determinant = WorldMatrix.Determinant();
 

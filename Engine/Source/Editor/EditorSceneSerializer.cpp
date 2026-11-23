@@ -379,6 +379,10 @@ namespace
                 {
                     Record.StaticMesh = AssetManager.Find<UStaticMesh>(BuiltinAssetPaths::Sphere);
                 }
+                else if (Type == "Plane")
+                {
+                    Record.StaticMesh = AssetManager.Find<UStaticMesh>(BuiltinAssetPaths::Plane);
+                }
                 else
                 {
                     return false;
@@ -440,6 +444,10 @@ bool FSceneSerializer::Save(const std::filesystem::path& FilePath, const FEditor
             {
                 Type = "Sphere";
             }
+            else if (AssetPath == BuiltinAssetPaths::Plane)
+            {
+                Type = "Plane";
+            }
             else
             {
                 UE_LOG(Error, "Scene Save failed: Unsupported StaticMesh");
@@ -447,7 +455,7 @@ bool FSceneSerializer::Save(const std::filesystem::path& FilePath, const FEditor
             }
 
             FJsonObject PrimitiveData;
-            WriteTransform(PrimitiveData, Component->GetTransform());
+            WriteTransform(PrimitiveData, Component->GetWorldTransform());
             PrimitiveData.SetStringField("Type", Type);
 
             Primitives->SetObjectField(std::to_string(Object->GetUUID()).c_str(), std::move(PrimitiveData));
@@ -455,7 +463,7 @@ bool FSceneSerializer::Save(const std::filesystem::path& FilePath, const FEditor
         else if (UCameraComponent* Camera = Cast<UCameraComponent>(Object))
         {
             FJsonObject CameraData;
-            WriteTransform(CameraData, Camera->GetTransform());
+            WriteTransform(CameraData, Camera->GetWorldTransform());
 
             if (!WriteCameraSettings(CameraData, *Camera))
             {
