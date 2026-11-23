@@ -11,5 +11,5 @@ class UPlaneComp : public UPrimitiveComponent
     GENERATED_BODY()
 
 public:
-    static TArray<FVertexSimple> CreateMeshVertices();
+    static FStaticMeshBuildData CreateMeshData();
 };

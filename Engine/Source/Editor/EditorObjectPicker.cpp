@@ -69,8 +69,9 @@ namespace EditorPicking
                 const FStaticMeshRenderData& MeshData = Mesh->GetRenderData();
 
                 const TArray<FVector>& Positions = MeshData.Positions;
-
-                if (Positions.Num() < 3 || Positions.Num() % 3 != 0)
+                const TArray<uint32>& Indices = MeshData.Indices;
+                
+                if (Positions.Num() < 3 || Indices.Num() < 3 || Indices.Num() % 3 != 0)
                 {
                     continue;
                 }
@@ -120,11 +121,20 @@ namespace EditorPicking
 
                 float ObjectHitT = (std::numeric_limits<float>::max)();
 
-                for (int32 Index = 0; Index + 2 < Positions.Num(); Index += 3)
+                for (int32 Index = 0; Index + 2 < Indices.Num(); Index += 3)
                 {
-                    const FVector& V0 = Positions[Index];
-                    const FVector& V1 = Positions[Index + 1];
-                    const FVector& V2 = Positions[Index + 2];
+                    const uint32 I0 = Indices[Index];
+                    const uint32 I1 = Indices[Index + 1];
+                    const uint32 I2 = Indices[Index + 2];
+
+                    if (I0 >= static_cast<uint32>(Positions.Num()) || I1 >= static_cast<uint32>(Positions.Num()) || I2 >= static_cast<uint32>(Positions.Num()))
+                    {
+                        continue;
+                    }
+
+                    const FVector& V0 = Positions[static_cast<int32>(I0)];
+                    const FVector& V1 = Positions[static_cast<int32>(I1)];
+                    const FVector& V2 = Positions[static_cast<int32>(I2)];
 
                     float TriangleHitT = 0.0f;
 

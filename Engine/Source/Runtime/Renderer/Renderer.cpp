@@ -411,9 +411,9 @@ void URenderer::PrepareShader()
     }
 }
 
-void URenderer::RenderPrimitive(ID3D11Buffer* pBuffer, UINT numVertices, bool bRenderOutline)
+void URenderer::RenderPrimitive(ID3D11Buffer* VertexBuffer, ID3D11Buffer* IndexBuffer, UINT IndexCount, bool bRenderOutline)
 {
-    if (mDeviceContext == nullptr || pBuffer == nullptr || mRasterizerState == nullptr || (bRenderOutline && mOutlineRasterizerState == nullptr))
+    if (mDeviceContext == nullptr || VertexBuffer == nullptr || IndexBuffer == nullptr || IndexCount == 0 || mRasterizerState == nullptr || (bRenderOutline && mOutlineRasterizerState == nullptr))
     {
         return;
     }
@@ -423,10 +423,13 @@ void URenderer::RenderPrimitive(ID3D11Buffer* pBuffer, UINT numVertices, bool bR
         mDeviceContext->RSSetState(mOutlineRasterizerState);
     }
 
-    UINT offset = 0;
-    mDeviceContext->IASetVertexBuffers(0, 1, &pBuffer, &mStride, &offset);
-
-    mDeviceContext->Draw(numVertices, 0);
+    UINT Offset  = 0;
+    
+    mDeviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+    mDeviceContext->IASetVertexBuffers(0, 1, &VertexBuffer, &mStride, &Offset);
+    mDeviceContext->IASetIndexBuffer(IndexBuffer, DXGI_FORMAT_R32_UINT, 0);
+    
+    mDeviceContext->DrawIndexed(IndexCount, 0, 0);
 
     if (bRenderOutline)
     {
@@ -461,9 +464,54 @@ ID3D11Buffer* URenderer::CreateVertexBuffer(FVertexSimple* vertices, UINT byteWi
     return vertexBuffer;
 }
 
-void URenderer::ReleaseVertexBuffer(ID3D11Buffer* vertexBuffer)
+void URenderer::ReleaseVertexBuffer(ID3D11Buffer* VertexBuffer)
 {
-    vertexBuffer->Release();
+    if (VertexBuffer != nullptr)
+    {
+        VertexBuffer->Release();
+    }
+}
+
+ID3D11Buffer* URenderer::CreateIndexBuffer(const uint32* Indices, UINT IndexCount)
+{
+    if (mDevice == nullptr || Indices == nullptr || IndexCount == 0)
+    {
+        return nullptr;
+    }
+    
+    const uint64 ByteWidth = sizeof(uint32) * static_cast<uint64>(IndexCount);
+    
+    if (ByteWidth > (std::numeric_limits<UINT>::max)())
+    {
+        return nullptr;
+    }
+    
+    D3D11_BUFFER_DESC IndexBufferDesc = {};
+    IndexBufferDesc.ByteWidth = static_cast<UINT>(ByteWidth);
+    IndexBufferDesc.Usage = D3D11_USAGE_IMMUTABLE;
+    IndexBufferDesc.BindFlags = D3D11_BIND_INDEX_BUFFER;
+    
+    D3D11_SUBRESOURCE_DATA IndexBufferData = {};
+    IndexBufferData.pSysMem = Indices;
+    
+    ID3D11Buffer* IndexBuffer = nullptr;
+    
+    const HRESULT hr = mDevice->CreateBuffer(&IndexBufferDesc, &IndexBufferData, &IndexBuffer);
+    
+    if (FAILED(hr))
+    {
+        return nullptr;
+    }
+    
+    return IndexBuffer;
+}
+
+void URenderer::ReleaseIndexBuffer(ID3D11Buffer* IndexBuffer)
+{
+    if (IndexBuffer != nullptr)
+    {
+        IndexBuffer->Release();
+    }
 }
 
 void URenderer::CreateConstantBuffer()

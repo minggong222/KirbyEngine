@@ -1,61 +1,74 @@
-﻿
-#include "CubeComp.h"
+﻿#include "CubeComp.h"
 
-TArray<FVertexSimple> UCubeComp::CreateMeshVertices()
+FStaticMeshBuildData UCubeComp::CreateMeshData()
 {
-    return {
-        // Front face (Z+) - Outward
-        { -0.5f, -0.5f,  0.5f,  1.0f, 0.0f, 0.0f, 1.0f }, // Bottom-left (red)
-        {  0.5f, -0.5f,  0.5f,  0.0f, 1.0f, 0.0f, 1.0f }, // Bottom-right (green)
-        { -0.5f,  0.5f,  0.5f,  1.0f, 1.0f, 0.0f, 1.0f }, // Top-left (yellow)
+    FStaticMeshBuildData Data;
 
-        { -0.5f,  0.5f,  0.5f,  1.0f, 1.0f, 0.0f, 1.0f }, // Top-left (yellow)
-        {  0.5f, -0.5f,  0.5f,  0.0f, 1.0f, 0.0f, 1.0f }, // Bottom-right (green)
-        {  0.5f,  0.5f,  0.5f,  0.0f, 0.0f, 1.0f, 1.0f }, // Top-right (blue)
+    auto AddQuad = [&Data](const FVertexSimple& V0, const FVertexSimple& V1, const FVertexSimple& V2, const FVertexSimple& V3)
+    {
+        const uint32 BaseIndex = static_cast<uint32>(Data.Vertices.Num());
 
-        // Back face (Z-) - Outward
-        { -0.5f, -0.5f, -0.5f,  0.0f, 1.0f, 1.0f, 1.0f }, // Bottom-left (cyan)
-        { -0.5f,  0.5f, -0.5f,  0.0f, 0.0f, 1.0f, 1.0f }, // Top-left (blue)
-        {  0.5f, -0.5f, -0.5f,  1.0f, 0.0f, 1.0f, 1.0f }, // Bottom-right (magenta)
+        Data.Vertices.Add(V0);
+        Data.Vertices.Add(V1);
+        Data.Vertices.Add(V2);
+        Data.Vertices.Add(V3);
 
-        { -0.5f,  0.5f, -0.5f,  0.0f, 0.0f, 1.0f, 1.0f }, // Top-left (blue)
-        {  0.5f,  0.5f, -0.5f,  1.0f, 1.0f, 0.0f, 1.0f }, // Top-right (yellow)
-        {  0.5f, -0.5f, -0.5f,  1.0f, 0.0f, 1.0f, 1.0f }, // Bottom-right (magenta)
+        Data.Indices.Add(BaseIndex);
+        Data.Indices.Add(BaseIndex + 1);
+        Data.Indices.Add(BaseIndex + 2);
 
-        // Left face (X-) - Outward
-        { -0.5f, -0.5f, -0.5f,  1.0f, 0.0f, 1.0f, 1.0f }, // Bottom-left (purple)
-        { -0.5f, -0.5f,  0.5f,  0.0f, 1.0f, 0.0f, 1.0f }, // Bottom-right (green)
-        { -0.5f,  0.5f, -0.5f,  0.0f, 0.0f, 1.0f, 1.0f }, // Top-left (blue)
-
-        { -0.5f,  0.5f, -0.5f,  0.0f, 0.0f, 1.0f, 1.0f }, // Top-left (blue)
-        { -0.5f, -0.5f,  0.5f,  0.0f, 1.0f, 0.0f, 1.0f }, // Bottom-right (green)
-        { -0.5f,  0.5f,  0.5f,  1.0f, 1.0f, 0.0f, 1.0f }, // Top-right (yellow)
-
-        // Right face (X+) - Outward
-        {  0.5f, -0.5f, -0.5f,  1.0f, 0.5f, 0.0f, 1.0f }, // Bottom-left (orange)
-        {  0.5f,  0.5f, -0.5f,  0.5f, 0.0f, 0.5f, 1.0f }, // Top-left (purple)
-        {  0.5f, -0.5f,  0.5f,  0.5f, 0.5f, 0.5f, 1.0f }, // Bottom-right (gray)
-
-        {  0.5f,  0.5f, -0.5f,  0.5f, 0.0f, 0.5f, 1.0f }, // Top-left (purple)
-        {  0.5f,  0.5f,  0.5f,  0.0f, 0.0f, 0.5f, 1.0f }, // Top-right (dark blue)
-        {  0.5f, -0.5f,  0.5f,  0.5f, 0.5f, 0.5f, 1.0f }, // Bottom-right (gray)
-
-        // Top face (Y+) - Outward
-        { -0.5f,  0.5f, -0.5f,  0.0f, 1.0f, 0.5f, 1.0f }, // Bottom-left (light green)
-        { -0.5f,  0.5f,  0.5f,  0.0f, 0.5f, 1.0f, 1.0f }, // Top-left (cyan)
-        {  0.5f,  0.5f, -0.5f,  0.5f, 1.0f, 1.0f, 1.0f }, // Bottom-right (white)
-
-        { -0.5f,  0.5f,  0.5f,  0.0f, 0.5f, 1.0f, 1.0f }, // Top-left (cyan)
-        {  0.5f,  0.5f,  0.5f,  0.5f, 0.5f, 0.0f, 1.0f }, // Top-right (brown)
-        {  0.5f,  0.5f, -0.5f,  0.5f, 1.0f, 1.0f, 1.0f }, // Bottom-right (white)
-
-        // Bottom face (Y-) - Outward
-        { -0.5f, -0.5f, -0.5f,  0.5f, 0.5f, 0.0f, 1.0f }, // Bottom-left (brown)
-        {  0.5f, -0.5f, -0.5f,  1.0f, 0.0f, 0.5f, 1.0f }, // Bottom-right (purple)
-        { -0.5f, -0.5f,  0.5f,  1.0f, 0.0f, 0.0f, 1.0f }, // Top-left (red)
-
-        { -0.5f, -0.5f,  0.5f,  1.0f, 0.0f, 0.0f, 1.0f }, // Top-left (red)
-        {  0.5f, -0.5f, -0.5f,  1.0f, 0.0f, 0.5f, 1.0f }, // Bottom-right (purple)
-        {  0.5f, -0.5f,  0.5f,  0.0f, 1.0f, 0.0f, 1.0f }, // Top-right (green)
+        Data.Indices.Add(BaseIndex);
+        Data.Indices.Add(BaseIndex + 2);
+        Data.Indices.Add(BaseIndex + 3);
     };
+
+    // Front: +Z
+    AddQuad(
+        {-0.5f, -0.5f, 0.5f, 1.0f, 0.0f, 0.0f, 1.0f},
+        {0.5f, -0.5f, 0.5f, 0.0f, 1.0f, 0.0f, 1.0f},
+        {0.5f, 0.5f, 0.5f, 0.0f, 0.0f, 1.0f, 1.0f},
+        {-0.5f, 0.5f, 0.5f, 1.0f, 1.0f, 0.0f, 1.0f}
+    );
+
+    // Back: -Z
+    AddQuad(
+        {0.5f, -0.5f, -0.5f, 1.0f, 0.0f, 1.0f, 1.0f},
+        {-0.5f, -0.5f, -0.5f, 0.0f, 1.0f, 1.0f, 1.0f},
+        {-0.5f, 0.5f, -0.5f, 0.0f, 0.0f, 1.0f, 1.0f},
+        {0.5f, 0.5f, -0.5f, 1.0f, 1.0f, 0.0f, 1.0f}
+    );
+
+    // Left: -X
+    AddQuad(
+        {-0.5f, -0.5f, -0.5f, 1.0f, 0.0f, 1.0f, 1.0f},
+        {-0.5f, -0.5f, 0.5f, 0.0f, 1.0f, 0.0f, 1.0f},
+        {-0.5f, 0.5f, 0.5f, 1.0f, 1.0f, 0.0f, 1.0f},
+        {-0.5f, 0.5f, -0.5f, 0.0f, 0.0f, 1.0f, 1.0f}
+    );
+
+    // Right: +X
+    AddQuad(
+        {0.5f, -0.5f, -0.5f, 1.0f, 0.5f, 0.0f, 1.0f},
+        {0.5f, 0.5f, -0.5f, 0.5f, 0.0f, 0.5f, 1.0f},
+        {0.5f, 0.5f, 0.5f, 0.0f, 0.0f, 0.5f, 1.0f},
+        {0.5f, -0.5f, 0.5f, 0.5f, 0.5f, 0.5f, 1.0f}
+    );
+
+    // Top: +Y
+    AddQuad(
+        {-0.5f, 0.5f, -0.5f, 0.0f, 1.0f, 0.5f, 1.0f},
+        {-0.5f, 0.5f, 0.5f, 0.0f, 0.5f, 1.0f, 1.0f},
+        {0.5f, 0.5f, 0.5f, 0.5f, 0.5f, 0.0f, 1.0f},
+        {0.5f, 0.5f, -0.5f, 0.5f, 1.0f, 1.0f, 1.0f}
+    );
+
+    // Bottom: -Y
+    AddQuad(
+        {-0.5f, -0.5f, -0.5f, 0.5f, 0.5f, 0.0f, 1.0f},
+        {0.5f, -0.5f, -0.5f, 1.0f, 0.0f, 0.5f, 1.0f},
+        {0.5f, -0.5f, 0.5f, 0.0f, 1.0f, 0.0f, 1.0f},
+        {-0.5f, -0.5f, 0.5f, 1.0f, 0.0f, 0.0f, 1.0f}
+    );
+
+    return Data;
 }

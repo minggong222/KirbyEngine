@@ -12,7 +12,7 @@ class UStaticMesh : public UAsset
 {
     GENERATED_BODY()
 public:
-    bool Initialize(URenderer& Renderer, TArray<FVertexSimple>&& SourceVertices);
+    bool Initialize(URenderer& Renderer, FStaticMeshBuildData&& SourceData);
     const FStaticMeshRenderData& GetRenderData() const { return RenderData; }
     ~UStaticMesh() override;
 private:

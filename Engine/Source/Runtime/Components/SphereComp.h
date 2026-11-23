@@ -11,6 +11,6 @@ class USphereComp : public UPrimitiveComponent
 public:
 	USphereComp() = default;
 	
-    static TArray<FVertexSimple> CreateMeshVertices();
+	static FStaticMeshBuildData CreateMeshData();
 private:
 };

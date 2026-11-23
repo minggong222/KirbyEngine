@@ -32,10 +32,13 @@ public:
 
     void Prepare();
     void PrepareShader();
-    void RenderPrimitive(ID3D11Buffer* pBuffer, UINT numVertices, bool bRenderOutline = false);
+    void RenderPrimitive(ID3D11Buffer* VertexBuffer, ID3D11Buffer* IndexBuffer, UINT IndexCount, bool bRenderOutline = false);
 
     ID3D11Buffer* CreateVertexBuffer(FVertexSimple* vertices, UINT byteWidth);
-    void ReleaseVertexBuffer(ID3D11Buffer* vertexBuffer);
+    void ReleaseVertexBuffer(ID3D11Buffer* VertexBuffer);
+    
+    ID3D11Buffer* CreateIndexBuffer(const uint32* Indices, UINT IndexCount);
+    void ReleaseIndexBuffer(ID3D11Buffer* IndexBuffer);
 
     void CreateConstantBuffer();
     void ReleaseConstantBuffer();

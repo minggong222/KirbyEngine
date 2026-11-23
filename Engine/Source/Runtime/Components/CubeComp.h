@@ -11,7 +11,7 @@ class UCubeComp : public UPrimitiveComponent
 public:
     UCubeComp() = default;
     
-    static TArray<FVertexSimple> CreateMeshVertices();
+    static FStaticMeshBuildData CreateMeshData();
 private:
 
 };

@@ -1,15 +1,18 @@
-﻿
-#include "SphereComp.h"
+﻿#include "SphereComp.h"
+
 #include <cmath>
 
-TArray<FVertexSimple> USphereComp::CreateMeshVertices()
+FStaticMeshBuildData USphereComp::CreateMeshData()
 {
     constexpr float PI = 3.14159265358979323846f;
     constexpr int32 NumStacks = 20;
     constexpr int32 NumSlices = 20;
+    constexpr int32 RowSize = NumSlices + 1;
 
-    TArray<FVertexSimple> Vertices;
-    Vertices.Reserve(2280);
+    FStaticMeshBuildData Data;
+
+    Data.Vertices.Reserve((NumStacks + 1) * (NumSlices + 1));
+    Data.Indices.Reserve(2280);
 
     const auto MakeVertex = [](float Phi, float Theta)
     {
@@ -19,62 +22,54 @@ TArray<FVertexSimple> USphereComp::CreateMeshVertices()
         const float Y = std::cos(Phi);
         const float Z = SinPhi * std::sin(Theta);
 
-        return FVertexSimple{
-            X,
-            Y,
-            Z,
-            X * 0.5f + 0.5f,
-            Y * 0.5f + 0.5f,
-            Z * 0.5f + 0.5f,
-            1.0f
-        };
+        return FVertexSimple{X, Y, Z, X * 0.5f + 0.5f, Y * 0.5f + 0.5f, Z * 0.5f + 0.5f, 1.0f};
     };
+
+    for (int32 Stack = 0; Stack <= NumStacks; ++Stack)
+    {
+        const float Phi = PI * static_cast<float>(Stack) / static_cast<float>(NumStacks);
+
+        for (int32 Slice = 0; Slice <= NumSlices; ++Slice)
+        {
+            const float Theta = 2.0f * PI * static_cast<float>(Slice) / static_cast<float>(NumSlices);
+
+            Data.Vertices.Add(MakeVertex(Phi, Theta));
+        }
+    }
 
     for (int32 Stack = 0; Stack < NumStacks; ++Stack)
     {
-        const float Phi0 = PI * static_cast<float>(Stack) / static_cast<float>(NumStacks);
-        const float Phi1 = PI * static_cast<float>(Stack + 1) / static_cast<float>(NumStacks);
-
         for (int32 Slice = 0; Slice < NumSlices; ++Slice)
         {
-            const int32 NextSlice = (Slice + 1) % NumSlices;
-
-            const float Theta0 = 2.0f * PI * static_cast<float>(Slice) / static_cast<float>(NumSlices);
-            const float Theta1 = 2.0f * PI * static_cast<float>(NextSlice) / static_cast<float>(NumSlices);
-
-            const FVertexSimple V00 = MakeVertex(Phi0, Theta0);
-            const FVertexSimple V10 = MakeVertex(Phi1, Theta0);
-            const FVertexSimple V11 = MakeVertex(Phi1, Theta1);
-            const FVertexSimple V01 = MakeVertex(Phi0, Theta1);
+            const uint32 V00 = static_cast<uint32>(Stack * RowSize + Slice);
+            const uint32 V01 = static_cast<uint32>(Stack * RowSize + Slice + 1);
+            const uint32 V10 = static_cast<uint32>((Stack + 1) * RowSize + Slice);
+            const uint32 V11 = static_cast<uint32>((Stack + 1) * RowSize + Slice + 1);
 
             if (Stack == 0)
             {
-                // Top cap - Outward
-                Vertices.Add(V00);
-                Vertices.Add(V11);
-                Vertices.Add(V10);
+                Data.Indices.Add(V00);
+                Data.Indices.Add(V11);
+                Data.Indices.Add(V10);
             }
             else if (Stack == NumStacks - 1)
             {
-                // Bottom cap - Outward
-                Vertices.Add(V00);
-                Vertices.Add(V01);
-                Vertices.Add(V11);
+                Data.Indices.Add(V00);
+                Data.Indices.Add(V01);
+                Data.Indices.Add(V11);
             }
             else
             {
-                // First triangle - Outward
-                Vertices.Add(V00);
-                Vertices.Add(V11);
-                Vertices.Add(V10);
+                Data.Indices.Add(V00);
+                Data.Indices.Add(V11);
+                Data.Indices.Add(V10);
 
-                // Second triangle - Outward
-                Vertices.Add(V00);
-                Vertices.Add(V01);
-                Vertices.Add(V11);
+                Data.Indices.Add(V00);
+                Data.Indices.Add(V01);
+                Data.Indices.Add(V11);
             }
         }
     }
 
-    return Vertices;
+    return Data;
 }

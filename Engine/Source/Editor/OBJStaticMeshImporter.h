@@ -23,7 +23,7 @@ namespace OBJImporter
     inline constexpr std::uintmax_t MaxOBJFileBytes = 64ull * 1024ull * 1024ull;
     inline constexpr std::size_t MaxOBJPositionCount = 1'000'000;
     inline constexpr std::size_t MaxOBJFaceVertexCount = 4096;
-    inline constexpr int32 MaxOBJOutputVertexCount = 3'000'000;
+    inline constexpr int32 MaxOBJOutputIndexCount = 3'000'000;
     
     inline bool HasOBJExtension(const std::filesystem::path& FilePath)
     {
@@ -65,9 +65,10 @@ namespace OBJImporter
         return OutIndex >= 0 && OutIndex < VertexCount;
     }
 
-    inline bool ParseOBJ(const std::filesystem::path& FilePath, TArray<FVertexSimple>& OutVertices)
+    inline bool ParseOBJ(const std::filesystem::path& FilePath, FStaticMeshBuildData& OutMeshData)
     {
-        OutVertices.Reset();
+        OutMeshData.Vertices.Reset();
+        OutMeshData.Indices.Reset();
 
         std::error_code FileSystemError;
         const std::uintmax_t FileSize = std::filesystem::file_size(FilePath, FileSystemError);
@@ -85,7 +86,9 @@ namespace OBJImporter
         }
 
         std::vector<FVector> Positions;
-        TArray<FVertexSimple> ParsedVertices;
+        TMap<int32, uint32> PositionToVertexIndex;
+
+        FStaticMeshBuildData ParsedData;
 
         std::string Line;
 
@@ -124,7 +127,7 @@ namespace OBJImporter
             }
             else if (Command == "f")
             {
-                std::vector<int32> FaceIndices;
+                std::vector<uint32> FaceIndices;
                 std::string Token;
 
                 while (LineStream >> Token)
@@ -139,14 +142,28 @@ namespace OBJImporter
                         return false;
                     }
 
-                    int32 VertexIndex = INDEX_NONE;
+                    int32 PositionIndex = INDEX_NONE;
 
-                    if (!ResolveVertexIndex(Token, static_cast<int32>(Positions.size()), VertexIndex))
+                    if (!ResolveVertexIndex(Token, static_cast<int32>(Positions.size()), PositionIndex))
                     {
                         return false;
                     }
 
-                    FaceIndices.push_back(VertexIndex);
+                    uint32* ExistingVertexIndex = PositionToVertexIndex.Find(PositionIndex);
+
+                    if (ExistingVertexIndex != nullptr)
+                    {
+                        FaceIndices.push_back(*ExistingVertexIndex);
+                    }
+                    else
+                    {
+                        const FVector& Position = Positions[PositionIndex];
+
+                        const uint32 NewVertexIndex = static_cast<uint32>(ParsedData.Vertices.Add({Position.x, Position.y, Position.z, 1.0f, 1.0f, 1.0f, 1.0f}));
+
+                        PositionToVertexIndex.Add(PositionIndex, NewVertexIndex);
+                        FaceIndices.push_back(NewVertexIndex);
+                    }
                 }
 
                 if (FaceIndices.size() < 3)
@@ -154,32 +171,28 @@ namespace OBJImporter
                     return false;
                 }
 
-                const std::size_t RequiredVertexCount = (FaceIndices.size() - 2) * 3;
+                const std::size_t RequiredIndexCount = (FaceIndices.size() - 2) * 3;
 
-                if (RequiredVertexCount > static_cast<std::size_t>(MaxOBJOutputVertexCount - ParsedVertices.Num()))
+                if (RequiredIndexCount > static_cast<std::size_t>(MaxOBJOutputIndexCount - ParsedData.Indices.Num()))
                 {
                     return false;
                 }
 
                 for (std::size_t Index = 1; Index + 1 < FaceIndices.size(); ++Index)
                 {
-                    const FVector& A = Positions[FaceIndices[0]];
-                    const FVector& B = Positions[FaceIndices[Index]];
-                    const FVector& C = Positions[FaceIndices[Index + 1]];
-
-                    ParsedVertices.Add({A.x, A.y, A.z, 1.0f, 1.0f, 1.0f, 1.0f});
-                    ParsedVertices.Add({B.x, B.y, B.z, 1.0f, 1.0f, 1.0f, 1.0f});
-                    ParsedVertices.Add({C.x, C.y, C.z, 1.0f, 1.0f, 1.0f, 1.0f});
+                    ParsedData.Indices.Add(FaceIndices[0]);
+                    ParsedData.Indices.Add(FaceIndices[Index]);
+                    ParsedData.Indices.Add(FaceIndices[Index + 1]);
                 }
             }
         }
 
-        if (InputFile.bad() || ParsedVertices.Num() < 3 || ParsedVertices.Num() % 3 != 0)
+        if (InputFile.bad() || ParsedData.Vertices.Num() < 3 || ParsedData.Indices.Num() < 3 || ParsedData.Indices.Num() % 3 != 0)
         {
             return false;
         }
 
-        OutVertices = std::move(ParsedVertices);
+        OutMeshData = std::move(ParsedData);
 
         return true;
     }
@@ -235,9 +248,9 @@ namespace OBJImporter
 
         return AssetManager.Load<UStaticMesh>(AssetPath, [&]() -> UStaticMesh*
         {
-            TArray<FVertexSimple> Vertices;
+            FStaticMeshBuildData MeshData;
 
-            if (!ParseOBJ(FullPath, Vertices))
+            if (!ParseOBJ(FullPath, MeshData))
             {
                 return nullptr;
             }
@@ -249,7 +262,7 @@ namespace OBJImporter
                 return nullptr;
             }
 
-            if (!NewMesh->Initialize(Renderer, std::move(Vertices)))
+            if (!NewMesh->Initialize(Renderer, std::move(MeshData)))
             {
                 delete NewMesh;
                 return nullptr;
