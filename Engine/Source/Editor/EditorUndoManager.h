@@ -217,7 +217,7 @@ public:
 
     void RecordCreate(const FEditorObjectContext& Context, UObject* Object, uint32 PreviousSelectedUUID)
     {
-        (void)Context;
+        CommitPendingPropertyEdit(Context);
         FHistoryEntry Entry;
 
         if (Object == nullptr || !CaptureObject(Object, Entry.Object))
@@ -268,7 +268,7 @@ public:
 
     void RecordTransform(const FEditorObjectContext& Context, uint32 UUID, const FTransform& Before, const FTransform& After)
     {
-        (void)Context;
+        CommitPendingPropertyEdit(Context);
         if (!IsTransformDifferent(Before, After))
         {
             return;

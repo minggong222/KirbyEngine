@@ -137,13 +137,9 @@ static void DrawProperty(FEditorObjectContext* Context, UObject* Object, const F
 
         float Values[3] = {CurrentValue.Pitch, CurrentValue.Yaw, CurrentValue.Roll};
 
-        bool bChanged = ImGui::DragFloat3(Label.c_str(), Values, 0.1f);
-
-        if (bChanged)
-        {
-            FRotator NewValue(Values[0], Values[1], Values[2]);
-            CommitValue(true, &NewValue);
-        }
+        const bool bChanged = ImGui::DragFloat3(Label.c_str(), Values, 0.1f);
+        const FRotator NewValue(Values[0], Values[1], Values[2]);
+        CommitValue(bChanged, &NewValue);
         break;
     }
 
