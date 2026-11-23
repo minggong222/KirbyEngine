@@ -528,7 +528,29 @@ bool FEditorTransformGizmo::Draw(FEditorObjectContext& Context, const FMatrix& V
                 CurrentMode = ETransformGizmoMode::Scale;
             }
 
-            if (ImGui::IsKeyPressed(ImGuiKey_GraveAccent, false))
+            if (ImGui::IsKeyPressed(ImGuiKey_Space, false))
+            {
+                switch (CurrentMode)
+                {
+                case ETransformGizmoMode::Translate:
+                    CurrentMode = ETransformGizmoMode::Rotate;
+                    break;
+
+                case ETransformGizmoMode::Rotate:
+                    CurrentMode = ETransformGizmoMode::Scale;
+                    break;
+
+                case ETransformGizmoMode::Scale:
+                    CurrentMode = ETransformGizmoMode::Translate;
+                    break;
+
+                default:
+                    CurrentMode = ETransformGizmoMode::Translate;
+                    break;
+                }
+            }
+
+            if (ImGui::GetIO().KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_GraveAccent, false))
             {
                 CoordinateSpace = CoordinateSpace == ETransformCoordinateSpace::World ? ETransformCoordinateSpace::Local : ETransformCoordinateSpace::World;
             }
