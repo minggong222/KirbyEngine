@@ -1,0 +1,13 @@
+
+#pragma once
+
+#define UCLASS(...)
+
+#define UPROPERTY(...)
+
+#define UFUNCTION(...)
+
+#define KIRBY_DETAIL_JOIN3_IMPL(A, B, C) A##B##C
+#define KIRBY_DETAIL_JOIN3(A, B, C) KIRBY_DETAIL_JOIN3_IMPL(A, B, C)
+
+#define GENERATED_BODY() KIRBY_DETAIL_JOIN3(CURRENT_FILE_ID, _GENERATED_BODY_LINE_, __LINE__)

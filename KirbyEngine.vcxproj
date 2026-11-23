@@ -114,6 +114,7 @@
       <LanguageStandard>stdcpp20</LanguageStandard>
 
       <AdditionalIncludeDirectories>
+        $(IntDir)Generated;
         $(ProjectDir);
         $(ProjectDir)Engine\Source\ThirdParty\ImGui;
         C:\Users\JUNGLE\Documents\GitHub\KirbyEngine\Engine\Source\Editor;
@@ -160,6 +161,9 @@
     </Manifest>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="Engine\Programs\KirbyHeaderTool\CodeGenerator.cpp" />
+    <ClCompile Include="Engine\Programs\KirbyHeaderTool\HeaderParser.cpp" />
+    <ClCompile Include="Engine\Programs\KirbyHeaderTool\Main.cpp" />
     <ClCompile Include="Engine\Source\Editor\EditorCameraController.cpp" />
     <ClCompile Include="Engine\Source\Editor\EditorEngine.cpp" />
     <ClCompile Include="Engine\Source\Editor\EditorObjectPicker.cpp" />
@@ -373,6 +377,8 @@
     <ClCompile Include="Engine\Source\ThirdParty\ImGui\imgui_widgets.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Engine\Programs\KirbyHeaderTool\CodeGenerator.h" />
+    <ClInclude Include="Engine\Programs\KirbyHeaderTool\HeaderParser.h" />
     <ClInclude Include="Engine\Source\Editor\EditorCameraController.h" />
     <ClInclude Include="Engine\Source\Editor\EditorEngine.h" />
     <ClInclude Include="Engine\Source\Editor\EditorObjectContext.h" />
@@ -419,6 +425,7 @@
     <ClInclude Include="Engine\Source\Runtime\Resources\StaticMeshData.h" />
     <ClInclude Include="Engine\Source\Runtime\UObject\Class.h" />
     <ClInclude Include="Engine\Source\Runtime\UObject\Object.h" />
+    <ClInclude Include="Engine\Source\Runtime\UObject\ObjectMacros.h" />
     <ClInclude Include="Engine\Source\Runtime\Windows\WindowsWindow.h" />
     <ClInclude Include="Engine\Source\ThirdParty\ImGui\imconfig.h" />
     <ClInclude Include="Engine\Source\ThirdParty\ImGui\imgui.h" />
@@ -443,6 +450,10 @@
       <ExcludedFromBuild>true</ExcludedFromBuild>
     </FxCompile>
   </ItemGroup>
+  <ItemGroup>
+    <Content Include="Engine\Programs\KirbyHeaderTool\KirbyHeaderTool.vcxproj" />
+    <Content Include="Engine\Source\Runtime\UObject\ObjectMacros.h" />
+  </ItemGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <OutDir>$(SolutionDir)Build\Bin\$(Platform)\$(Configuration)\</OutDir>
     <IntDir>$(SolutionDir)Build\Intermediate\$(ProjectName)\$(Platform)\$(Configuration)\</IntDir>
@@ -459,7 +470,25 @@
     <OutDir>$(SolutionDir)Build\Bin\$(Platform)\$(Configuration)\</OutDir>
     <IntDir>$(SolutionDir)Build\Intermediate\$(ProjectName)\$(Platform)\$(Configuration)\</IntDir>
   </PropertyGroup>
+  <ItemGroup>
+    <ClCompile Include="$(IntDir)Generated\KirbyEngine.generated.cpp" />
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>
+
+  <Target Name="GenerateKirbyReflection" BeforeTargets="ClCompile">
+    <Message Importance="High" Text="[KirbyHeaderTool] Generating reflection code..." />
+
+    <MSBuild
+            Projects="$(MSBuildProjectDirectory)\Engine\Programs\KirbyHeaderTool\KirbyHeaderTool.vcxproj"
+            Targets="Build"
+            Properties="Configuration=$(Configuration);Platform=$(Platform)" />
+
+    <MakeDir Directories="$(IntDir)Generated" />
+
+    <Exec Command="&quot;$(MSBuildProjectDirectory)\Build\Bin\Tools\$(Platform)\$(Configuration)\KirbyHeaderTool.exe&quot; --input-dir &quot;$(MSBuildProjectDirectory)\Engine\Source\Runtime&quot; --output-dir &quot;$(IntDir)Generated&quot;" />
+  </Target>
+
 </Project>
