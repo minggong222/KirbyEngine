@@ -360,7 +360,7 @@ namespace
     float ApplyScaleFactor(float StartScale, float Factor)
     {
         const float Sign = StartScale < 0.0f ? -1.0f : 1.0f;
-        const float Magnitude = max(std::fabs(StartScale) * Factor, GIZMO_MIN_SCALE);
+        const float Magnitude = (std::max)(std::fabs(StartScale) * Factor, GIZMO_MIN_SCALE);
 
         return Sign * Magnitude;
     }

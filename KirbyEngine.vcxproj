@@ -18,6 +18,14 @@
       <Platform>x64</Platform>
     </ProjectConfiguration>
   </ItemGroup>
+  <ItemDefinitionGroup>
+    <ClCompile>
+      <PrecompiledHeader>Use</PrecompiledHeader>
+      <PrecompiledHeaderFile>Core/Precompiled.h</PrecompiledHeaderFile>
+      <PrecompiledHeaderOutputFile>$(IntDir)KirbyEngine.pch</PrecompiledHeaderOutputFile>
+      <ForcedIncludeFiles>Core/Precompiled.h;%(ForcedIncludeFiles)</ForcedIncludeFiles>
+    </ClCompile>
+  </ItemDefinitionGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>18.0</VCProjectVersion>
     <Keyword>Win32Proj</Keyword>
@@ -167,7 +175,7 @@
         $(ProjectDir)Engine\Source\ThirdParty\ImGui;
         %(AdditionalIncludeDirectories)
       </AdditionalIncludeDirectories>
-      
+
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -267,8 +275,7 @@
       <CallingConvention>Cdecl</CallingConvention>
       <ProgramDataBaseFileName>C:\Users\JUNGLE\Documents\GitHub\KirbyEngine\Build\Intermediate\KirbyEngine\x64\Debug\vc145.pdb</ProgramDataBaseFileName>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <PrecompiledHeaderFile>stdafx.h</PrecompiledHeaderFile>
-      <PrecompiledHeaderOutputFile>C:\Users\JUNGLE\Documents\GitHub\KirbyEngine\Build\Intermediate\KirbyEngine\x64\Debug\KirbyEngine.pch</PrecompiledHeaderOutputFile>
+      <ForcedIncludeFiles></ForcedIncludeFiles>
       <PreprocessToFile>false</PreprocessToFile>
       <PreprocessKeepComments>false</PreprocessKeepComments>
       <PreprocessSuppressLineNumbers>false</PreprocessSuppressLineNumbers>
@@ -312,6 +319,10 @@
     <ClCompile Include="Engine\Source\Runtime\Core\Logging\Log.cpp" />
     <ClCompile Include="Engine\Source\Runtime\Core\Math\Rotator.cpp" />
     <ClCompile Include="Engine\Source\Runtime\Core\Math\Transform.cpp" />
+    <ClCompile Include="Engine\Source\Runtime\Core\Precompiled.cpp">
+      <PrecompiledHeader>Create</PrecompiledHeader>
+      <ForcedIncludeFiles></ForcedIncludeFiles>
+    </ClCompile>
     <ClCompile Include="Engine\Source\Runtime\Core\SimpleMath.cpp" />
     <ClCompile Include="Engine\Source\Runtime\Core\Stats\FrameStats.cpp" />
     <ClCompile Include="Engine\Source\Runtime\Core\Time\PlatformTime.cpp" />
@@ -363,8 +374,7 @@
       <CallingConvention>Cdecl</CallingConvention>
       <ProgramDataBaseFileName>C:\Users\JUNGLE\Documents\GitHub\KirbyEngine\Build\Intermediate\KirbyEngine\x64\Debug\vc145.pdb</ProgramDataBaseFileName>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <PrecompiledHeaderFile>stdafx.h</PrecompiledHeaderFile>
-      <PrecompiledHeaderOutputFile>C:\Users\JUNGLE\Documents\GitHub\KirbyEngine\Build\Intermediate\KirbyEngine\x64\Debug\KirbyEngine.pch</PrecompiledHeaderOutputFile>
+      <ForcedIncludeFiles></ForcedIncludeFiles>
       <PreprocessToFile>false</PreprocessToFile>
       <PreprocessKeepComments>false</PreprocessKeepComments>
       <PreprocessSuppressLineNumbers>false</PreprocessSuppressLineNumbers>
@@ -412,13 +422,34 @@
     <ClCompile Include="Engine\Source\Runtime\UObject\Class.cpp" />
     <ClCompile Include="Engine\Source\Runtime\UObject\Object.cpp" />
     <ClCompile Include="Engine\Source\Runtime\Windows\WindowsWindow.cpp" />
-    <ClCompile Include="Engine\Source\ThirdParty\ImGui\imgui.cpp" />
-    <ClCompile Include="Engine\Source\ThirdParty\ImGui\imgui_demo.cpp" />
-    <ClCompile Include="Engine\Source\ThirdParty\ImGui\imgui_draw.cpp" />
-    <ClCompile Include="Engine\Source\ThirdParty\ImGui\imgui_impl_dx11.cpp" />
-    <ClCompile Include="Engine\Source\ThirdParty\ImGui\imgui_impl_win32.cpp" />
-    <ClCompile Include="Engine\Source\ThirdParty\ImGui\imgui_tables.cpp" />
-    <ClCompile Include="Engine\Source\ThirdParty\ImGui\imgui_widgets.cpp" />
+    <ClCompile Include="Engine\Source\ThirdParty\ImGui\imgui.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <ForcedIncludeFiles></ForcedIncludeFiles>
+    </ClCompile>
+    <ClCompile Include="Engine\Source\ThirdParty\ImGui\imgui_demo.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <ForcedIncludeFiles></ForcedIncludeFiles>
+    </ClCompile>
+    <ClCompile Include="Engine\Source\ThirdParty\ImGui\imgui_draw.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <ForcedIncludeFiles></ForcedIncludeFiles>
+    </ClCompile>
+    <ClCompile Include="Engine\Source\ThirdParty\ImGui\imgui_impl_dx11.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <ForcedIncludeFiles></ForcedIncludeFiles>
+    </ClCompile>
+    <ClCompile Include="Engine\Source\ThirdParty\ImGui\imgui_impl_win32.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <ForcedIncludeFiles></ForcedIncludeFiles>
+    </ClCompile>
+    <ClCompile Include="Engine\Source\ThirdParty\ImGui\imgui_tables.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <ForcedIncludeFiles></ForcedIncludeFiles>
+    </ClCompile>
+    <ClCompile Include="Engine\Source\ThirdParty\ImGui\imgui_widgets.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <ForcedIncludeFiles></ForcedIncludeFiles>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Engine\Source\Editor\EditorCameraController.h" />
@@ -442,6 +473,7 @@
     <ClInclude Include="Engine\Source\Runtime\Components\SphereComp.h" />
     <ClInclude Include="Engine\Source\Runtime\Components\StaticMeshComponent.h" />
     <ClInclude Include="Engine\Source\Runtime\Core\EngineStatics.h" />
+    <ClInclude Include="Engine\Source\Runtime\Core\Precompiled.h" />
     <ClInclude Include="Engine\Source\Runtime\Core\Logging\Log.h" />
     <ClInclude Include="Engine\Source\Runtime\Core\Math\Box.h" />
     <ClInclude Include="Engine\Source\Runtime\Core\Math\Math.h" />
