@@ -79,7 +79,6 @@ void FMainMenuPanel::SaveScene(bool bSaveAs)
     }
 
     CurrentScenePath = TargetPath;
-    UE_LOG(Info, "Scene saved: %s", CurrentScenePath.string().c_str());
 }
 
 void FMainMenuPanel::LoadScene()
@@ -93,12 +92,10 @@ void FMainMenuPanel::LoadScene()
 
     if (!FSceneSerializer::Load(SelectedPath, *Context, *AssetManager))
     {
-        UE_LOG(Error, "Failed to load scene. Current scene was preserved");
         return;
     }
 
     CurrentScenePath = SelectedPath;
-    UE_LOG(Info, "Scene loaded: %s", CurrentScenePath.string().c_str());
 }
 
 void FMainMenuPanel::OnRender()
