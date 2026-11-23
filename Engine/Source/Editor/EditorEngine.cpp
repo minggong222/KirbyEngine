@@ -12,6 +12,7 @@
 #include "Resources/PrimitiveMeshAssets.h"
 #include "UI/Panels/DetailsPanel.h"
 #include "UI/Panels/ObjectListPanel.h"
+#include "UI/Panels/MainMenuPanel.h"
 #include "UObject/Object.h"
 #include "Resources/StaticMesh.h"
 
@@ -50,6 +51,8 @@ bool FEditorEngine::Init(HINSTANCE hInstance)
     ImGuiRenderer->GetPanelManager()->AddPanel(ObjectListPanel);
     DetailsPanel = new FDetailsPanel(&ObjectContext);
     ImGuiRenderer->GetPanelManager()->AddPanel(DetailsPanel);
+    MainMenuPanel = new FMainMenuPanel(&ObjectContext, &AssetManager, WindowsWindow->GetHWND());
+    ImGuiRenderer->GetPanelManager()->AddPanel(MainMenuPanel);
     bIsRunning = true;
     UE_LOG(Info, "Info");
     UE_LOG(Error, "Error");

@@ -13,6 +13,7 @@
 #include <unordered_set>
 #include <utility>
 #include <vector>
+#include <functional>
 
 // Lightweight Unreal-style compatibility wrappers for a custom C++ engine.
 // This is a useful subset, not a full reimplementation of Unreal Engine's Core types.
@@ -740,7 +741,7 @@ public:
     TSharedPtr(std::shared_ptr<T> InPtr) : Ptr(std::move(InPtr)) {}
 
     template <typename U, typename = std::enable_if_t<std::is_convertible_v<U*, T*>>>
-    TSharedPtr(const TSharedPtr<U>& Other) : Ptr(Other.Ptr) {}
+    TSharedPtr(const TSharedPtr<U>& Other) : Ptr(Other.ToStd()) {}
 
     T* Get() const { return Ptr.get(); }
     bool IsValid() const { return static_cast<bool>(Ptr); }
@@ -916,3 +917,15 @@ public:
 private:
     std::string Data;
 };
+
+namespace std
+{
+    template<>
+    struct hash<FString>
+    {
+        size_t operator()(const FString& Value) const noexcept
+        {
+            return hash<string>{}(Value.ToStd());
+        }
+    };
+}

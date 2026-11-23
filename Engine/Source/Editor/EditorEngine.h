@@ -12,6 +12,7 @@
 struct FStaticMeshData;
 class FObjectListPanel;
 class FDetailsPanel;
+class FMainMenuPanel;
 
 class FEditorEngine
 {
@@ -36,6 +37,7 @@ private:
     
     FConsolePanel* ConsolePanel = nullptr;
     FViewportPanel* ViewportPanel = nullptr;
+    FMainMenuPanel* MainMenuPanel = nullptr;
     
     FAssetManager AssetManager;
     
