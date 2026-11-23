@@ -4,6 +4,8 @@
 #include "Core/STL.h"
 #include "Core/Logging/Log.h"
 
+class FStatsPanel;
+
 struct FLogData
 {
     FString Massage;
@@ -20,6 +22,7 @@ public:
     void ClearLog();
     int TextEditCallback(ImGuiInputTextCallbackData* data);
     void ExecCommand(const char* command_line);
+    void SetStatsPanel(FStatsPanel* InStatsPanel) { StatsPanel = InStatsPanel; }
     
     void AddLog(ELogVerbosity Verbosity, const char* fmt, ...) IM_FMTARGS(2);
 private:
@@ -35,4 +38,6 @@ private:
     ImGuiTextFilter       Filter;
     bool                  AutoScroll;
     bool                  ScrollToBottom;
+    
+    FStatsPanel* StatsPanel = nullptr;
 };

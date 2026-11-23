@@ -2,6 +2,7 @@
 
 #include "imgui.h"
 #include "Core/Logging/Log.h"
+#include "StatsPanel.h"
 
 static int TextEditCallbackStub(ImGuiInputTextCallbackData* data)
 {
@@ -55,6 +56,9 @@ bool FConsolePanel::Init()
     Commands.Add("HELP");
     Commands.Add("HISTORY");
     Commands.Add("CLEAR");
+    Commands.Add("STAT");
+    Commands.Add("STAT ON");
+    Commands.Add("STAT OFF");
 
     HistoryPos = -1;
     InputBuf[0] = '\0';
@@ -319,9 +323,46 @@ void FConsolePanel::ExecCommand(const char* command_line)
         for (int i = first > 0 ? first : 0; i < History.Num(); i++)
             AddLog(ELogVerbosity::Info, "%3d: %s\n", i, History[i].c_str());
     }
+    else if (Stricmp(command_line, "STAT") == 0)
+    {
+        if (StatsPanel == nullptr)
+        {
+            AddLog(ELogVerbosity::Error, "StatsPanel is not available.");
+        }
+        else
+        {
+            const bool bOpen = !StatsPanel->IsOpen();
+            StatsPanel->SetOpen(bOpen);
+            AddLog(ELogVerbosity::Info, "Stats window %s.", bOpen ? "opened" : "closed");
+        }
+    }
+    else if (Stricmp(command_line, "STAT ON") == 0)
+    {
+        if (StatsPanel == nullptr)
+        {
+            AddLog(ELogVerbosity::Error, "StatsPanel is not available.");
+        }
+        else
+        {
+            StatsPanel->SetOpen(true);
+            AddLog(ELogVerbosity::Info, "Stats window opened.");
+        }
+    }
+    else if (Stricmp(command_line, "STAT OFF") == 0)
+    {
+        if (StatsPanel == nullptr)
+        {
+            AddLog(ELogVerbosity::Error, "StatsPanel is not available.");
+        }
+        else
+        {
+            StatsPanel->SetOpen(false);
+            AddLog(ELogVerbosity::Info, "Stats window closed.");
+        }
+    }
     else
     {
-        AddLog(ELogVerbosity::Error ,"Unknown command: '%s'\n", command_line);
+        AddLog(ELogVerbosity::Error, "Unknown command: '%s'\n", command_line);
     }
 
     // On command input, we scroll to bottom even if AutoScroll==false

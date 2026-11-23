@@ -16,8 +16,16 @@ void FStatsPanel::Tick(float DeltaTime)
 
 void FStatsPanel::OnRender()
 {
-    if (!ImGui::Begin("Stats"))
+    if (!IsOpen())
     {
+        return;
+    }
+
+    bool bIsOpen = IsOpen();
+
+    if (!ImGui::Begin("Stats", &bIsOpen))
+    {
+        SetOpen(bIsOpen);
         ImGui::End();
         return;
     }
@@ -49,4 +57,6 @@ void FStatsPanel::OnRender()
     ImGui::Text("Tracked Bytes: %llu", static_cast<unsigned long long>(AllocationBytes));
 
     ImGui::End();
+
+    SetOpen(bIsOpen);
 }

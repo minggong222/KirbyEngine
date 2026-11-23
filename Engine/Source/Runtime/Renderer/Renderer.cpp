@@ -111,15 +111,26 @@ void URenderer::ReleaseFrameBuffer()
 void URenderer::CreateRasterizerState()
 {
     D3D11_RASTERIZER_DESC rasterizerdesc = {};
-    rasterizerdesc.FillMode = D3D11_FILL_SOLID; // 채우기 모드
-    rasterizerdesc.CullMode = D3D11_CULL_BACK; // 백 페이스 컬링
+    rasterizerdesc.FillMode = D3D11_FILL_SOLID;
+    rasterizerdesc.CullMode = D3D11_CULL_BACK;
 
     mDevice->CreateRasterizerState(&rasterizerdesc, &mRasterizerState);
+
+    D3D11_RASTERIZER_DESC OutlineRasterizerDesc = rasterizerdesc;
+    OutlineRasterizerDesc.CullMode = D3D11_CULL_FRONT;
+
+    mDevice->CreateRasterizerState(&OutlineRasterizerDesc, &mOutlineRasterizerState);
 }
 
 // 래스터라이저 상태를 해제하는 함수
 void URenderer::ReleaseRasterizerState()
 {
+    if (mOutlineRasterizerState)
+    {
+        mOutlineRasterizerState->Release();
+        mOutlineRasterizerState = nullptr;
+    }
+
     if (mRasterizerState)
     {
         mRasterizerState->Release();
@@ -130,7 +141,7 @@ void URenderer::ReleaseRasterizerState()
 // 렌더러에 사용된 모든 리소스를 해제하는 함수
 void URenderer::Release()
 {
-    mRasterizerState->Release();
+    ReleaseRasterizerState();
 
     // 렌더 타겟을 초기화
     mDeviceContext->OMSetRenderTargets(0, nullptr, nullptr);
@@ -216,12 +227,22 @@ void URenderer::PrepareShader()
     }
 }
 
-void URenderer::RenderPrimitive(ID3D11Buffer* pBuffer, UINT numVertices)
+void URenderer::RenderPrimitive(ID3D11Buffer* pBuffer, UINT numVertices, bool bRenderOutline)
 {
+    if (bRenderOutline)
+    {
+        mDeviceContext->RSSetState(mOutlineRasterizerState);
+    }
+
     UINT offset = 0;
     mDeviceContext->IASetVertexBuffers(0, 1, &pBuffer, &mStride, &offset);
 
     mDeviceContext->Draw(numVertices, 0);
+
+    if (bRenderOutline)
+    {
+        mDeviceContext->RSSetState(mRasterizerState);
+    }
 }
 
 ID3D11Buffer* URenderer::CreateVertexBuffer(FVertexSimple* vertices, UINT byteWidth)
@@ -276,20 +297,19 @@ void URenderer::ReleaseConstantBuffer()
     }
 }
 
-void URenderer::UpdateConstant(FMatrix World, FMatrix View, FMatrix Projection, bool bIsSelected)
+void URenderer::UpdateConstant(FMatrix World, FMatrix View, FMatrix Projection, bool bIsOutline)
 {
     if (mConstantBuffer)
     {
         D3D11_MAPPED_SUBRESOURCE constantbufferMSR;
 
-        // update constant buffer every frame
-        mDeviceContext->Map(mConstantBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &constantbufferMSR); 
+        mDeviceContext->Map(mConstantBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &constantbufferMSR);
         FConstants* constants = (FConstants*)constantbufferMSR.pData;
         {
             constants->World = World;
             constants->View = View;
             constants->Projection = Projection;
-            constants->IsSelected = bIsSelected ? 1u : 0u;
+            constants->IsOutline = bIsOutline ? 1u : 0u;
         }
 
         mDeviceContext->Unmap(mConstantBuffer, 0);

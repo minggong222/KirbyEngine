@@ -56,6 +56,7 @@ bool FEditorEngine::Init(HINSTANCE hInstance)
     ImGuiRenderer->GetPanelManager()->AddPanel(DetailsPanel);
     StatsPanel = new FStatsPanel(&FrameStats, &ObjectContext);
     ImGuiRenderer->GetPanelManager()->AddPanel(StatsPanel);
+    ConsolePanel->SetStatsPanel(StatsPanel);
     MainMenuPanel = new FMainMenuPanel(&ObjectContext, &AssetManager, WindowsWindow->GetHWND(), MainCamera);
     ImGuiRenderer->GetPanelManager()->AddPanel(MainMenuPanel);
     
@@ -170,10 +171,31 @@ void FEditorEngine::Run()
                 }
                 
                 const FMatrix World = Component->GetWorldMatrix();
-                Renderer->UpdateConstant(World, View, Projection, Object == ObjectContext.SelectedObject);
+                Renderer->UpdateConstant(World, View, Projection, false);
                 Renderer->RenderPrimitive(RenderData.VertexBuffer, RenderData.VertexCount);
             }
             Renderer->EndViewportRender();            
+        }
+        
+        UStaticMeshComponent* SelectedComponent = Cast<UStaticMeshComponent>(ObjectContext.SelectedObject);
+
+        if (SelectedComponent != nullptr)
+        {
+            const UStaticMesh* SelectedMesh = SelectedComponent->GetStaticMesh();
+
+            if (SelectedMesh != nullptr)
+            {
+                const FStaticMeshRenderData& SelectedRenderData = SelectedMesh->GetRenderData();
+
+                if (SelectedRenderData.VertexBuffer != nullptr && SelectedRenderData.VertexCount > 0)
+                {
+                    const FMatrix OutlineScale = FMatrix::CreateScale(FVector(1.03f, 1.03f, 1.03f));
+                    const FMatrix OutlineWorld = OutlineScale * SelectedComponent->GetWorldMatrix();
+
+                    Renderer->UpdateConstant(OutlineWorld, View, Projection, true);
+                    Renderer->RenderPrimitive(SelectedRenderData.VertexBuffer, SelectedRenderData.VertexCount, true);
+                }
+            }
         }
 
         ImGuiRenderer->OnRender();

@@ -10,7 +10,7 @@ struct FConstants
     FMatrix View;
     FMatrix Projection;
 
-    uint32 IsSelected = 0;
+    uint32 IsOutline = 0;
     float Padding[3] = {};
 };
 
@@ -32,14 +32,14 @@ public:
 
     void Prepare();
     void PrepareShader();
-    void RenderPrimitive(ID3D11Buffer* pBuffer, UINT numVertices);
+    void RenderPrimitive(ID3D11Buffer* pBuffer, UINT numVertices, bool bRenderOutline = false);
 
     ID3D11Buffer* CreateVertexBuffer(FVertexSimple* vertices, UINT byteWidth);
     void ReleaseVertexBuffer(ID3D11Buffer* vertexBuffer);
 
     void CreateConstantBuffer();
     void ReleaseConstantBuffer();
-    void UpdateConstant(FMatrix World, FMatrix View, FMatrix Projection, bool bIsSelected);
+    void UpdateConstant(FMatrix World, FMatrix View, FMatrix Projection, bool bIsOutline);
 
     ID3D11Device* GetDevice();
     ID3D11DeviceContext* GetDeviceContext();
@@ -68,6 +68,7 @@ private:
     ID3D11Texture2D* mFrameBuffer = nullptr; // 화면 출력용 텍스처
     ID3D11RenderTargetView* mFrameBufferRTV = nullptr; // 텍스처를 렌더 타겟으로 사용하는 뷰
     ID3D11RasterizerState* mRasterizerState = nullptr; // 래스터라이저 상태(컬링, 채우기 모드 등 정의)
+    ID3D11RasterizerState* mOutlineRasterizerState = nullptr;
     ID3D11Buffer* mConstantBuffer = nullptr; // 쉐이더에 데이터를 전달하기 위한 상수 버퍼
 
     FLOAT mClearColor[4] = { 0.025f, 0.025f, 0.025f, 1.0f }; // 화면을 초기화(clear)할 때 사용할 색상 (RGBA)

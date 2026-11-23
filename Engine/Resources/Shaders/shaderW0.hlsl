@@ -7,7 +7,7 @@ cbuffer constants : register(b0)
     row_major float4x4 View;
     row_major float4x4 Projection;
 
-    uint IsSelected;
+    uint IsOutline;
     float3 ConstantsPadding;
 }
 
@@ -36,7 +36,7 @@ PS_INPUT mainVS(VS_INPUT input)
     output.position = mul(ViewPosition, Projection);
     
     // Pass the color to the pixel shader
-    output.color = IsSelected != 0 ? lerp(input.color, float4(1.0f, 0.72f, 0.1f, 1.0f), 0.65f) : input.color;
+    output.color = IsOutline != 0 ? float4(1.0f, 0.45f, 0.05f, 1.0f) : input.color;
     
     return output;
 }
