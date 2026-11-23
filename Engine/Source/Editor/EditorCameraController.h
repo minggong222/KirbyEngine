@@ -6,7 +6,7 @@ class FWindowsWindow;
 class FEditorCameraController
 {
 public:
-    void Update(UCameraComponent& Camera, FWindowsWindow& Window, float DeltaTime);
+    void Update(UCameraComponent& Camera, FWindowsWindow& Window, float DeltaTime, bool bViewportHovered);
     void Stop(FWindowsWindow& Window);
     
 private:

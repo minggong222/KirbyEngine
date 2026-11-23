@@ -5,6 +5,7 @@
 #include "Resources/AssetManager.h"
 #include "Core/Logging/Log.h"
 #include "Components/CameraComponent.h"
+#include "EditorUndoManager.h"
 
 #include "imgui.h"
 
@@ -90,9 +91,14 @@ void FMainMenuPanel::LoadScene()
         return;
     }
 
-    if (!FSceneSerializer::Load(SelectedPath, *Context, *AssetManager, *ViewportCamera))
+    if (!FSceneSerializer::Load(SelectedPath, *Context, *AssetManager, *ViewportCamera, *Renderer))
     {
         return;
+    }
+
+    if (Context->UndoManager != nullptr)
+    {
+        Context->UndoManager->Clear();
     }
 
     CurrentScenePath = SelectedPath;

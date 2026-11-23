@@ -9,86 +9,156 @@
 // 렌더러 초기화 함수
 void URenderer::Create(HWND hWindow)
 {
-    // Direct3D 장치 및 스왑 체인 생성
+    bInitializationFailed = false;
+
     CreateDeviceAndSwapChain(hWindow);
 
-    // 프레임 버퍼 생성
+    if (bInitializationFailed)
+    {
+        return;
+    }
+
     CreateFrameBuffer();
 
-    // 래스터라이저 상태 생성
+    if (bInitializationFailed)
+    {
+        return;
+    }
+
     CreateRasterizerState();
 }
 
 // Direct3D 장치 및 스왑 체인을 생성하는 함수
 void URenderer::CreateDeviceAndSwapChain(HWND hWindow)
 {
-    // 지원하는 Direct3D 기능 레벨을 정의
-    D3D_FEATURE_LEVEL featurelevels[] = { D3D_FEATURE_LEVEL_11_0 };
+    if (hWindow == nullptr)
+    {
+        bInitializationFailed = true;
+        OutputDebugStringA("[Renderer] Invalid window handle.\n");
+        return;
+    }
 
-    // 스왑 체인 설정 구조체 초기화
-    DXGI_SWAP_CHAIN_DESC swapchaindesc = {};
-    swapchaindesc.BufferDesc.Width = 0; // 창 크기에 맞게 자동으로 설정
-    swapchaindesc.BufferDesc.Height = 0; // 창 크기에 맞게 자동으로 설정
-    swapchaindesc.BufferDesc.Format = DXGI_FORMAT_B8G8R8A8_UNORM; // 색상 포맷
-    swapchaindesc.SampleDesc.Count = 1; // 멀티 샘플링 비활성화
-    swapchaindesc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT; // 렌더 타겟으로 사용
-    swapchaindesc.BufferCount = 2; // 더블 버퍼링
-    swapchaindesc.OutputWindow = hWindow; // 렌더링할 창 핸들
-    swapchaindesc.Windowed = TRUE; // 창 모드
-    swapchaindesc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD; // 스왑 방식
+    D3D_FEATURE_LEVEL FeatureLevels[] = {D3D_FEATURE_LEVEL_11_0};
 
-    // Direct3D 장치와 스왑 체인을 생성
-    D3D11CreateDeviceAndSwapChain(nullptr, D3D_DRIVER_TYPE_HARDWARE, nullptr,
-        D3D11_CREATE_DEVICE_BGRA_SUPPORT | D3D11_CREATE_DEVICE_DEBUG,
-        featurelevels, ARRAYSIZE(featurelevels), D3D11_SDK_VERSION,
-        &swapchaindesc, &mSwapChain, &mDevice, nullptr, &mDeviceContext);
+    DXGI_SWAP_CHAIN_DESC SwapChainDesc = {};
+    SwapChainDesc.BufferDesc.Width = 0;
+    SwapChainDesc.BufferDesc.Height = 0;
+    SwapChainDesc.BufferDesc.Format = DXGI_FORMAT_B8G8R8A8_UNORM;
+    SwapChainDesc.SampleDesc.Count = 1;
+    SwapChainDesc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
+    SwapChainDesc.BufferCount = 2;
+    SwapChainDesc.OutputWindow = hWindow;
+    SwapChainDesc.Windowed = TRUE;
+    SwapChainDesc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;
 
-    // 생성된 스왑 체인의 정보 가져오기
-    mSwapChain->GetDesc(&swapchaindesc);
+    UINT DeviceFlags = D3D11_CREATE_DEVICE_BGRA_SUPPORT;
 
-    // 뷰포트 정보 설정
-    mViewportInfo = { 0.0f, 0.0f, (float)swapchaindesc.BufferDesc.Width, (float)swapchaindesc.BufferDesc.Height, 0.0f, 1.0f };
+#if defined(_DEBUG)
+    DeviceFlags |= D3D11_CREATE_DEVICE_DEBUG;
+#endif
+
+    HRESULT hr = D3D11CreateDeviceAndSwapChain(nullptr, D3D_DRIVER_TYPE_HARDWARE, nullptr, DeviceFlags, FeatureLevels, ARRAYSIZE(FeatureLevels), D3D11_SDK_VERSION, &SwapChainDesc, &mSwapChain, &mDevice, nullptr, &mDeviceContext);
+
+#if defined(_DEBUG)
+    if (hr == DXGI_ERROR_SDK_COMPONENT_MISSING)
+    {
+        if (mDeviceContext != nullptr)
+        {
+            mDeviceContext->Flush();
+            mDeviceContext->Release();
+            mDeviceContext = nullptr;
+        }
+
+        if (mSwapChain != nullptr)
+        {
+            mSwapChain->Release();
+            mSwapChain = nullptr;
+        }
+
+        if (mDevice != nullptr)
+        {
+            mDevice->Release();
+            mDevice = nullptr;
+        }
+
+        DeviceFlags &= ~D3D11_CREATE_DEVICE_DEBUG;
+
+        hr = D3D11CreateDeviceAndSwapChain(nullptr, D3D_DRIVER_TYPE_HARDWARE, nullptr, DeviceFlags, FeatureLevels, ARRAYSIZE(FeatureLevels), D3D11_SDK_VERSION, &SwapChainDesc, &mSwapChain, &mDevice, nullptr, &mDeviceContext);
+    }
+#endif
+
+    if (FAILED(hr))
+    {
+        bInitializationFailed = true;
+        OutputDebugStringA("[Renderer] D3D11CreateDeviceAndSwapChain failed.\n");
+        return;
+    }
+
+    hr = mSwapChain->GetDesc(&SwapChainDesc);
+
+    if (FAILED(hr))
+    {
+        bInitializationFailed = true;
+        OutputDebugStringA("[Renderer] IDXGISwapChain::GetDesc failed.\n");
+        return;
+    }
+
+    mViewportInfo = {0.0f, 0.0f, static_cast<float>(SwapChainDesc.BufferDesc.Width), static_cast<float>(SwapChainDesc.BufferDesc.Height), 0.0f, 1.0f};
 }
 
 // Direct3D 장치 및 스왑 체인을 해제하는 함수
 void URenderer::ReleaseDeviceAndSwapChain()
 {
-    if (mDeviceContext)
+    if (mDeviceContext != nullptr)
     {
-        mDeviceContext->Flush(); // 남아있는 GPU 명령 실행
+        mDeviceContext->Flush();
+        mDeviceContext->Release();
+        mDeviceContext = nullptr;
     }
 
-    if (mSwapChain)
+    if (mSwapChain != nullptr)
     {
         mSwapChain->Release();
         mSwapChain = nullptr;
     }
 
-    if (mDevice)
+    if (mDevice != nullptr)
     {
         mDevice->Release();
         mDevice = nullptr;
-    }
-
-    if (mDeviceContext)
-    {
-        mDeviceContext->Release();
-        mDeviceContext = nullptr;
     }
 }
 
 // 프레임 버퍼를 생성하는 함수
 void URenderer::CreateFrameBuffer()
 {
-    // 스왑 체인으로부터 백 버퍼 텍스처 가져오기
-    mSwapChain->GetBuffer(0, __uuidof(ID3D11Texture2D), (void**)&mFrameBuffer);
+    if (mDevice == nullptr || mSwapChain == nullptr)
+    {
+        bInitializationFailed = true;
+        return;
+    }
 
-    // 렌더 타겟 뷰 생성
-    D3D11_RENDER_TARGET_VIEW_DESC framebufferRTVdesc = {};
-    framebufferRTVdesc.Format = DXGI_FORMAT_B8G8R8A8_UNORM_SRGB; // 색상 포맷
-    framebufferRTVdesc.ViewDimension = D3D11_RTV_DIMENSION_TEXTURE2D; // 2D 텍스처
+    HRESULT hr = mSwapChain->GetBuffer(0, __uuidof(ID3D11Texture2D), reinterpret_cast<void**>(&mFrameBuffer));
 
-    mDevice->CreateRenderTargetView(mFrameBuffer, &framebufferRTVdesc, &mFrameBufferRTV);
+    if (FAILED(hr) || mFrameBuffer == nullptr)
+    {
+        bInitializationFailed = true;
+        OutputDebugStringA("[Renderer] GetBuffer failed.\n");
+        return;
+    }
+
+    D3D11_RENDER_TARGET_VIEW_DESC RTVDesc = {};
+    RTVDesc.Format = DXGI_FORMAT_B8G8R8A8_UNORM_SRGB;
+    RTVDesc.ViewDimension = D3D11_RTV_DIMENSION_TEXTURE2D;
+
+    hr = mDevice->CreateRenderTargetView(mFrameBuffer, &RTVDesc, &mFrameBufferRTV);
+
+    if (FAILED(hr))
+    {
+        bInitializationFailed = true;
+        ReleaseFrameBuffer();
+        OutputDebugStringA("[Renderer] CreateRenderTargetView failed.\n");
+    }
 }
 
 // 프레임 버퍼를 해제하는 함수
@@ -110,16 +180,38 @@ void URenderer::ReleaseFrameBuffer()
 // 래스터라이저 상태를 생성하는 함수
 void URenderer::CreateRasterizerState()
 {
-    D3D11_RASTERIZER_DESC rasterizerdesc = {};
-    rasterizerdesc.FillMode = D3D11_FILL_SOLID;
-    rasterizerdesc.CullMode = D3D11_CULL_BACK;
+    if (mDevice == nullptr)
+    {
+        bInitializationFailed = true;
+        return;
+    }
 
-    mDevice->CreateRasterizerState(&rasterizerdesc, &mRasterizerState);
+    D3D11_RASTERIZER_DESC RasterizerDesc = {};
+    RasterizerDesc.FillMode = D3D11_FILL_SOLID;
+    RasterizerDesc.CullMode = D3D11_CULL_BACK;
+    RasterizerDesc.FrontCounterClockwise = FALSE;
+    RasterizerDesc.DepthClipEnable = TRUE;
 
-    D3D11_RASTERIZER_DESC OutlineRasterizerDesc = rasterizerdesc;
+    HRESULT hr = mDevice->CreateRasterizerState(&RasterizerDesc, &mRasterizerState);
+
+    if (FAILED(hr))
+    {
+        bInitializationFailed = true;
+        OutputDebugStringA("[Renderer] CreateRasterizerState failed.\n");
+        return;
+    }
+
+    D3D11_RASTERIZER_DESC OutlineRasterizerDesc = RasterizerDesc;
     OutlineRasterizerDesc.CullMode = D3D11_CULL_FRONT;
 
-    mDevice->CreateRasterizerState(&OutlineRasterizerDesc, &mOutlineRasterizerState);
+    hr = mDevice->CreateRasterizerState(&OutlineRasterizerDesc, &mOutlineRasterizerState);
+
+    if (FAILED(hr))
+    {
+        bInitializationFailed = true;
+        ReleaseRasterizerState();
+        OutputDebugStringA("[Renderer] CreateOutlineRasterizerState failed.\n");
+    }
 }
 
 // 래스터라이저 상태를 해제하는 함수
@@ -141,11 +233,12 @@ void URenderer::ReleaseRasterizerState()
 // 렌더러에 사용된 모든 리소스를 해제하는 함수
 void URenderer::Release()
 {
+    if (mDeviceContext != nullptr)
+    {
+        mDeviceContext->OMSetRenderTargets(0, nullptr, nullptr);
+    }
+
     ReleaseRasterizerState();
-
-    // 렌더 타겟을 초기화
-    mDeviceContext->OMSetRenderTargets(0, nullptr, nullptr);
-
     ReleaseFrameBuffer();
     ReleaseDeviceAndSwapChain();
 }
@@ -153,32 +246,108 @@ void URenderer::Release()
 // 스왑 체인의 백 버퍼와 프론트 버퍼를 교체하여 화면에 출력
 void URenderer::SwapBuffer()
 {
+    if (mDeviceContext == nullptr || ViewportRTV == nullptr || ViewportDSV == nullptr || ViewportDepthState == nullptr)
+    {
+        return;
+    }
+    
     mSwapChain->Present(0, 0);
 }
 
 void URenderer::CreateShader()
 {
-    ID3DBlob* vertexshaderCSO;
-    ID3DBlob* pixelshaderCSO;
-
-    D3DCompileFromFile(L"Engine/Resources/Shaders/ShaderW0.hlsl", nullptr, nullptr, "mainVS", "vs_5_0", 0, 0, &vertexshaderCSO, nullptr);
-    mDevice->CreateVertexShader(vertexshaderCSO->GetBufferPointer(), vertexshaderCSO->GetBufferSize(), nullptr, &mSimpleVertexShader);
-
-    D3DCompileFromFile(L"Engine/Resources/Shaders/ShaderW0.hlsl", nullptr, nullptr, "mainPS", "ps_5_0", 0, 0, &pixelshaderCSO, nullptr);
-    mDevice->CreatePixelShader(pixelshaderCSO->GetBufferPointer(), pixelshaderCSO->GetBufferSize(), nullptr, &mSimplePixelShader);
-
-    D3D11_INPUT_ELEMENT_DESC layout[] =
+    if (mDevice == nullptr)
     {
-        { "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0 },
-        { "COLOR", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 12, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+        bInitializationFailed = true;
+        return;
+    }
+
+    ID3DBlob* VertexShaderBlob = nullptr;
+    ID3DBlob* PixelShaderBlob = nullptr;
+    ID3DBlob* ErrorBlob = nullptr;
+
+    HRESULT hr = D3DCompileFromFile(L"Engine/Resources/Shaders/ShaderW0.hlsl", nullptr, nullptr, "mainVS", "vs_5_0", 0, 0, &VertexShaderBlob, &ErrorBlob);
+
+    if (FAILED(hr))
+    {
+        if (ErrorBlob != nullptr)
+        {
+            OutputDebugStringA(static_cast<const char*>(ErrorBlob->GetBufferPointer()));
+            ErrorBlob->Release();
+        }
+
+        bInitializationFailed = true;
+        return;
+    }
+
+    if (ErrorBlob != nullptr)
+    {
+        ErrorBlob->Release();
+        ErrorBlob = nullptr;
+    }
+
+    hr = D3DCompileFromFile(L"Engine/Resources/Shaders/ShaderW0.hlsl", nullptr, nullptr, "mainPS", "ps_5_0", 0, 0, &PixelShaderBlob, &ErrorBlob);
+
+    if (FAILED(hr))
+    {
+        if (ErrorBlob != nullptr)
+        {
+            OutputDebugStringA(static_cast<const char*>(ErrorBlob->GetBufferPointer()));
+            ErrorBlob->Release();
+        }
+
+        VertexShaderBlob->Release();
+        bInitializationFailed = true;
+        return;
+    }
+
+    if (ErrorBlob != nullptr)
+    {
+        ErrorBlob->Release();
+        ErrorBlob = nullptr;
+    }
+
+    hr = mDevice->CreateVertexShader(VertexShaderBlob->GetBufferPointer(), VertexShaderBlob->GetBufferSize(), nullptr, &mSimpleVertexShader);
+
+    if (FAILED(hr))
+    {
+        VertexShaderBlob->Release();
+        PixelShaderBlob->Release();
+        bInitializationFailed = true;
+        return;
+    }
+
+    hr = mDevice->CreatePixelShader(PixelShaderBlob->GetBufferPointer(), PixelShaderBlob->GetBufferSize(), nullptr, &mSimplePixelShader);
+
+    if (FAILED(hr))
+    {
+        VertexShaderBlob->Release();
+        PixelShaderBlob->Release();
+        ReleaseShader();
+        bInitializationFailed = true;
+        return;
+    }
+
+    D3D11_INPUT_ELEMENT_DESC Layout[] =
+    {
+        {"POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0},
+        {"COLOR", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 12, D3D11_INPUT_PER_VERTEX_DATA, 0}
     };
 
-    mDevice->CreateInputLayout(layout, ARRAYSIZE(layout), vertexshaderCSO->GetBufferPointer(), vertexshaderCSO->GetBufferSize(), &mSimpleInputLayout);
+    hr = mDevice->CreateInputLayout(Layout, ARRAYSIZE(Layout), VertexShaderBlob->GetBufferPointer(), VertexShaderBlob->GetBufferSize(), &mSimpleInputLayout);
+
+    VertexShaderBlob->Release();
+    PixelShaderBlob->Release();
+
+    if (FAILED(hr))
+    {
+        ReleaseShader();
+        bInitializationFailed = true;
+        OutputDebugStringA("[Renderer] CreateInputLayout failed.\n");
+        return;
+    }
 
     mStride = sizeof(FVertexSimple);
-
-    vertexshaderCSO->Release();
-    pixelshaderCSO->Release();
 }
 
 void URenderer::ReleaseShader()
@@ -204,6 +373,11 @@ void URenderer::ReleaseShader()
 
 void URenderer::Prepare()
 {
+    if (mDeviceContext == nullptr || ViewportRTV == nullptr || ViewportDSV == nullptr || ViewportDepthState == nullptr)
+    {
+        return;
+    }
+    
     mDeviceContext->ClearRenderTargetView(mFrameBufferRTV, mClearColor);
     mDeviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
@@ -216,6 +390,11 @@ void URenderer::Prepare()
 
 void URenderer::PrepareShader()
 {
+    if (mDeviceContext == nullptr || ViewportRTV == nullptr || ViewportDSV == nullptr || ViewportDepthState == nullptr)
+    {
+        return;
+    }
+    
     mDeviceContext->VSSetShader(mSimpleVertexShader, nullptr, 0);
     mDeviceContext->PSSetShader(mSimplePixelShader, nullptr, 0);
     mDeviceContext->IASetInputLayout(mSimpleInputLayout);
@@ -229,6 +408,11 @@ void URenderer::PrepareShader()
 
 void URenderer::RenderPrimitive(ID3D11Buffer* pBuffer, UINT numVertices, bool bRenderOutline)
 {
+    if (mDeviceContext == nullptr || ViewportRTV == nullptr || ViewportDSV == nullptr || ViewportDepthState == nullptr)
+    {
+        return;
+    }
+    
     if (bRenderOutline)
     {
         mDeviceContext->RSSetState(mOutlineRasterizerState);
@@ -279,13 +463,25 @@ void URenderer::ReleaseVertexBuffer(ID3D11Buffer* vertexBuffer)
 
 void URenderer::CreateConstantBuffer()
 {
-    D3D11_BUFFER_DESC constantbufferdesc = {};
-    constantbufferdesc.ByteWidth = sizeof(FConstants) + 0xf & 0xfffffff0; // ensure constant buffer size is multiple of 16 bytes
-    constantbufferdesc.Usage = D3D11_USAGE_DYNAMIC; // will be updated from CPU every frame
-    constantbufferdesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
-    constantbufferdesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
+    if (mDevice == nullptr)
+    {
+        bInitializationFailed = true;
+        return;
+    }
 
-    mDevice->CreateBuffer(&constantbufferdesc, nullptr, &mConstantBuffer);
+    D3D11_BUFFER_DESC ConstantBufferDesc = {};
+    ConstantBufferDesc.ByteWidth = (sizeof(FConstants) + 15u) & ~15u;
+    ConstantBufferDesc.Usage = D3D11_USAGE_DYNAMIC;
+    ConstantBufferDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+    ConstantBufferDesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
+
+    const HRESULT hr = mDevice->CreateBuffer(&ConstantBufferDesc, nullptr, &mConstantBuffer);
+
+    if (FAILED(hr))
+    {
+        bInitializationFailed = true;
+        OutputDebugStringA("[Renderer] CreateConstantBuffer failed.\n");
+    }
 }
 
 void URenderer::ReleaseConstantBuffer()
@@ -299,21 +495,28 @@ void URenderer::ReleaseConstantBuffer()
 
 void URenderer::UpdateConstant(FMatrix World, FMatrix View, FMatrix Projection, bool bIsOutline)
 {
-    if (mConstantBuffer)
+    if (mConstantBuffer == nullptr || mDeviceContext == nullptr)
     {
-        D3D11_MAPPED_SUBRESOURCE constantbufferMSR;
-
-        mDeviceContext->Map(mConstantBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &constantbufferMSR);
-        FConstants* constants = (FConstants*)constantbufferMSR.pData;
-        {
-            constants->World = World;
-            constants->View = View;
-            constants->Projection = Projection;
-            constants->IsOutline = bIsOutline ? 1u : 0u;
-        }
-
-        mDeviceContext->Unmap(mConstantBuffer, 0);
+        return;
     }
+
+    D3D11_MAPPED_SUBRESOURCE MappedResource = {};
+
+    const HRESULT hr = mDeviceContext->Map(mConstantBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &MappedResource);
+
+    if (FAILED(hr) || MappedResource.pData == nullptr)
+    {
+        OutputDebugStringA("[Renderer] Constant buffer Map failed.\n");
+        return;
+    }
+
+    FConstants* Constants = static_cast<FConstants*>(MappedResource.pData);
+    Constants->World = World;
+    Constants->View = View;
+    Constants->Projection = Projection;
+    Constants->IsOutline = bIsOutline ? 1u : 0u;
+
+    mDeviceContext->Unmap(mConstantBuffer, 0);
 }
 
 ID3D11Device* URenderer::GetDevice()
@@ -351,8 +554,19 @@ void URenderer::ResizeBackBuffer(uint32 Width, uint32 Height)
 
 void URenderer::CreateViewportRenderTarget(uint32 Width, uint32 Height)
 {
-    assert(Width > 0 && Height > 0);
-    
+    auto Fail = [this]()
+    {
+        ReleaseViewportRenderTarget();
+        bInitializationFailed = true;
+        OutputDebugStringA("[Renderer] Viewport render target creation failed.\n");
+    };
+
+    if (mDevice == nullptr || mDeviceContext == nullptr || Width == 0 || Height == 0)
+    {
+        bInitializationFailed = true;
+        return;
+    }
+
     D3D11_TEXTURE2D_DESC ColorDesc = {};
     ColorDesc.Width = Width;
     ColorDesc.Height = Height;
@@ -362,19 +576,31 @@ void URenderer::CreateViewportRenderTarget(uint32 Width, uint32 Height)
     ColorDesc.SampleDesc.Count = 1;
     ColorDesc.Usage = D3D11_USAGE_DEFAULT;
     ColorDesc.BindFlags = D3D11_BIND_RENDER_TARGET | D3D11_BIND_SHADER_RESOURCE;
-    
+
     HRESULT hr = mDevice->CreateTexture2D(&ColorDesc, nullptr, &ViewportTexture);
-    assert(SUCCEEDED(hr));
-    (void)hr;
-    
+
+    if (FAILED(hr))
+    {
+        Fail();
+        return;
+    }
+
     hr = mDevice->CreateRenderTargetView(ViewportTexture, nullptr, &ViewportRTV);
-    assert(SUCCEEDED(hr));
-    (void)hr;
-    
+
+    if (FAILED(hr))
+    {
+        Fail();
+        return;
+    }
+
     hr = mDevice->CreateShaderResourceView(ViewportTexture, nullptr, &ViewportSRV);
-    assert(SUCCEEDED(hr));
-    (void)hr;
-    
+
+    if (FAILED(hr))
+    {
+        Fail();
+        return;
+    }
+
     D3D11_TEXTURE2D_DESC DepthDesc = {};
     DepthDesc.Width = Width;
     DepthDesc.Height = Height;
@@ -384,24 +610,37 @@ void URenderer::CreateViewportRenderTarget(uint32 Width, uint32 Height)
     DepthDesc.SampleDesc.Count = 1;
     DepthDesc.Usage = D3D11_USAGE_DEFAULT;
     DepthDesc.BindFlags = D3D11_BIND_DEPTH_STENCIL;
-    
+
     hr = mDevice->CreateTexture2D(&DepthDesc, nullptr, &ViewportDepthTexture);
-    assert(SUCCEEDED(hr));
-    (void)hr;
-    
+
+    if (FAILED(hr))
+    {
+        Fail();
+        return;
+    }
+
     hr = mDevice->CreateDepthStencilView(ViewportDepthTexture, nullptr, &ViewportDSV);
-    assert(SUCCEEDED(hr));
-    (void)hr;
-    
+
+    if (FAILED(hr))
+    {
+        Fail();
+        return;
+    }
+
     D3D11_DEPTH_STENCIL_DESC StateDesc = {};
-    StateDesc.DepthEnable = TRUE;   
+    StateDesc.DepthEnable = TRUE;
     StateDesc.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ALL;
     StateDesc.DepthFunc = D3D11_COMPARISON_LESS;
+
     hr = mDevice->CreateDepthStencilState(&StateDesc, &ViewportDepthState);
-    assert(SUCCEEDED(hr));
-    (void)hr;
-    
-    ViewportRenderInfo = {0.0f,0.0f,static_cast<float>(Width),static_cast<float>(Height), 0.0f,1.0f};
+
+    if (FAILED(hr))
+    {
+        Fail();
+        return;
+    }
+
+    ViewportRenderInfo = {0.0f, 0.0f, static_cast<float>(Width), static_cast<float>(Height), 0.0f, 1.0f};
     ViewportWidth = Width;
     ViewportHeight = Height;
 }
@@ -422,6 +661,11 @@ void URenderer::ResizeViewportRenderTarget(uint32 Width, uint32 Height)
 
 void URenderer::BeginViewportRender()
 {
+    if (mDeviceContext == nullptr || ViewportRTV == nullptr || ViewportDSV == nullptr || ViewportDepthState == nullptr)
+    {
+        return;
+    }
+    
     const float ClearColor[4] = {0.05f, 0.05f, 0.07f, 1.0f};
     
     mDeviceContext->ClearRenderTargetView(ViewportRTV, ClearColor);
@@ -491,6 +735,27 @@ void URenderer::ReleaseViewportRenderTarget()
     ViewportHeight = 0;
 
     ViewportRenderInfo = {};
+}
+
+bool URenderer::IsReady() const
+{
+    return !bInitializationFailed &&
+        mDevice != nullptr &&
+        mDeviceContext != nullptr &&
+        mSwapChain != nullptr &&
+        mFrameBufferRTV != nullptr &&
+        mRasterizerState != nullptr &&
+        mOutlineRasterizerState != nullptr &&
+        mSimpleVertexShader != nullptr &&
+        mSimplePixelShader != nullptr &&
+        mSimpleInputLayout != nullptr &&
+        mConstantBuffer != nullptr &&
+        ViewportTexture != nullptr &&
+        ViewportRTV != nullptr &&
+        ViewportSRV != nullptr &&
+        ViewportDepthTexture != nullptr &&
+        ViewportDSV != nullptr &&
+        ViewportDepthState != nullptr;
 }
 
 void URenderer::Shutdown()

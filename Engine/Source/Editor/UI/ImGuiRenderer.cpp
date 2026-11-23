@@ -6,24 +6,56 @@
 #include "imgui_internal.h"
 
 
-void FImGuiRenderer::Init(HWND Hwnd, ID3D11Device* Device, ID3D11DeviceContext* DeviceContext)
+bool FImGuiRenderer::Init(HWND Hwnd, ID3D11Device* Device, ID3D11DeviceContext* DeviceContext)
 {
-    // Initialize ImGui
+    if (Hwnd == nullptr || Device == nullptr || DeviceContext == nullptr)
     {
-        IMGUI_CHECKVERSION();
-        ImGui::CreateContext();
-        ImGuiIO& io = ImGui::GetIO();
-        io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
-        io.IniFilename = "imgui.ini";
-        ImGui_ImplWin32_Init((void*)Hwnd);
-        ImGui_ImplDX11_Init(Device, DeviceContext);
+        return false;
     }
+
+    IMGUI_CHECKVERSION();
+
+    ImGui::CreateContext();
+    bContextCreated = true;
+
+    ImGuiIO& IO = ImGui::GetIO();
+    IO.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
+    IO.IniFilename = "imgui.ini";
+
+    if (!ImGui_ImplWin32_Init(reinterpret_cast<void*>(Hwnd)))
+    {
+        Shutdown();
+        return false;
+    }
+
+    bWin32Initialized = true;
+
+    if (!ImGui_ImplDX11_Init(Device, DeviceContext))
+    {
+        Shutdown();
+        return false;
+    }
+
+    bDX11Initialized = true;
+
     PanelManager = new FPanelManager();
+
+    if (PanelManager == nullptr)
+    {
+        Shutdown();
+        return false;
+    }
+
     PanelManager->Init();
+    return true;
 }
 
 void FImGuiRenderer::OnRender()
 {
+    if (!bContextCreated || !bWin32Initialized || !bDX11Initialized || PanelManager == nullptr)
+    {
+        return;
+    }
     // ImGui update, render 
     ImGui_ImplDX11_NewFrame();
     ImGui_ImplWin32_NewFrame();
@@ -38,11 +70,31 @@ void FImGuiRenderer::OnRender()
 
 void FImGuiRenderer::Shutdown()
 {
-    // Release ImGui
-    ImGui_ImplDX11_Shutdown();
-    ImGui_ImplWin32_Shutdown();
-    ImGui::DestroyPlatformWindows();
-    ImGui::DestroyContext();
+    if (PanelManager != nullptr)
+    {
+        PanelManager->Shutdown();
+        delete PanelManager;
+        PanelManager = nullptr;
+    }
+
+    if (bDX11Initialized)
+    {
+        ImGui_ImplDX11_Shutdown();
+        bDX11Initialized = false;
+    }
+
+    if (bWin32Initialized)
+    {
+        ImGui_ImplWin32_Shutdown();
+        bWin32Initialized = false;
+    }
+
+    if (bContextCreated)
+    {
+        ImGui::DestroyPlatformWindows();
+        ImGui::DestroyContext();
+        bContextCreated = false;
+    }
 }
 
 void FImGuiRenderer::DrawDockHost()

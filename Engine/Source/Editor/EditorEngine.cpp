@@ -16,6 +16,28 @@
 #include "UI/Panels/StatsPanel.h"
 #include "UObject/Object.h"
 #include "Resources/StaticMesh.h"
+#include <unordered_set>
+
+namespace 
+{
+    void ValidateEditorObjectContext(const FEditorObjectContext& Context)
+    {
+#if defined(_DEBUG)
+        std::unordered_set<const UObject*> UniqueObjects;
+
+        for (UObject* Object : Context.Objects)
+        {
+            assert(Object != nullptr);
+            assert(UniqueObjects.insert(Object).second);
+        }
+
+        if (Context.SelectedObject != nullptr)
+        {
+            assert(UniqueObjects.contains(Context.SelectedObject));
+        }
+#endif
+    }
+}
 
 bool FEditorEngine::Init(HINSTANCE hInstance)
 {
@@ -23,7 +45,12 @@ bool FEditorEngine::Init(HINSTANCE hInstance)
     Renderer = new URenderer();
     ImGuiRenderer = new FImGuiRenderer();
     WindowsWindow = new FWindowsWindow();
-    WindowsWindow->Create(hInstance, 1920, 1080);
+
+    if (WindowsWindow == nullptr || !WindowsWindow->Create(hInstance, 1920, 1080))
+    {
+        Shutdown();
+        return false;
+    }
     RECT ClientRect = {};
     GetClientRect(WindowsWindow->GetHWND(), &ClientRect);
     const uint32 InitialWidth = ClientRect.right > ClientRect.left ? static_cast<uint32>(ClientRect.right - ClientRect.left) : 1;
@@ -33,32 +60,81 @@ bool FEditorEngine::Init(HINSTANCE hInstance)
         Renderer->CreateShader();
         Renderer->CreateConstantBuffer();
         Renderer->CreateViewportRenderTarget(InitialWidth, InitialHeight);
+
+        if (!Renderer->IsReady())
+        {
+            UE_LOG(Error, "Renderer initialization failed");
+            Shutdown();
+            return false;
+        }
+        
         if (!RegisterBuiltinStaticMeshes(AssetManager, *Renderer))
         {
             UE_LOG(Error, "Failed to register builtin static meshes");
-            AssetManager.Shutdown();
-            Renderer->Shutdown();
+            Shutdown();
             return false;
         }
     }
-    ImGuiRenderer->Init(WindowsWindow->GetHWND(), Renderer->GetDevice(), Renderer->GetDeviceContext());
+    if (!ImGuiRenderer->Init(WindowsWindow->GetHWND(), Renderer->GetDevice(), Renderer->GetDeviceContext()))
+    {
+        UE_LOG(Error, "ImGui initialization failed");
+        Shutdown();
+        return false;
+    }
     
     MainCamera = new UCameraComponent();
     
     ViewportPanel = new FViewportPanel();
     ViewportPanel->SetViewportTexture(Renderer->GetViewportSRV());
-    ImGuiRenderer->GetPanelManager()->AddPanel(ViewportPanel);
+    if (!ImGuiRenderer->GetPanelManager()->AddPanel(ViewportPanel))
+    {
+        ViewportPanel = nullptr;
+        Shutdown();
+        return false;
+    }
+    
     ConsolePanel = new FConsolePanel();
-    ImGuiRenderer->GetPanelManager()->AddPanel(ConsolePanel);
-    ObjectListPanel = new FObjectListPanel(&ObjectContext, &AssetManager);
-    ImGuiRenderer->GetPanelManager()->AddPanel(ObjectListPanel);
+    if (!ImGuiRenderer->GetPanelManager()->AddPanel(ConsolePanel))
+    {
+        ConsolePanel = nullptr;
+        Shutdown();
+        return false;
+    }
+    
+    ObjectListPanel = new FObjectListPanel(&ObjectContext, &AssetManager, ViewportPanel, Renderer);
+    if (!ImGuiRenderer->GetPanelManager()->AddPanel(ObjectListPanel))
+    {
+        ObjectListPanel = nullptr;
+        Shutdown();
+        return false;
+    }
+    
     DetailsPanel = new FDetailsPanel(&ObjectContext);
-    ImGuiRenderer->GetPanelManager()->AddPanel(DetailsPanel);
+    if (!ImGuiRenderer->GetPanelManager()->AddPanel(DetailsPanel))
+    {
+        DetailsPanel = nullptr;
+        Shutdown();
+        return false;
+    }
+    
     StatsPanel = new FStatsPanel(&FrameStats, &ObjectContext);
-    ImGuiRenderer->GetPanelManager()->AddPanel(StatsPanel);
+    if (!ImGuiRenderer->GetPanelManager()->AddPanel(StatsPanel))
+    {
+        StatsPanel = nullptr;
+        Shutdown();
+        return false;
+    }
+    
     ConsolePanel->SetStatsPanel(StatsPanel);
-    MainMenuPanel = new FMainMenuPanel(&ObjectContext, &AssetManager, WindowsWindow->GetHWND(), MainCamera);
-    ImGuiRenderer->GetPanelManager()->AddPanel(MainMenuPanel);
+    MainMenuPanel = new FMainMenuPanel(&ObjectContext, &AssetManager, WindowsWindow->GetHWND(), MainCamera, Renderer);
+    if (!ImGuiRenderer->GetPanelManager()->AddPanel(MainMenuPanel))
+    {
+        MainMenuPanel = nullptr;
+        Shutdown();
+        return false;
+    }
+    
+    ObjectContext.UndoManager = &UndoManager;
     
     bIsRunning = true;
     UE_LOG(Info, "Info");
@@ -129,7 +205,7 @@ void FEditorEngine::Run()
             const float AspectRatio = static_cast<float>(ViewportWidth) / static_cast<float>(ViewportHeight);
             MainCamera->SetAspectRatio(AspectRatio);
         }
-        CameraController.Update(*MainCamera, *WindowsWindow, static_cast<float>(DeltaTime));
+        CameraController.Update(*MainCamera, *WindowsWindow, static_cast<float>(DeltaTime), ViewportPanel->IsViewportHovered());
         
         const FMatrix View = MainCamera->GetViewMatrix();
         const FMatrix Projection = MainCamera->GetProjectionMatrix();
@@ -200,6 +276,22 @@ void FEditorEngine::Run()
         }
         
         ImGuiRenderer->OnRender();
+        
+#if defined(_DEBUG)
+        ValidateEditorObjectContext(ObjectContext);
+#endif
+        
+        const ImGuiIO& IO = ImGui::GetIO();
+
+        if (!IO.WantTextInput && IO.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_Z, false))
+        {
+            UndoManager.Undo(ObjectContext);
+        }
+        else if (!IO.WantTextInput && IO.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_Y, false))
+        {
+            UndoManager.Redo(ObjectContext);
+        }
+        
         Renderer->SwapBuffer();
     }
     
@@ -208,22 +300,58 @@ void FEditorEngine::Run()
 
 void FEditorEngine::Shutdown()
 {
+    bIsRunning = false;
+
+    if (WindowsWindow != nullptr)
+    {
+        CameraController.Stop(*WindowsWindow);
+    }
+
+    if (ImGuiRenderer != nullptr)
+    {
+        ImGuiRenderer->Shutdown();
+        delete ImGuiRenderer;
+        ImGuiRenderer = nullptr;
+    }
+
+    ViewportPanel = nullptr;
+    ConsolePanel = nullptr;
+    ObjectListPanel = nullptr;
+    DetailsPanel = nullptr;
+    MainMenuPanel = nullptr;
+    StatsPanel = nullptr;
+
     for (UObject* Object : ObjectContext.Objects)
     {
-        if (Object != nullptr)
-        {
-            delete Object;
-        }
+        delete Object;
     }
+
     ObjectContext.Objects.Reset();
     ObjectContext.SelectedObject = nullptr;
-    ImGuiRenderer->Shutdown();
 
-    delete MainCamera;
-    MainCamera = nullptr;
+    if (MainCamera != nullptr)
+    {
+        delete MainCamera;
+        MainCamera = nullptr;
+    }
 
+    UndoManager.Clear();
+    
     AssetManager.Shutdown();
-    Renderer->Shutdown();
+
+    if (Renderer != nullptr)
+    {
+        Renderer->Shutdown();
+        delete Renderer;
+        Renderer = nullptr;
+    }
+
+    if (WindowsWindow != nullptr)
+    {
+        WindowsWindow->Destroy();
+        delete WindowsWindow;
+        WindowsWindow = nullptr;
+    }
 }
 
 void FEditorEngine::ProcessViewportPicking(const UCameraComponent& Camera)

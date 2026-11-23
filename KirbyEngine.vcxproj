@@ -296,6 +296,8 @@
     <ClInclude Include="Engine\Source\Editor\EditorObjectPicker.h" />
     <ClInclude Include="Engine\Source\Editor\EditorSceneSerializer.h" />
     <ClInclude Include="Engine\Source\Editor\EditorTransformGizmo.h" />
+    <ClInclude Include="Engine\Source\Editor\EditorUndoManager.h" />
+    <ClInclude Include="Engine\Source\Editor\OBJStaticMeshImporter.h" />
     <ClInclude Include="Engine\Source\Editor\UI\ImGuiRenderer.h" />
     <ClInclude Include="Engine\Source\Editor\UI\PanelManager.h" />
     <ClInclude Include="Engine\Source\Editor\UI\Panels\ConsolePanel.h" />

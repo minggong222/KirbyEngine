@@ -8,6 +8,7 @@
 #include "UI/Panels/ConsolePanel.h"
 #include "UI/Panels/ViewportPanel.h"
 #include "Windows/WindowsWindow.h"
+#include "EditorUndoManager.h"
 
 struct FStaticMeshData;
 class UCameraComponent;
@@ -45,6 +46,7 @@ private:
     UCameraComponent* MainCamera = nullptr;
     
     FAssetManager AssetManager;
+    FEditorUndoManager UndoManager;
     
     bool bIsRunning = false;
 };

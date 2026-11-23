@@ -3,6 +3,7 @@
 #include "Components/SceneComponent.h"
 #include "Core/Math/MathUtility.h"
 #include "UObject/Object.h"
+#include "EditorUndoManager.h"
 
 #include <algorithm>
 #include <array>
@@ -458,6 +459,16 @@ namespace
         DrawList->AddTriangleFilled(Points[0], Points[1], Points[2], Color);
         DrawList->AddTriangleFilled(Points[0], Points[2], Points[3], Color);
     }
+    
+    float SnapValue(float Value, float Increment)
+    {
+        if (!std::isfinite(Value) || !std::isfinite(Increment) || Increment <= EPSILON_1E_6)
+        {
+            return Value;
+        }
+
+        return std::round(Value / Increment) * Increment;
+    }
 }
 
 bool FEditorTransformGizmo::Draw(FEditorObjectContext& Context, const FMatrix& View, const FMatrix& Projection, ImDrawList* DrawList, const ImVec2& ImageMin, const ImVec2& ImageSize, bool bImageHovered)
@@ -478,7 +489,7 @@ bool FEditorTransformGizmo::Draw(FEditorObjectContext& Context, const FMatrix& V
     {
         if (!bDragStillTargetsSelection)
         {
-            EndDrag();
+            CancelDrag();
         }
         else
         {
@@ -489,6 +500,11 @@ bool FEditorTransformGizmo::Draw(FEditorObjectContext& Context, const FMatrix& V
 
             if (ImGui::IsMouseReleased(ImGuiMouseButton_Left))
             {
+                if (Context.UndoManager != nullptr && DraggedComponent != nullptr)
+                {
+                    Context.UndoManager->RecordTransform(Context, DraggedComponent->GetUUID(), DragStartTransform, DraggedComponent->GetWorldTransform());
+                }
+
                 EndDrag();
             }
         }
@@ -550,7 +566,7 @@ bool FEditorTransformGizmo::Draw(FEditorObjectContext& Context, const FMatrix& V
                 }
             }
 
-            if (ImGui::GetIO().KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_GraveAccent, false))
+            if (CurrentMode != ETransformGizmoMode::Scale && ImGui::GetIO().KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_GraveAccent, false))
             {
                 CoordinateSpace = CoordinateSpace == ETransformCoordinateSpace::World ? ETransformCoordinateSpace::Local : ETransformCoordinateSpace::World;
             }
@@ -932,14 +948,20 @@ bool FEditorTransformGizmo::BeginDrag(USceneComponent* Component, EGizmoHandle H
         if (Handle == EGizmoHandle::XY)
         {
             DragPlaneNormal = Axes[2];
+            DragPlaneAxisA = Axes[0];
+            DragPlaneAxisB = Axes[1];
         }
         else if (Handle == EGizmoHandle::XZ)
         {
             DragPlaneNormal = Axes[1];
+            DragPlaneAxisA = Axes[0];
+            DragPlaneAxisB = Axes[2];
         }
         else if (Handle == EGizmoHandle::YZ)
         {
             DragPlaneNormal = Axes[0];
+            DragPlaneAxisA = Axes[1];
+            DragPlaneAxisB = Axes[2];
         }
         else
         {
@@ -1029,7 +1051,15 @@ void FEditorTransformGizmo::UpdateDrag(const ImVec2& MousePosition, const ImVec2
                 return;
             }
 
-            const FVector Delta = CurrentPlaneHit - DragStartPlaneHit;
+            FVector Delta = CurrentPlaneHit - DragStartPlaneHit;
+
+            if (bSnapEnabled)
+            {
+                const float SnapA = SnapValue(Delta.Dot(DragPlaneAxisA), TranslationSnap);
+                const float SnapB = SnapValue(Delta.Dot(DragPlaneAxisB), TranslationSnap);
+
+                Delta = DragPlaneAxisA * SnapA + DragPlaneAxisB * SnapB;
+            }
 
             NewTransform.Location = DragStartTransform.Location + Delta;
         }
@@ -1042,7 +1072,12 @@ void FEditorTransformGizmo::UpdateDrag(const ImVec2& MousePosition, const ImVec2
                 return;
             }
 
-            const float Delta = CurrentAxisParameter - DragStartAxisParameter;
+            float Delta = CurrentAxisParameter - DragStartAxisParameter;
+
+            if (bSnapEnabled)
+            {
+                Delta = SnapValue(Delta, TranslationSnap);
+            }
 
             NewTransform.Location = DragStartTransform.Location + DragAxisWorld * Delta;
         }
@@ -1082,7 +1117,16 @@ void FEditorTransformGizmo::UpdateDrag(const ImVec2& MousePosition, const ImVec2
         PreviousRotationVector = CurrentRotationVector;
 
         const FMatrix StartRotationMatrix = DragStartTransform.GetOrientation().ToMatrix();
-        const FMatrix DeltaRotationMatrix = FMatrix::CreateFromAxisAngle(DragRotationAxis, AccumulatedRotationAngle);
+
+        float AppliedRotationAngle = AccumulatedRotationAngle;
+
+        if (bSnapEnabled)
+        {
+            const float RotationStepRadians = RotationSnap * GIZMO_PI / 180.0f;
+            AppliedRotationAngle = SnapValue(AppliedRotationAngle, RotationStepRadians);
+        }
+
+        const FMatrix DeltaRotationMatrix = FMatrix::CreateFromAxisAngle(DragRotationAxis, AppliedRotationAngle);
 
         FMatrix NewRotationMatrix;
 
@@ -1117,6 +1161,17 @@ void FEditorTransformGizmo::UpdateDrag(const ImVec2& MousePosition, const ImVec2
             NewTransform.Scale3D.x = ApplyScaleFactor(DragStartTransform.Scale3D.x, ScaleFactor);
             NewTransform.Scale3D.y = ApplyScaleFactor(DragStartTransform.Scale3D.y, ScaleFactor);
             NewTransform.Scale3D.z = ApplyScaleFactor(DragStartTransform.Scale3D.z, ScaleFactor);
+
+            if (bSnapEnabled)
+            {
+                NewTransform.Scale3D.x = SnapValue(NewTransform.Scale3D.x, ScaleSnap);
+                NewTransform.Scale3D.y = SnapValue(NewTransform.Scale3D.y, ScaleSnap);
+                NewTransform.Scale3D.z = SnapValue(NewTransform.Scale3D.z, ScaleSnap);
+
+                NewTransform.Scale3D.x = std::fabs(NewTransform.Scale3D.x) < GIZMO_MIN_SCALE ? std::copysign(GIZMO_MIN_SCALE, NewTransform.Scale3D.x) : NewTransform.Scale3D.x;
+                NewTransform.Scale3D.y = std::fabs(NewTransform.Scale3D.y) < GIZMO_MIN_SCALE ? GIZMO_MIN_SCALE : NewTransform.Scale3D.y;
+                NewTransform.Scale3D.z = std::fabs(NewTransform.Scale3D.z) < GIZMO_MIN_SCALE ? GIZMO_MIN_SCALE : NewTransform.Scale3D.z;
+            }
         }
         else
         {
@@ -1140,7 +1195,19 @@ void FEditorTransformGizmo::UpdateDrag(const ImVec2& MousePosition, const ImVec2
 
             const float StartScale = GetVectorComponent(DragStartTransform.Scale3D, AxisIndex);
 
-            SetVectorComponent(NewTransform.Scale3D, AxisIndex, ApplyScaleFactor(StartScale, ScaleFactor));
+            float NewScale = ApplyScaleFactor(StartScale, ScaleFactor);
+
+            if (bSnapEnabled)
+            {
+                NewScale = SnapValue(NewScale, ScaleSnap);
+
+                if (std::fabs(NewScale) < GIZMO_MIN_SCALE)
+                {
+                    NewScale = GIZMO_MIN_SCALE;
+                }
+            }
+
+            SetVectorComponent(NewTransform.Scale3D, AxisIndex, NewScale);
         }
     }
 
@@ -1186,5 +1253,10 @@ void FEditorTransformGizmo::EndDrag()
 
 void FEditorTransformGizmo::CancelDrag()
 {
+    if (bIsDragging && DraggedComponent != nullptr)
+    {
+        DraggedComponent->SetWorldTransform(DragStartTransform);
+    }
+
     EndDrag();
 }

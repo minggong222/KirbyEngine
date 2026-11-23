@@ -57,6 +57,8 @@ public:
 
     ID3D11ShaderResourceView* GetViewportSRV() const{ return ViewportSRV; }
     
+    bool IsReady() const;
+    
     void Shutdown();
 private:
     // Direct3D 11 장치(Device)와 장치 컨텍스트(Device Context) 및 스왑 체인(Swap Chain)을 관리하기 위한 포인터들
@@ -74,10 +76,11 @@ private:
     FLOAT mClearColor[4] = { 0.025f, 0.025f, 0.025f, 1.0f }; // 화면을 초기화(clear)할 때 사용할 색상 (RGBA)
     D3D11_VIEWPORT mViewportInfo; // 렌더링 영역을 정의하는 뷰포트 정보
 
-    ID3D11VertexShader* mSimpleVertexShader;
-    ID3D11PixelShader* mSimplePixelShader;
-    ID3D11InputLayout* mSimpleInputLayout;
-    unsigned int mStride;
+    ID3D11VertexShader* mSimpleVertexShader = nullptr;
+    ID3D11PixelShader* mSimplePixelShader = nullptr;
+    ID3D11InputLayout* mSimpleInputLayout = nullptr;
+    unsigned int mStride = 0;
+    bool bInitializationFailed = false;
     
     ID3D11Texture2D* ViewportTexture = nullptr;
     ID3D11RenderTargetView* ViewportRTV = nullptr;

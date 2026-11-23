@@ -107,7 +107,13 @@ void FViewportPanel::Tick(float DeltaTime)
 
 void FViewportPanel::OnRender()
 {
-    ImGui::Begin("Viewport");
+    bViewportHovered = false;
+
+    if (!ImGui::Begin("Viewport"))
+    {
+        ImGui::End();
+        return;
+    }
 
     const ETransformGizmoMode CurrentMode = TransformGizmo.GetMode();
 
@@ -132,18 +138,69 @@ void FViewportPanel::OnRender()
 
     ImGui::SameLine();
 
-    const ETransformCoordinateSpace CurrentSpace = TransformGizmo.GetCoordinateSpace();
-
-    if (ImGui::RadioButton("World", CurrentSpace == ETransformCoordinateSpace::World))
+    if (CurrentMode != ETransformGizmoMode::Scale)
     {
-        TransformGizmo.SetCoordinateSpace(ETransformCoordinateSpace::World);
+        const ETransformCoordinateSpace CurrentSpace = TransformGizmo.GetCoordinateSpace();
+
+        if (ImGui::RadioButton("World", CurrentSpace == ETransformCoordinateSpace::World))
+        {
+            TransformGizmo.SetCoordinateSpace(ETransformCoordinateSpace::World);
+        }
+
+        ImGui::SameLine();
+
+        if (ImGui::RadioButton("Local", CurrentSpace == ETransformCoordinateSpace::Local))
+        {
+            TransformGizmo.SetCoordinateSpace(ETransformCoordinateSpace::Local);
+        }
+    }
+    else
+    {
+        ImGui::TextDisabled("Scale: Local");
+    }
+    
+    bool bSnapEnabled = TransformGizmo.IsSnapEnabled();
+
+    if (ImGui::Checkbox("Snap", &bSnapEnabled))
+    {
+        TransformGizmo.SetSnapEnabled(bSnapEnabled);
     }
 
-    ImGui::SameLine();
-
-    if (ImGui::RadioButton("Local", CurrentSpace == ETransformCoordinateSpace::Local))
+    if (bSnapEnabled)
     {
-        TransformGizmo.SetCoordinateSpace(ETransformCoordinateSpace::Local);
+        if (CurrentMode == ETransformGizmoMode::Translate)
+        {
+            float SnapValue = TransformGizmo.GetTranslationSnap();
+
+            ImGui::SameLine();
+
+            if (ImGui::DragFloat("Move Step", &SnapValue, 0.1f, 0.1f, 100.0f, "%.1f"))
+            {
+                TransformGizmo.SetTranslationSnap(SnapValue);
+            }
+        }
+        else if (CurrentMode == ETransformGizmoMode::Rotate)
+        {
+            float SnapValue = TransformGizmo.GetRotationSnap();
+
+            ImGui::SameLine();
+
+            if (ImGui::DragFloat("Rotation Step", &SnapValue, 1.0f, 1.0f, 90.0f, "%.0f"))
+            {
+                TransformGizmo.SetRotationSnap(SnapValue);
+            }
+        }
+        else if (CurrentMode == ETransformGizmoMode::Scale)
+        {
+            float SnapValue = TransformGizmo.GetScaleSnap();
+
+            ImGui::SameLine();
+
+            if (ImGui::DragFloat("Scale Step", &SnapValue, 0.01f, 0.01f, 10.0f, "%.2f"))
+            {
+                TransformGizmo.SetScaleSnap(SnapValue);
+            }
+        }
     }
     
     const ImVec2 AvailableSize = ImGui::GetContentRegionAvail();
@@ -170,6 +227,7 @@ void FViewportPanel::OnRender()
             const ImVec2 ImageSize(ImageMax.x - ImageMin.x, ImageMax.y - ImageMin.y);
 
             const bool bImageHovered = ImGui::IsItemHovered();
+            bViewportHovered = bImageHovered;
 
             DrawWorldGridAndAxes(ImGui::GetWindowDrawList(), ImageMin, ImageMax, ImageSize, ViewMatrix, ProjectionMatrix);
             

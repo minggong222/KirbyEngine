@@ -59,6 +59,12 @@
     <ClInclude Include="URenderer.h">
       <Filter>헤더 파일</Filter>
     </ClInclude>
+    <ClInclude Include="Engine\Source\Editor\EditorUndoManager.h">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\Source\Editor\OBJStaticMeshImporter.h">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
     <ClInclude Include="ImGui\imconfig.h">
       <Filter>Engine\Source\ThirdParty\ImGui</Filter>
     </ClInclude>

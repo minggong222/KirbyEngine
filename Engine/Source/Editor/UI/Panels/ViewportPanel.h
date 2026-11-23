@@ -13,12 +13,21 @@ public:
     void SetGizmoContext(FEditorObjectContext* InContext, const FMatrix& InView, const FMatrix& InProjection)
     {
         ObjectContext = InContext;
+
+        if (ObjectContext != nullptr)
+        {
+            ObjectContext->TransformGizmo = &TransformGizmo;
+        }
+
         ViewMatrix = InView;
         ProjectionMatrix = InProjection;
     }
     void SetDesiredSize(uint32 Width, uint32 Height);
     bool ConsumeDesiredSize(uint32& OutWidth, uint32& OutHeight);
     bool ConsumeClick(float& OutU, float& OutV);
+    
+    bool IsViewportHovered() const { return bViewportHovered; }
+    void CancelGizmoDrag() { TransformGizmo.CancelDrag(); }
 private:
     ID3D11ShaderResourceView* SRV = nullptr;
     
@@ -35,4 +44,6 @@ private:
     float ClickU = 0.0f;
     float ClickV = 0.0f;
     bool bHasPendingClick = false;
+    
+    bool bViewportHovered = false;
 };

@@ -1,4 +1,5 @@
-﻿#ifndef NOMINMAX
+﻿#include "Core/Math/MathUtility.h"
+#ifndef NOMINMAX
 #define NOMINMAX
 #endif
 #include <Windows.h>
@@ -22,6 +23,9 @@
 #include "Json/Dom/JsonObject.h"
 #include "Json/Serialization/JsonSerializer.h"
 
+#include "OBJStaticMeshImporter.h"
+#include "Renderer/Renderer.h"
+
 #include <algorithm>
 #include <charconv>
 #include <cmath>
@@ -30,6 +34,7 @@
 #include <limits>
 #include <string>
 #include <cstdint>
+#include <memory>
 #include <unordered_set>
 
 extern TArray<UObject*> GUObjectArray;
@@ -45,6 +50,20 @@ namespace
         UStaticMesh* StaticMesh = nullptr;
         TSharedPtr<FJsonObject> CameraSettings;
         bool bIsCamera = false;
+    };
+    
+    struct FScopedNextUUIDRollback
+    {
+        uint32 OriginalNextUUID = FEngineStatics::NextUUID;
+        bool bCommitted = false;
+
+        ~FScopedNextUUIDRollback()
+        {
+            if (!bCommitted)
+            {
+                FEngineStatics::NextUUID = OriginalNextUUID;
+            }
+        }
     };
 
     TArray<TSharedPtr<FJsonValue>> MakeNumberArray(double X, double Y, double Z)
@@ -148,6 +167,23 @@ namespace
                     double Number = 0.0;
 
                     if (!Value->TryGetNumber(Number) || !std::isfinite(Number) || std::fabs(Number) > (std::numeric_limits<float>::max)())
+                    {
+                        return false;
+                    }
+
+                    const std::string PropertyName = Property->GetName().ToStd();
+
+                    if (PropertyName == "FieldOfView" && (Number <= 1.0 || Number >= 179.0))
+                    {
+                        return false;
+                    }
+
+                    if ((PropertyName == "AspectRatio" || PropertyName == "NearClipPlane" || PropertyName == "FarClipPlane" || PropertyName == "OrthoWidth") && Number <= 0.0)
+                    {
+                        return false;
+                    }
+
+                    if ((PropertyName == "MoveSpeed" || PropertyName == "MouseSensitivity" || PropertyName == "WheelSpeed") && Number < 0.0)
                     {
                         return false;
                     }
@@ -272,6 +308,11 @@ namespace
             FVector(static_cast<float>(Scale[0]), static_cast<float>(Scale[1]), static_cast<float>(Scale[2]))
         );
 
+        if (std::fabs(OutTransform.Scale3D.x) <= EPSILON_1E_6 || std::fabs(OutTransform.Scale3D.y) <= EPSILON_1E_6 || std::fabs(OutTransform.Scale3D.z) <= EPSILON_1E_6)
+        {
+            return false;
+        }
+
         return true;
     }
 
@@ -330,7 +371,7 @@ namespace
         return false;
     }
 
-    bool ReadObjectMap(const FJsonObject& ObjectMap, bool bIsCamera, FAssetManager& AssetManager, TArray<FSceneObjectRecord>& OutRecords, TSet<uint32>& SeenUUIDs, uint32& OutMaxUUID)
+    bool ReadObjectMap(const FJsonObject& ObjectMap, bool bIsCamera, uint32 Version, FAssetManager& AssetManager, URenderer& Renderer, TArray<FSceneObjectRecord>& OutRecords, TSet<uint32>& SeenUUIDs, uint32& OutMaxUUID)
     {
         for (const auto& Pair : ObjectMap.GetValues())
         {
@@ -364,28 +405,42 @@ namespace
 
             if (!bIsCamera)
             {
-                FString Type;
+                if (Version == 1)
+                {
+                    FString Type;
 
-                if (!ObjectData->TryGetStringField("Type", Type))
-                {
-                    return false;
-                }
+                    if (!ObjectData->TryGetStringField("Type", Type))
+                    {
+                        return false;
+                    }
 
-                if (Type == "Cube")
-                {
-                    Record.StaticMesh = AssetManager.Find<UStaticMesh>(BuiltinAssetPaths::Cube);
+                    if (Type == "Cube")
+                    {
+                        Record.StaticMesh = AssetManager.Find<UStaticMesh>(BuiltinAssetPaths::Cube);
+                    }
+                    else if (Type == "Sphere")
+                    {
+                        Record.StaticMesh = AssetManager.Find<UStaticMesh>(BuiltinAssetPaths::Sphere);
+                    }
+                    else if (Type == "Plane")
+                    {
+                        Record.StaticMesh = AssetManager.Find<UStaticMesh>(BuiltinAssetPaths::Plane);
+                    }
+                    else
+                    {
+                        return false;
+                    }
                 }
-                else if (Type == "Sphere")
+                else if (Version == 2)
                 {
-                    Record.StaticMesh = AssetManager.Find<UStaticMesh>(BuiltinAssetPaths::Sphere);
-                }
-                else if (Type == "Plane")
-                {
-                    Record.StaticMesh = AssetManager.Find<UStaticMesh>(BuiltinAssetPaths::Plane);
-                }
-                else
-                {
-                    return false;
+                    FString AssetPath;
+
+                    if (!ObjectData->TryGetStringField("AssetPath", AssetPath))
+                    {
+                        return false;
+                    }
+
+                    Record.StaticMesh = OBJImporter::LoadOBJAsset(AssetPath, AssetManager, Renderer);
                 }
 
                 if (Record.StaticMesh == nullptr)
@@ -396,6 +451,29 @@ namespace
 
             OutMaxUUID = (std::max)(OutMaxUUID, Record.UUID);
             OutRecords.Add(std::move(Record));
+        }
+
+        return true;
+    }
+    
+    bool CopyCameraSettings(const UCameraComponent& Source, UCameraComponent& Destination)
+    {
+        TArray<const FProperty*> Properties;
+        Source.GetClass()->GetProperties(Properties, true);
+
+        for (const FProperty* Property : Properties)
+        {
+            if (Property->GetName().ToStd() == "Transform")
+            {
+                continue;
+            }
+
+            const void* SourceValue = Property->GetValuePtr(&Source);
+
+            if (SourceValue == nullptr || !Property->SetValue(&Destination, Property->GetType(), SourceValue))
+            {
+                return false;
+            }
         }
 
         return true;
@@ -413,7 +491,7 @@ bool FSceneSerializer::Save(const std::filesystem::path& FilePath, const FEditor
     TSharedPtr<FJsonObject> Primitives = MakeShared<FJsonObject>();
     TSharedPtr<FJsonObject> Cameras = MakeShared<FJsonObject>();
 
-    Root->SetNumberField("Version", 1);
+    Root->SetNumberField("Version", 2);
     Root->SetNumberField("NextUUID", FEngineStatics::NextUUID);
 
     for (UObject* Object : Context.Objects)
@@ -433,30 +511,17 @@ bool FSceneSerializer::Save(const std::filesystem::path& FilePath, const FEditor
                 return false;
             }
 
-            const std::string& AssetPath = Mesh->GetAssetPath().ToStd();
-            FString Type;
+            const FString& AssetPath = Mesh->GetAssetPath();
 
-            if (AssetPath == BuiltinAssetPaths::Cube)
+            if (AssetPath.IsEmpty())
             {
-                Type = "Cube";
-            }
-            else if (AssetPath == BuiltinAssetPaths::Sphere)
-            {
-                Type = "Sphere";
-            }
-            else if (AssetPath == BuiltinAssetPaths::Plane)
-            {
-                Type = "Plane";
-            }
-            else
-            {
-                UE_LOG(Error, "Scene Save failed: Unsupported StaticMesh");
+                UE_LOG(Error, "Scene Save failed: StaticMesh AssetPath is empty");
                 return false;
             }
 
             FJsonObject PrimitiveData;
             WriteTransform(PrimitiveData, Component->GetWorldTransform());
-            PrimitiveData.SetStringField("Type", Type);
+            PrimitiveData.SetStringField("AssetPath", AssetPath);
 
             Primitives->SetObjectField(std::to_string(Object->GetUUID()).c_str(), std::move(PrimitiveData));
         }
@@ -554,7 +619,7 @@ bool FSceneSerializer::Save(const std::filesystem::path& FilePath, const FEditor
     return true;
 }
 
-bool FSceneSerializer::Load(const std::filesystem::path& FilePath, FEditorObjectContext& Context, FAssetManager& AssetManager, UCameraComponent& ViewportCamera)
+bool FSceneSerializer::Load(const std::filesystem::path& FilePath, FEditorObjectContext& Context, FAssetManager& AssetManager, UCameraComponent& ViewportCamera, URenderer& Renderer)
 {
     if (FilePath.empty())
     {
@@ -610,7 +675,7 @@ bool FSceneSerializer::Load(const std::filesystem::path& FilePath, FEditorObject
     double Version = 0.0;
     double NextUUIDNumber = 0.0;
 
-    if (!Root->TryGetNumberField("Version", Version) || Version != 1.0 || !Root->TryGetNumberField("NextUUID", NextUUIDNumber))
+    if (!Root->TryGetNumberField("Version", Version) || (Version != 1.0 && Version != 2.0) || !Root->TryGetNumberField("NextUUID", NextUUIDNumber))
     {
         UE_LOG(Error, "Scene Load failed: Invalid scene header");
         return false;
@@ -683,13 +748,13 @@ bool FSceneSerializer::Load(const std::filesystem::path& FilePath, FEditorObject
     TSet<uint32> SeenUUIDs;
     uint32 MaxUUID = 0;
 
-    if (!ReadObjectMap(*PrimitiveObject, false, AssetManager, Records, SeenUUIDs, MaxUUID))
+    if (!ReadObjectMap(*PrimitiveObject, false, static_cast<uint32>(Version), AssetManager, Renderer, Records, SeenUUIDs, MaxUUID))
     {
         UE_LOG(Error, "Scene Load failed: Invalid primitive data");
         return false;
     }
 
-    if (CameraObject != nullptr && !ReadObjectMap(*CameraObject, true, AssetManager, Records, SeenUUIDs, MaxUUID))
+    if (CameraObject != nullptr && !ReadObjectMap(*CameraObject, true, static_cast<uint32>(Version), AssetManager, Renderer, Records, SeenUUIDs, MaxUUID))
     {
         UE_LOG(Error, "Scene Load failed: Invalid camera data");
         return false;
@@ -722,6 +787,8 @@ bool FSceneSerializer::Load(const std::filesystem::path& FilePath, FEditorObject
         UE_LOG(Error, "Scene Load failed: Runtime UUID range exhausted");
         return false;
     }
+
+    FScopedNextUUIDRollback UUIDRollback;
 
     FEngineStatics::NextUUID = (std::max)(FEngineStatics::NextUUID, SavedNextUUID);
 
@@ -783,14 +850,44 @@ bool FSceneSerializer::Load(const std::filesystem::path& FilePath, FEditorObject
         StagedObjects.Add(NewObjectInstance);
     }
     
+    std::unique_ptr<UCameraComponent> StagedViewportCamera;
+
     if (bHasViewportCameraData)
     {
-        ViewportCamera.SetTransform(ViewportCameraTransform);
+        StagedViewportCamera.reset(NewObject<UCameraComponent>());
 
-        if (!ApplyCameraSettings(ViewportCamera, ViewportCameraSettings.Get()))
+        if (StagedViewportCamera == nullptr)
+        {
+            DestroyStagedObjects();
+            UE_LOG(Error, "Scene Load failed: Cannot create staged viewport camera");
+            return false;
+        }
+
+        if (!CopyCameraSettings(ViewportCamera, *StagedViewportCamera))
+        {
+            DestroyStagedObjects();
+            UE_LOG(Error, "Scene Load failed: Cannot copy viewport camera settings");
+            return false;
+        }
+
+        StagedViewportCamera->SetTransform(ViewportCameraTransform);
+
+        if (!ApplyCameraSettings(*StagedViewportCamera, ViewportCameraSettings.Get()))
         {
             DestroyStagedObjects();
             UE_LOG(Error, "Scene Load failed: Cannot apply viewport camera settings");
+            return false;
+        }
+    }
+    
+    if (StagedViewportCamera != nullptr)
+    {
+        ViewportCamera.SetTransform(StagedViewportCamera->GetTransform());
+
+        if (!CopyCameraSettings(*StagedViewportCamera, ViewportCamera))
+        {
+            DestroyStagedObjects();
+            UE_LOG(Error, "Scene Load failed: Cannot commit viewport camera settings");
             return false;
         }
     }
@@ -813,6 +910,8 @@ bool FSceneSerializer::Load(const std::filesystem::path& FilePath, FEditorObject
     Context.SelectedObject = nullptr;
 
     FEngineStatics::NextUUID = (std::max)(FEngineStatics::NextUUID, SavedNextUUID);
+
+    UUIDRollback.bCommitted = true;
 
     UE_LOG(Info, "Scene loaded: %s", FilePath.string().c_str());
     return true;
