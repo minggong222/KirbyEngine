@@ -57,6 +57,7 @@ private:
     FVector DragRotationAxis = FVector::Zero;
     FVector DragPlaneNormal = FVector::Zero;
     FVector DragStartPlaneHit = FVector::Zero;
+    FVector PreviousRotationVector = FVector::Zero;
     FVector DragRingU = FVector::Zero;
     FVector DragRingV = FVector::Zero;
     float DragStartAxisParameter = 0.0f;

@@ -464,65 +464,93 @@ bool FEditorTransformGizmo::Draw(FEditorObjectContext& Context, const FMatrix& V
 {
     USceneComponent* SelectedComponent = Cast<USceneComponent>(Context.SelectedObject);
 
+    const bool bWasDragging = bIsDragging;
+    const EGizmoHandle PreviousDragHandle = DragHandle;
+
+    bool bConsumedInput = bWasDragging;
+    bool bDragStillTargetsSelection = bWasDragging && SelectedComponent == DraggedComponent;
+
+    // ============================================================
+    // DRAG UPDATE
+    // ============================================================
+
     if (bIsDragging)
     {
-        if (SelectedComponent != DraggedComponent)
-        {
-            CancelDrag();
-            return true;
-        }
-
-        if (ImGui::IsMouseDown(ImGuiMouseButton_Left) || ImGui::IsMouseReleased(ImGuiMouseButton_Left))
-        {
-            UpdateDrag(ImGui::GetIO().MousePos, ImageMin, ImageSize, View, Projection);
-        }
-
-        if (ImGui::IsMouseReleased(ImGuiMouseButton_Left))
+        if (!bDragStillTargetsSelection)
         {
             EndDrag();
         }
+        else
+        {
+            if (ImGui::IsMouseDown(ImGuiMouseButton_Left) || ImGui::IsMouseReleased(ImGuiMouseButton_Left))
+            {
+                UpdateDrag(ImGui::GetIO().MousePos, ImageMin, ImageSize, View, Projection);
+            }
 
-        return true;
+            if (ImGui::IsMouseReleased(ImGuiMouseButton_Left))
+            {
+                EndDrag();
+            }
+        }
     }
 
-    if (SelectedComponent == nullptr || DrawList == nullptr || ImageSize.x <= 0.0f || ImageSize.y <= 0.0f)
+    if (SelectedComponent == nullptr)
     {
         CancelDrag();
-        return false;
+        return bConsumedInput;
     }
 
-    ImGuiIO& IO = ImGui::GetIO();
-
-    if (bImageHovered && !IO.WantTextInput && !ImGui::IsMouseDown(ImGuiMouseButton_Right))
+    if (DrawList == nullptr || ImageSize.x <= 0.0f || ImageSize.y <= 0.0f)
     {
-        if (ImGui::IsKeyPressed(ImGuiKey_W, false))
-        {
-            CurrentMode = ETransformGizmoMode::Translate;
-        }
+        return bConsumedInput;
+    }
 
-        if (ImGui::IsKeyPressed(ImGuiKey_E, false))
-        {
-            CurrentMode = ETransformGizmoMode::Rotate;
-        }
+    // ============================================================
+    // INPUT MODE
+    // ============================================================
 
-        if (ImGui::IsKeyPressed(ImGuiKey_R, false))
-        {
-            CurrentMode = ETransformGizmoMode::Scale;
-        }
+    if (!bWasDragging && bImageHovered)
+    {
+        ImGuiIO& IO = ImGui::GetIO();
 
-        if (ImGui::IsKeyPressed(ImGuiKey_GraveAccent, false))
+        if (!IO.WantTextInput && !ImGui::IsMouseDown(ImGuiMouseButton_Right))
         {
-            CoordinateSpace = CoordinateSpace == ETransformCoordinateSpace::World ? ETransformCoordinateSpace::Local : ETransformCoordinateSpace::World;
+            if (ImGui::IsKeyPressed(ImGuiKey_W, false))
+            {
+                CurrentMode = ETransformGizmoMode::Translate;
+            }
+            else if (ImGui::IsKeyPressed(ImGuiKey_E, false))
+            {
+                CurrentMode = ETransformGizmoMode::Rotate;
+            }
+            else if (ImGui::IsKeyPressed(ImGuiKey_R, false))
+            {
+                CurrentMode = ETransformGizmoMode::Scale;
+            }
+
+            if (ImGui::IsKeyPressed(ImGuiKey_GraveAccent, false))
+            {
+                CoordinateSpace = CoordinateSpace == ETransformCoordinateSpace::World ? ETransformCoordinateSpace::Local : ETransformCoordinateSpace::World;
+            }
         }
     }
+
+    const ETransformGizmoMode DrawMode = bDragStillTargetsSelection ? DragMode : CurrentMode;
+    const ETransformCoordinateSpace DrawSpace = bDragStillTargetsSelection ? DragSpace : CoordinateSpace;
+
+    const EGizmoHandle ActiveDragHandle = bDragStillTargetsSelection ? PreviousDragHandle : EGizmoHandle::None;
+
+    // ============================================================
+    // TRANSFORM / AXES
+    // ============================================================
 
     const FTransform Transform = SelectedComponent->GetTransform();
 
     FVector Axes[3] =
     {
-        GetTransformAxis(Transform, CoordinateSpace, 0),
-        GetTransformAxis(Transform, CoordinateSpace, 1),
-        GetTransformAxis(Transform, CoordinateSpace, 2)
+        GetTransformAxis(Transform, DrawSpace, 0),
+        GetTransformAxis(Transform, DrawSpace, 1),
+        GetTransformAxis(Transform, DrawSpace, 2)
     };
 
     const FViewport Viewport(0.0f, 0.0f, ImageSize.x, ImageSize.y, 0.0f, 1.0f);
@@ -533,14 +561,10 @@ bool FEditorTransformGizmo::Draw(FEditorObjectContext& Context, const FMatrix& V
 
     if (!GetGizmoWorldSize(Transform, Viewport, View, Projection, ImageMin, Center, GizmoWorldSize))
     {
-        return false;
+        return bConsumedInput;
     }
 
-    const ImVec2 MousePosition = IO.MousePos;
-
-    EGizmoHandle HoverHandle = EGizmoHandle::None;
-
-    float BestDistance = GIZMO_HIT_TOLERANCE;
+    const ImVec2 MousePosition = ImGui::GetIO().MousePos;
 
     ImVec2 AxisEnds[3];
 
@@ -555,62 +579,100 @@ bool FEditorTransformGizmo::Draw(FEditorObjectContext& Context, const FMatrix& V
         bValidAxis[AxisIndex] = ProjectWorldPosition(WorldEnd, Viewport, View, Projection, ImageMin, AxisEnds[AxisIndex], Depth);
     }
 
+    // ============================================================
+    // HANDLE HIT TEST
+    // 한 번만 선택하고, 이후 렌더링은 선택 결과만 사용
+    // ============================================================
+
+    EGizmoHandle HoverHandle = EGizmoHandle::None;
+
+    float BestDistance = GIZMO_HIT_TOLERANCE;
+
+    const bool bCanHover = bImageHovered && !bWasDragging;
+
     // ------------------------------------------------------------
-    // Translate: Plane handles
+    // Plane candidates
     // ------------------------------------------------------------
 
-    if (CurrentMode == ETransformGizmoMode::Translate)
+    const EGizmoHandle PlaneHandles[3] =
     {
-        const EGizmoHandle PlaneHandles[3] =
-        {
-            EGizmoHandle::XY,
-            EGizmoHandle::XZ,
-            EGizmoHandle::YZ
-        };
+        EGizmoHandle::XY,
+        EGizmoHandle::XZ,
+        EGizmoHandle::YZ
+    };
 
-        const int32 PlaneAxes[3][2] =
-        {
-            {0, 1},
-            {0, 2},
-            {1, 2}
-        };
+    const int32 PlaneAxes[3][2] =
+    {
+        {0, 1},
+        {0, 2},
+        {1, 2}
+    };
 
-        const ImU32 PlaneColors[3] =
-        {
-            GIZMO_COLOR_PLANE_XY,
-            GIZMO_COLOR_PLANE_XZ,
-            GIZMO_COLOR_PLANE_YZ
-        };
+    const ImU32 PlaneColors[3] =
+    {
+        GIZMO_COLOR_PLANE_XY,
+        GIZMO_COLOR_PLANE_XZ,
+        GIZMO_COLOR_PLANE_YZ
+    };
 
+    ImVec2 PlanePoints[3][4];
+
+    bool bValidPlane[3] = {false, false, false};
+
+    int32 BestPlaneIndex = INDEX_NONE;
+
+    float BestPlaneCenterDistance = (std::numeric_limits<float>::max)();
+
+    if (DrawMode == ETransformGizmoMode::Translate)
+    {
         for (int32 Index = 0; Index < 3; ++Index)
         {
-            ImVec2 Points[4];
+            bValidPlane[Index] = ProjectPlaneHandle(Transform.Location, Axes[PlaneAxes[Index][0]], Axes[PlaneAxes[Index][1]], GizmoWorldSize, Viewport, View, Projection, ImageMin, PlanePoints[Index]);
 
-            if (!ProjectPlaneHandle(Transform.Location, Axes[PlaneAxes[Index][0]], Axes[PlaneAxes[Index][1]], GizmoWorldSize, Viewport, View, Projection, ImageMin, Points))
+            if (!bCanHover || !bValidPlane[Index] || !IsPointInQuad2D(MousePosition, PlanePoints[Index]))
             {
                 continue;
             }
 
-            const bool bPlaneHovered = bImageHovered && IsPointInQuad2D(MousePosition, Points);
+            const ImVec2 PlaneCenter(
+                (PlanePoints[Index][0].x + PlanePoints[Index][1].x + PlanePoints[Index][2].x + PlanePoints[Index][3].x) * 0.25f,
+                (PlanePoints[Index][0].y + PlanePoints[Index][1].y + PlanePoints[Index][2].y + PlanePoints[Index][3].y) * 0.25f
+            );
 
-            ImU32 Color = PlaneColors[Index];
+            const float DX = MousePosition.x - PlaneCenter.x;
+            const float DY = MousePosition.y - PlaneCenter.y;
 
-            if (bPlaneHovered)
+            const float CenterDistance = DX * DX + DY * DY;
+
+            if (CenterDistance < BestPlaneCenterDistance)
             {
-                HoverHandle = PlaneHandles[Index];
-                BestDistance = 0.0f;
-                Color = GIZMO_COLOR_ACTIVE;
+                BestPlaneCenterDistance = CenterDistance;
+                BestPlaneIndex = Index;
             }
+        }
 
-            DrawGizmoPlane(DrawList, Points, Color);
+        if (BestPlaneIndex != INDEX_NONE)
+        {
+            HoverHandle = PlaneHandles[BestPlaneIndex];
+            BestDistance = 0.0f;
         }
     }
 
     // ------------------------------------------------------------
-    // Translate / Scale: Axis handles
+    // Uniform scale center
     // ------------------------------------------------------------
 
-    if (CurrentMode == ETransformGizmoMode::Translate || CurrentMode == ETransformGizmoMode::Scale)
+    if (DrawMode == ETransformGizmoMode::Scale && bCanHover && IsPointInsideRect(MousePosition, Center, 8.0f))
+    {
+        HoverHandle = EGizmoHandle::XYZ;
+        BestDistance = 0.0f;
+    }
+
+    // ------------------------------------------------------------
+    // Axis candidates
+    // ------------------------------------------------------------
+
+    if ((DrawMode == ETransformGizmoMode::Translate || DrawMode == ETransformGizmoMode::Scale) && HoverHandle == EGizmoHandle::None && bCanHover)
     {
         for (int32 AxisIndex = 0; AxisIndex < 3; ++AxisIndex)
         {
@@ -623,57 +685,22 @@ bool FEditorTransformGizmo::Draw(FEditorObjectContext& Context, const FMatrix& V
 
             const float Distance = PointToSegmentDistance(MousePosition, Center, AxisEnds[AxisIndex], SegmentParameter);
 
-            const bool bHandleHovered = bImageHovered && Distance <= GIZMO_HIT_TOLERANCE && Distance < BestDistance;
-
-            if (bHandleHovered)
+            if (Distance > GIZMO_HIT_TOLERANCE || Distance >= BestDistance)
             {
-                HoverHandle = AxisIndex == 0 ? EGizmoHandle::X : AxisIndex == 1 ? EGizmoHandle::Y : EGizmoHandle::Z;
-                BestDistance = Distance;
+                continue;
             }
 
-            ImU32 Color = GetAxisColor(AxisIndex);
+            BestDistance = Distance;
 
-            const bool bActive = DragHandle == (AxisIndex == 0 ? EGizmoHandle::X : AxisIndex == 1 ? EGizmoHandle::Y : EGizmoHandle::Z);
-
-            if (bHandleHovered || bActive)
-            {
-                Color = GIZMO_COLOR_ACTIVE;
-            }
-
-            if (CurrentMode == ETransformGizmoMode::Translate)
-            {
-                DrawGizmoArrow(DrawList, Center, AxisEnds[AxisIndex], Color, 3.0f);
-            }
-            else
-            {
-                DrawList->AddLine(Center, AxisEnds[AxisIndex], Color, 3.0f);
-                DrawGizmoSquare(DrawList, AxisEnds[AxisIndex], Color, 6.0f);
-            }
+            HoverHandle = AxisIndex == 0 ? EGizmoHandle::X : AxisIndex == 1 ? EGizmoHandle::Y : EGizmoHandle::Z;
         }
     }
 
     // ------------------------------------------------------------
-    // Scale: Uniform handle
+    // Rotation ring candidates
     // ------------------------------------------------------------
 
-    if (CurrentMode == ETransformGizmoMode::Scale)
-    {
-        const bool bUniformHovered = bImageHovered && IsPointInsideRect(MousePosition, Center, 8.0f);
-
-        if (bUniformHovered)
-        {
-            HoverHandle = EGizmoHandle::XYZ;
-            BestDistance = 0.0f;
-        }
-
-        DrawGizmoSquare(DrawList, Center, bUniformHovered ? GIZMO_COLOR_ACTIVE : IM_COL32(235, 235, 235, 255), 6.0f);
-    }
-
-    // ------------------------------------------------------------
-    // Rotate: Rotation rings
-    // ------------------------------------------------------------
-
-    if (CurrentMode == ETransformGizmoMode::Rotate)
+    if (DrawMode == ETransformGizmoMode::Rotate && bCanHover)
     {
         for (int32 AxisIndex = 0; AxisIndex < 3; ++AxisIndex)
         {
@@ -694,24 +721,110 @@ bool FEditorTransformGizmo::Draw(FEditorObjectContext& Context, const FMatrix& V
             float RingAngle = 0.0f;
             float RingDistance = 0.0f;
 
-            FindClosestRingAngle(RingPoints, MousePosition, RingAngle, RingDistance);
+            if (!FindClosestRingAngle(RingPoints, MousePosition, RingAngle, RingDistance))
+            {
+                continue;
+            }
 
-            const bool bRingHovered = bImageHovered && RingDistance <= GIZMO_HIT_TOLERANCE && RingDistance < BestDistance;
+            if (RingDistance > GIZMO_HIT_TOLERANCE || RingDistance >= BestDistance)
+            {
+                continue;
+            }
+
+            BestDistance = RingDistance;
+
+            HoverHandle = AxisIndex == 0 ? EGizmoHandle::X : AxisIndex == 1 ? EGizmoHandle::Y : EGizmoHandle::Z;
+        }
+    }
+
+    // ============================================================
+    // DRAW PLANE HANDLES
+    // ============================================================
+
+    if (DrawMode == ETransformGizmoMode::Translate)
+    {
+        for (int32 Index = 0; Index < 3; ++Index)
+        {
+            if (!bValidPlane[Index])
+            {
+                continue;
+            }
+
+            const bool bActive = HoverHandle == PlaneHandles[Index] || ActiveDragHandle == PlaneHandles[Index];
+
+            DrawGizmoPlane(DrawList, PlanePoints[Index], bActive ? GIZMO_COLOR_ACTIVE : PlaneColors[Index]);
+        }
+    }
+
+    // ============================================================
+    // DRAW AXIS HANDLES
+    // ============================================================
+
+    if (DrawMode == ETransformGizmoMode::Translate || DrawMode == ETransformGizmoMode::Scale)
+    {
+        for (int32 AxisIndex = 0; AxisIndex < 3; ++AxisIndex)
+        {
+            if (!bValidAxis[AxisIndex])
+            {
+                continue;
+            }
 
             const EGizmoHandle AxisHandle = AxisIndex == 0 ? EGizmoHandle::X : AxisIndex == 1 ? EGizmoHandle::Y : EGizmoHandle::Z;
 
-            if (bRingHovered)
+            const bool bActive = HoverHandle == AxisHandle || ActiveDragHandle == AxisHandle;
+
+            const ImU32 Color = bActive ? GIZMO_COLOR_ACTIVE : GetAxisColor(AxisIndex);
+
+            if (DrawMode == ETransformGizmoMode::Translate)
             {
-                HoverHandle = AxisHandle;
-                BestDistance = RingDistance;
+                DrawGizmoArrow(DrawList, Center, AxisEnds[AxisIndex], Color, 3.0f);
+            }
+            else
+            {
+                DrawList->AddLine(Center, AxisEnds[AxisIndex], Color, 3.0f);
+                DrawGizmoSquare(DrawList, AxisEnds[AxisIndex], Color, 6.0f);
+            }
+        }
+    }
+
+    // ============================================================
+    // DRAW UNIFORM SCALE HANDLE
+    // ============================================================
+
+    if (DrawMode == ETransformGizmoMode::Scale)
+    {
+        const bool bUniformActive = HoverHandle == EGizmoHandle::XYZ || ActiveDragHandle == EGizmoHandle::XYZ;
+
+        DrawGizmoSquare(DrawList, Center, bUniformActive ? GIZMO_COLOR_ACTIVE : IM_COL32(235, 235, 235, 255), 6.0f);
+    }
+
+    // ============================================================
+    // DRAW ROTATION RINGS
+    // ============================================================
+
+    if (DrawMode == ETransformGizmoMode::Rotate)
+    {
+        for (int32 AxisIndex = 0; AxisIndex < 3; ++AxisIndex)
+        {
+            FVector RingU;
+            FVector RingV;
+
+            MakeRingBasis(Axes[AxisIndex], RingU, RingV);
+
+            std::array<ImVec2, GIZMO_RING_SEGMENTS + 1> RingPoints;
+
+            const float RingRadius = GizmoWorldSize * GIZMO_RING_RADIUS_SCALE;
+
+            if (!BuildRingScreenPoints(Transform.Location, RingU, RingV, RingRadius, Viewport, View, Projection, ImageMin, RingPoints))
+            {
+                continue;
             }
 
-            ImU32 Color = GetAxisColor(AxisIndex);
+            const EGizmoHandle AxisHandle = AxisIndex == 0 ? EGizmoHandle::X : AxisIndex == 1 ? EGizmoHandle::Y : EGizmoHandle::Z;
 
-            if (bRingHovered || DragHandle == AxisHandle)
-            {
-                Color = GIZMO_COLOR_ACTIVE;
-            }
+            const bool bActive = HoverHandle == AxisHandle || ActiveDragHandle == AxisHandle;
+
+            const ImU32 Color = bActive ? GIZMO_COLOR_ACTIVE : GetAxisColor(AxisIndex);
 
             for (int32 Segment = 0; Segment < GIZMO_RING_SEGMENTS; ++Segment)
             {
@@ -720,19 +833,19 @@ bool FEditorTransformGizmo::Draw(FEditorObjectContext& Context, const FMatrix& V
         }
     }
 
-    // ------------------------------------------------------------
-    // Pivot
-    // ------------------------------------------------------------
+    // ============================================================
+    // PIVOT
+    // ============================================================
 
     DrawList->AddCircleFilled(Center, 4.0f, IM_COL32(255, 255, 255, 255));
 
-    // ------------------------------------------------------------
-    // Mode indicator
-    // ------------------------------------------------------------
+    // ============================================================
+    // MODE INDICATOR
+    // ============================================================
 
-    const char* ModeText = CurrentMode == ETransformGizmoMode::Translate ? "Translate" : CurrentMode == ETransformGizmoMode::Rotate ? "Rotate" : "Scale";
+    const char* ModeText = DrawMode == ETransformGizmoMode::Translate ? "Translate" : DrawMode == ETransformGizmoMode::Rotate ? "Rotate" : "Scale";
 
-    const char* SpaceText = CoordinateSpace == ETransformCoordinateSpace::World ? "World" : "Local";
+    const char* SpaceText = DrawSpace == ETransformCoordinateSpace::World ? "World" : "Local";
 
     char Indicator[64] = {};
 
@@ -740,21 +853,17 @@ bool FEditorTransformGizmo::Draw(FEditorObjectContext& Context, const FMatrix& V
 
     DrawList->AddText(ImVec2(ImageMin.x + 12.0f, ImageMin.y + 12.0f), IM_COL32(255, 255, 255, 220), Indicator);
 
-    // ------------------------------------------------------------
-    // Begin drag
-    // ------------------------------------------------------------
+    // ============================================================
+    // BEGIN DRAG
+    // ============================================================
 
-    if (bImageHovered && ImGui::IsMouseClicked(ImGuiMouseButton_Left) && HoverHandle != EGizmoHandle::None)
+    if (!bWasDragging && bImageHovered && ImGui::IsMouseClicked(ImGuiMouseButton_Left) && HoverHandle != EGizmoHandle::None)
     {
-        if (BeginDrag(SelectedComponent, HoverHandle, Transform, Axes, MousePosition, ImageMin, ImageSize, View, Projection, GizmoWorldSize))
-        {
-            return true;
-        }
-
-        return true;
+        BeginDrag(SelectedComponent, HoverHandle, Transform, Axes, MousePosition, ImageMin, ImageSize, View, Projection, GizmoWorldSize);
+        bConsumedInput = true;
     }
 
-    return false;
+    return bConsumedInput;
 }
 
 bool FEditorTransformGizmo::BeginDrag(USceneComponent* Component, EGizmoHandle Handle, const FTransform& Transform, const FVector Axes[3],
@@ -828,30 +937,23 @@ bool FEditorTransformGizmo::BeginDrag(USceneComponent* Component, EGizmoHandle H
     }
     else if (DragMode == ETransformGizmoMode::Rotate)
     {
-        MakeRingBasis(DragAxisWorld, DragRingU, DragRingV);
+        DragPlaneNormal = DragAxisWorld;
 
-        DragRingRadius = DragWorldSize * GIZMO_RING_RADIUS_SCALE;
-
-        FViewport Viewport(0.0f, 0.0f, ImageSize.x, ImageSize.y, 0.0f, 1.0f);
-
-        std::array<ImVec2, GIZMO_RING_SEGMENTS + 1> RingPoints;
-
-        if (!BuildRingScreenPoints(DragPivot, DragRingU, DragRingV, DragRingRadius, Viewport, View, Projection, ImageMin, RingPoints))
+        if (!GetRayPlaneIntersection(MouseRay, DragPivot, DragPlaneNormal, DragStartPlaneHit))
         {
             return false;
         }
 
-        float Distance = 0.0f;
+        PreviousRotationVector = DragStartPlaneHit - DragPivot;
 
-        if (!FindClosestRingAngle(RingPoints, MousePosition, PreviousRingAngle, Distance))
+        const float RotationVectorLengthSquared = PreviousRotationVector.LengthSquared();
+
+        if (RotationVectorLengthSquared <= EPSILON_1E_8)
         {
             return false;
         }
 
-        if (Distance > GIZMO_HIT_TOLERANCE)
-        {
-            return false;
-        }
+        PreviousRotationVector.Normalize();
 
         AccumulatedRotationAngle = 0.0f;
     }
@@ -930,43 +1032,48 @@ void FEditorTransformGizmo::UpdateDrag(const ImVec2& MousePosition, const ImVec2
 
     else if (DragMode == ETransformGizmoMode::Rotate)
     {
-        const FViewport Viewport(0.0f, 0.0f, ImageSize.x, ImageSize.y, 0.0f, 1.0f);
+        FVector CurrentPlaneHit;
 
-        std::array<ImVec2, GIZMO_RING_SEGMENTS + 1> RingPoints;
-
-        if (!BuildRingScreenPoints(DragPivot, DragRingU, DragRingV, DragRingRadius, Viewport, View, Projection, ImageMin, RingPoints))
+        if (!GetRayPlaneIntersection(MouseRay, DragPivot, DragPlaneNormal, CurrentPlaneHit))
         {
             return;
         }
 
-        float CurrentRingAngle = 0.0f;
-        float RingDistance = 0.0f;
+        FVector CurrentRotationVector = CurrentPlaneHit - DragPivot;
 
-        if (!FindClosestRingAngle(RingPoints, MousePosition, CurrentRingAngle, RingDistance))
+        const float CurrentVectorLengthSquared = CurrentRotationVector.LengthSquared();
+
+        if (!std::isfinite(CurrentVectorLengthSquared) || CurrentVectorLengthSquared <= EPSILON_1E_8)
         {
             return;
         }
 
-        const float AngleDelta = GetWrappedAngleDelta(PreviousRingAngle, CurrentRingAngle);
+        CurrentRotationVector.Normalize();
+
+        const float SinAngle = DragAxisWorld.Dot(PreviousRotationVector.Cross(CurrentRotationVector));
+        const float CosAngle = PreviousRotationVector.Dot(CurrentRotationVector);
+
+        const float AngleDelta = std::atan2(SinAngle, CosAngle);
 
         AccumulatedRotationAngle += AngleDelta;
 
-        PreviousRingAngle = CurrentRingAngle;
+        PreviousRotationVector = CurrentRotationVector;
 
-        const FQuat StartRotation = DragStartTransform.GetOrientation();
+        const FMatrix StartRotationMatrix = DragStartTransform.GetOrientation().ToMatrix();
+        const FMatrix DeltaRotationMatrix = FMatrix::CreateFromAxisAngle(DragRotationAxis, AccumulatedRotationAngle);
 
-        const FQuat DeltaRotation = FQuat::CreateFromAxisAngle(DragRotationAxis, AccumulatedRotationAngle);
-
-        FQuat NewRotation;
+        FMatrix NewRotationMatrix;
 
         if (DragSpace == ETransformCoordinateSpace::World)
         {
-            NewRotation = DeltaRotation * StartRotation;
+            NewRotationMatrix = StartRotationMatrix * DeltaRotationMatrix;
         }
         else
         {
-            NewRotation = StartRotation * DeltaRotation;
+            NewRotationMatrix = DeltaRotationMatrix * StartRotationMatrix;
         }
+
+        FQuat NewRotation = FQuat::CreateFromRotationMatrix(NewRotationMatrix);
 
         NewRotation.Normalize();
 
@@ -1038,6 +1145,8 @@ void FEditorTransformGizmo::EndDrag()
 
     DragStartPlaneHit = FVector::Zero;
 
+    PreviousRotationVector = FVector::Zero;
+    
     DragRingU = FVector::Zero;
 
     DragRingV = FVector::Zero;
