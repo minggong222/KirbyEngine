@@ -23,9 +23,9 @@ namespace
 
     constexpr float GIZMO_MIN_SCALE = 0.001f;
 
-    const ImU32 GIZMO_COLOR_X = IM_COL32(235, 65, 65, 255);
-    const ImU32 GIZMO_COLOR_Y = IM_COL32(75, 220, 100, 255);
-    const ImU32 GIZMO_COLOR_Z = IM_COL32(70, 145, 255, 255);
+    const ImU32 GIZMO_COLOR_X = IM_COL32(255, 0, 0, 255);
+    const ImU32 GIZMO_COLOR_Y = IM_COL32(0, 255, 0, 255);
+    const ImU32 GIZMO_COLOR_Z = IM_COL32(0, 0, 255, 255);
     const ImU32 GIZMO_COLOR_ACTIVE = IM_COL32(255, 220, 80, 255);
 
     const ImU32 GIZMO_COLOR_PLANE_XY = IM_COL32(220, 100, 100, 85);

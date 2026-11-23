@@ -29,7 +29,7 @@ FRotator::FRotator(const FQuat& InQuat)
     if (std::fabs(CosPitch) > EPSILON_1E_6)
     {
         YawRadians = std::atan2(M.m[0][1], M.m[0][0]);
-        RollRadians = std::atan2(M.m[1][2], M.m[2][2]);
+        RollRadians = std::atan2(-M.m[1][2], M.m[2][2]);
     }
     else
     {
