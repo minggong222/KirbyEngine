@@ -10,6 +10,7 @@
 #include "Windows/WindowsWindow.h"
 
 struct FStaticMeshData;
+class UCameraComponent;
 class FObjectListPanel;
 class FDetailsPanel;
 class FMainMenuPanel;
@@ -38,6 +39,8 @@ private:
     FConsolePanel* ConsolePanel = nullptr;
     FViewportPanel* ViewportPanel = nullptr;
     FMainMenuPanel* MainMenuPanel = nullptr;
+    
+    UCameraComponent* MainCamera = nullptr;
     
     FAssetManager AssetManager;
     

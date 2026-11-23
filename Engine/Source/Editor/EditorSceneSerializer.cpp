@@ -105,6 +105,64 @@ namespace
         return true;
     }
     
+    bool ValidateCameraSettings(const UCameraComponent& Camera, const FJsonObject* Settings)
+    {
+        if (Settings == nullptr)
+        {
+            return true;
+        }
+
+        TArray<const FProperty*> Properties;
+        Camera.GetClass()->GetProperties(Properties, true);
+
+        for (const FProperty* Property : Properties)
+        {
+            if (Property->GetName().ToStd() == "Transform")
+            {
+                continue;
+            }
+
+            const TSharedPtr<FJsonValue> Value = Settings->GetField(Property->GetName());
+
+            if (!Value.IsValid())
+            {
+                continue;
+            }
+
+            switch (Property->GetType())
+            {
+            case EPropertyType::Bool:
+                {
+                    bool ConvertedValue = false;
+
+                    if (!Value->TryGetBool(ConvertedValue))
+                    {
+                        return false;
+                    }
+
+                    break;
+                }
+
+            case EPropertyType::Float:
+                {
+                    double Number = 0.0;
+
+                    if (!Value->TryGetNumber(Number) || !std::isfinite(Number) || std::fabs(Number) > (std::numeric_limits<float>::max)())
+                    {
+                        return false;
+                    }
+
+                    break;
+                }
+
+            default:
+                return false;
+            }
+        }
+
+        return true;
+    }
+    
     bool ApplyCameraSettings(UCameraComponent& Camera, const FJsonObject* Settings)
     {
         if (Settings == nullptr)
@@ -340,7 +398,7 @@ namespace
     }
 }
 
-bool FSceneSerializer::Save(const std::filesystem::path& FilePath, const FEditorObjectContext& Context)
+bool FSceneSerializer::Save(const std::filesystem::path& FilePath, const FEditorObjectContext& Context, const UCameraComponent& ViewportCamera)
 {
     if (FilePath.empty())
     {
@@ -417,6 +475,17 @@ bool FSceneSerializer::Save(const std::filesystem::path& FilePath, const FEditor
     Root->SetObjectField("Primitives", std::move(*Primitives));
     Root->SetObjectField("Cameras", std::move(*Cameras));
 
+    FJsonObject ViewportCameraData;
+    WriteTransform(ViewportCameraData, ViewportCamera.GetTransform());
+
+    if (!WriteCameraSettings(ViewportCameraData, ViewportCamera))
+    {
+        UE_LOG(Error, "Scene Save failed: Unsupported viewport camera property type");
+        return false;
+    }
+
+    Root->SetObjectField("ViewportCamera", std::move(ViewportCameraData));
+
     FString JsonString;
     FString SerializeError;
 
@@ -477,7 +546,7 @@ bool FSceneSerializer::Save(const std::filesystem::path& FilePath, const FEditor
     return true;
 }
 
-bool FSceneSerializer::Load(const std::filesystem::path& FilePath, FEditorObjectContext& Context, FAssetManager& AssetManager)
+bool FSceneSerializer::Load(const std::filesystem::path& FilePath, FEditorObjectContext& Context, FAssetManager& AssetManager, UCameraComponent& ViewportCamera)
 {
     if (FilePath.empty())
     {
@@ -543,6 +612,45 @@ bool FSceneSerializer::Load(const std::filesystem::path& FilePath, FEditorObject
     {
         UE_LOG(Error, "Scene Load failed: Invalid NextUUID");
         return false;
+    }
+    
+    bool bHasViewportCameraData = false;
+    FTransform ViewportCameraTransform;
+    TSharedPtr<FJsonObject> ViewportCameraSettings;
+
+    const TSharedPtr<FJsonValue> ViewportCameraValue = Root->GetField("ViewportCamera");
+
+    if (ViewportCameraValue.IsValid())
+    {
+        const FJsonObject* ViewportCameraObject = nullptr;
+
+        if (!TryGetJsonObject(ViewportCameraValue, ViewportCameraObject) || !ReadTransform(*ViewportCameraObject, ViewportCameraTransform))
+        {
+            UE_LOG(Error, "Scene Load failed: Invalid viewport camera data");
+            return false;
+        }
+
+        if (ViewportCameraObject->HasField("Settings"))
+        {
+            const TSharedPtr<FJsonValue> SettingsValue = ViewportCameraObject->GetField("Settings");
+            const FJsonObject* SettingsObject = nullptr;
+
+            if (!TryGetJsonObject(SettingsValue, SettingsObject))
+            {
+                UE_LOG(Error, "Scene Load failed: Invalid viewport camera settings");
+                return false;
+            }
+
+            ViewportCameraSettings = SettingsValue->AsObject();
+        }
+
+        if (!ValidateCameraSettings(ViewportCamera, ViewportCameraSettings.Get()))
+        {
+            UE_LOG(Error, "Scene Load failed: Invalid viewport camera property values");
+            return false;
+        }
+
+        bHasViewportCameraData = true;
     }
 
     const TSharedPtr<FJsonValue> PrimitiveValue = Root->GetField("Primitives", EJson::Object);
@@ -665,6 +773,18 @@ bool FSceneSerializer::Load(const std::filesystem::path& FilePath, FEditorObject
         }
 
         StagedObjects.Add(NewObjectInstance);
+    }
+    
+    if (bHasViewportCameraData)
+    {
+        ViewportCamera.SetTransform(ViewportCameraTransform);
+
+        if (!ApplyCameraSettings(ViewportCamera, ViewportCameraSettings.Get()))
+        {
+            DestroyStagedObjects();
+            UE_LOG(Error, "Scene Load failed: Cannot apply viewport camera settings");
+            return false;
+        }
     }
 
     for (UObject* ExistingObject : Context.Objects)

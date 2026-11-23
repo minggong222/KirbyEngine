@@ -4,6 +4,7 @@
 #include "EditorObjectContext.h"
 #include "Resources/AssetManager.h"
 #include "Core/Logging/Log.h"
+#include "Components/CameraComponent.h"
 
 #include "imgui.h"
 
@@ -14,7 +15,7 @@
 
 bool FMainMenuPanel::Init()
 {
-    return Context != nullptr && AssetManager != nullptr && OwnerWindow != nullptr;
+    return Context != nullptr && AssetManager != nullptr && OwnerWindow != nullptr && ViewportCamera != nullptr;
 }
 
 void FMainMenuPanel::Tick(float DeltaTime)
@@ -72,7 +73,7 @@ void FMainMenuPanel::SaveScene(bool bSaveAs)
         }
     }
 
-    if (!FSceneSerializer::Save(TargetPath, *Context))
+    if (!FSceneSerializer::Save(TargetPath, *Context, *ViewportCamera))
     {
         return;
     }
@@ -89,7 +90,7 @@ void FMainMenuPanel::LoadScene()
         return;
     }
 
-    if (!FSceneSerializer::Load(SelectedPath, *Context, *AssetManager))
+    if (!FSceneSerializer::Load(SelectedPath, *Context, *AssetManager, *ViewportCamera))
     {
         return;
     }

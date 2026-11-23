@@ -42,6 +42,8 @@ bool FEditorEngine::Init(HINSTANCE hInstance)
     }
     ImGuiRenderer->Init(WindowsWindow->GetHWND(), Renderer->GetDevice(), Renderer->GetDeviceContext());
     
+    MainCamera = new UCameraComponent();
+    
     ViewportPanel = new FViewportPanel();
     ViewportPanel->SetViewportTexture(Renderer->GetViewportSRV());
     ImGuiRenderer->GetPanelManager()->AddPanel(ViewportPanel);
@@ -51,7 +53,7 @@ bool FEditorEngine::Init(HINSTANCE hInstance)
     ImGuiRenderer->GetPanelManager()->AddPanel(ObjectListPanel);
     DetailsPanel = new FDetailsPanel(&ObjectContext);
     ImGuiRenderer->GetPanelManager()->AddPanel(DetailsPanel);
-    MainMenuPanel = new FMainMenuPanel(&ObjectContext, &AssetManager, WindowsWindow->GetHWND());
+    MainMenuPanel = new FMainMenuPanel(&ObjectContext, &AssetManager, WindowsWindow->GetHWND(), MainCamera);
     ImGuiRenderer->GetPanelManager()->AddPanel(MainMenuPanel);
     bIsRunning = true;
     UE_LOG(Info, "Info");
@@ -64,7 +66,6 @@ void FEditorEngine::Run()
 {
 
     double PreviousTime = FPlatformTime::Seconds();
-    UCameraComponent* MainCamera = new UCameraComponent();
     
     if (Renderer->GetViewportWidth() > 0 && Renderer->GetViewportHeight() > 0)
     {
@@ -176,8 +177,6 @@ void FEditorEngine::Run()
     }
     
    CameraController.Stop(*WindowsWindow);
-    delete MainCamera;
-    
 }
 
 void FEditorEngine::Shutdown()
@@ -192,6 +191,10 @@ void FEditorEngine::Shutdown()
     ObjectContext.Objects.Reset();
     ObjectContext.SelectedObject = nullptr;
     ImGuiRenderer->Shutdown();
+
+    delete MainCamera;
+    MainCamera = nullptr;
+
     AssetManager.Shutdown();
     Renderer->Shutdown();
 }
