@@ -13,6 +13,9 @@ public:
     bool Init() override;
     void Tick(float DeltaTime) override;
     void OnRender() override;
+    
+    void DeleteSelectedObject();
+    void DuplicateSelectedObject();
 private:
     FEditorObjectContext* Context = nullptr;
     FAssetManager* AssetManager = nullptr;

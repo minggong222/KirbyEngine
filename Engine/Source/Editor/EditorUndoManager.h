@@ -19,6 +19,7 @@
 #include <vector>
 #include <limits>
 #include <utility>
+#include <optional>
 
 class FEditorUndoManager
 {
@@ -73,6 +74,8 @@ public:
     {
         UndoStack.clear();
         RedoStack.clear();
+        ClipboardSnapshot.reset();
+        ClipboardPasteCount = 0;
     }
 
     bool CanUndo() const
@@ -83,6 +86,61 @@ public:
     bool CanRedo() const
     {
         return !RedoStack.empty();
+    }
+    
+    bool CanPaste() const
+    {
+        return ClipboardSnapshot.has_value();
+    }
+
+    bool CopySelected(const FEditorObjectContext& Context)
+    {
+        if (Context.SelectedObject == nullptr)
+        {
+            return false;
+        }
+
+        FObjectSnapshot Snapshot;
+
+        if (!CaptureObject(Context.SelectedObject, Snapshot))
+        {
+            return false;
+        }
+
+        ClipboardSnapshot = std::move(Snapshot);
+        ClipboardPasteCount = 0;
+
+        return true;
+    }
+
+    UObject* PasteCopied(FEditorObjectContext& Context)
+    {
+        if (!ClipboardSnapshot.has_value())
+        {
+            return nullptr;
+        }
+
+        const uint32 PreviousSelectedUUID = Context.SelectedObject != nullptr ? Context.SelectedObject->GetUUID() : 0;
+
+        FObjectSnapshot PasteSnapshot = *ClipboardSnapshot;
+
+        ++ClipboardPasteCount;
+        PasteSnapshot.Transform.Location.y += 1.5f * static_cast<float>(ClipboardPasteCount);
+
+        UObject* NewObjectInstance = RestoreObject(PasteSnapshot, false);
+
+        if (NewObjectInstance == nullptr)
+        {
+            --ClipboardPasteCount;
+            return nullptr;
+        }
+
+        Context.Objects.Add(NewObjectInstance);
+        Context.SelectedObject = NewObjectInstance;
+
+        RecordCreate(Context, NewObjectInstance, PreviousSelectedUUID);
+
+        return NewObjectInstance;
     }
 
     void RecordCreate(const FEditorObjectContext& Context, UObject* Object, uint32 PreviousSelectedUUID)
@@ -324,7 +382,7 @@ private:
         return false;
     }
 
-    static UObject* RestoreObject(const FObjectSnapshot& Snapshot)
+    static UObject* RestoreObject(const FObjectSnapshot& Snapshot, bool bPreserveUUID = true)
     {
         UObject* NewObjectInstance = nullptr;
 
@@ -383,11 +441,14 @@ private:
             return nullptr;
         }
 
-        NewObjectInstance->SetUUID(Snapshot.UUID);
-
-        if (Snapshot.UUID < (std::numeric_limits<uint32>::max)() && FEngineStatics::NextUUID <= Snapshot.UUID)
+        if (bPreserveUUID)
         {
-            FEngineStatics::NextUUID = Snapshot.UUID + 1;
+            NewObjectInstance->SetUUID(Snapshot.UUID);
+
+            if (Snapshot.UUID < (std::numeric_limits<uint32>::max)() && FEngineStatics::NextUUID <= Snapshot.UUID)
+            {
+                FEngineStatics::NextUUID = Snapshot.UUID + 1;
+            }
         }
 
         return NewObjectInstance;
@@ -484,4 +545,7 @@ private:
 
     std::vector<FHistoryEntry> UndoStack;
     std::vector<FHistoryEntry> RedoStack;
+
+    std::optional<FObjectSnapshot> ClipboardSnapshot;
+    uint32 ClipboardPasteCount = 0;
 };

@@ -14,9 +14,29 @@
 #include <string_view>
 #include <system_error>
 #include <vector>
+#include <algorithm>
+#include <cctype>
+#include <cstdint>
 
 namespace OBJImporter
 {
+    inline constexpr std::uintmax_t MaxOBJFileBytes = 64ull * 1024ull * 1024ull;
+    inline constexpr std::size_t MaxOBJPositionCount = 1'000'000;
+    inline constexpr std::size_t MaxOBJFaceVertexCount = 4096;
+    inline constexpr int32 MaxOBJOutputVertexCount = 3'000'000;
+    
+    inline bool HasOBJExtension(const std::filesystem::path& FilePath)
+    {
+        std::string Extension = FilePath.extension().string();
+
+        std::transform(Extension.begin(), Extension.end(), Extension.begin(), [](unsigned char Character)
+        {
+            return static_cast<char>(std::tolower(Character));
+        });
+
+        return Extension == ".obj";
+    }
+    
     inline bool ResolveVertexIndex(std::string_view Token, int32 VertexCount, int32& OutIndex)
     {
         const std::size_t SlashPosition = Token.find('/');
@@ -47,6 +67,16 @@ namespace OBJImporter
 
     inline bool ParseOBJ(const std::filesystem::path& FilePath, TArray<FVertexSimple>& OutVertices)
     {
+        OutVertices.Reset();
+
+        std::error_code FileSystemError;
+        const std::uintmax_t FileSize = std::filesystem::file_size(FilePath, FileSystemError);
+
+        if (FileSystemError || FileSize == 0 || FileSize > MaxOBJFileBytes)
+        {
+            return false;
+        }
+
         std::ifstream InputFile(FilePath);
 
         if (!InputFile.is_open())
@@ -55,23 +85,27 @@ namespace OBJImporter
         }
 
         std::vector<FVector> Positions;
+        TArray<FVertexSimple> ParsedVertices;
 
         std::string Line;
 
         while (std::getline(InputFile, Line))
         {
-            if (Line.empty() || Line[0] == '#')
+            std::istringstream LineStream(Line);
+            std::string Command;
+
+            if (!(LineStream >> Command) || Command[0] == '#')
             {
                 continue;
             }
 
-            std::istringstream LineStream(Line);
-            std::string Command;
-
-            LineStream >> Command;
-
             if (Command == "v")
             {
+                if (Positions.size() >= MaxOBJPositionCount)
+                {
+                    return false;
+                }
+
                 float X = 0.0f;
                 float Y = 0.0f;
                 float Z = 0.0f;
@@ -100,6 +134,11 @@ namespace OBJImporter
                         break;
                     }
 
+                    if (FaceIndices.size() >= MaxOBJFaceVertexCount)
+                    {
+                        return false;
+                    }
+
                     int32 VertexIndex = INDEX_NONE;
 
                     if (!ResolveVertexIndex(Token, static_cast<int32>(Positions.size()), VertexIndex))
@@ -115,20 +154,34 @@ namespace OBJImporter
                     return false;
                 }
 
+                const std::size_t RequiredVertexCount = (FaceIndices.size() - 2) * 3;
+
+                if (RequiredVertexCount > static_cast<std::size_t>(MaxOBJOutputVertexCount - ParsedVertices.Num()))
+                {
+                    return false;
+                }
+
                 for (std::size_t Index = 1; Index + 1 < FaceIndices.size(); ++Index)
                 {
                     const FVector& A = Positions[FaceIndices[0]];
                     const FVector& B = Positions[FaceIndices[Index]];
                     const FVector& C = Positions[FaceIndices[Index + 1]];
 
-                    OutVertices.Add({A.x, A.y, A.z, 1.0f, 1.0f, 1.0f, 1.0f});
-                    OutVertices.Add({B.x, B.y, B.z, 1.0f, 1.0f, 1.0f, 1.0f});
-                    OutVertices.Add({C.x, C.y, C.z, 1.0f, 1.0f, 1.0f, 1.0f});
+                    ParsedVertices.Add({A.x, A.y, A.z, 1.0f, 1.0f, 1.0f, 1.0f});
+                    ParsedVertices.Add({B.x, B.y, B.z, 1.0f, 1.0f, 1.0f, 1.0f});
+                    ParsedVertices.Add({C.x, C.y, C.z, 1.0f, 1.0f, 1.0f, 1.0f});
                 }
             }
         }
 
-        return !InputFile.bad() && OutVertices.Num() >= 3 && OutVertices.Num() % 3 == 0;
+        if (InputFile.bad() || ParsedVertices.Num() < 3 || ParsedVertices.Num() % 3 != 0)
+        {
+            return false;
+        }
+
+        OutVertices = std::move(ParsedVertices);
+
+        return true;
     }
 
     inline UStaticMesh* LoadOBJAsset(const FString& AssetPath, FAssetManager& AssetManager, URenderer& Renderer)
@@ -150,7 +203,7 @@ namespace OBJImporter
 
         const std::filesystem::path RelativePath(AssetPath.ToStd());
 
-        if (RelativePath.is_absolute())
+        if (RelativePath.empty() || RelativePath.is_absolute() || !HasOBJExtension(RelativePath))
         {
             return nullptr;
         }
@@ -165,7 +218,20 @@ namespace OBJImporter
             }
         }
 
+        const std::string NormalizedAssetPath = NormalizedPath.generic_string();
+
+        if (!NormalizedAssetPath.starts_with("Content/Imported/"))
+        {
+            return nullptr;
+        }
+
         const std::filesystem::path FullPath = std::filesystem::current_path() / NormalizedPath;
+        std::error_code FileSystemError;
+
+        if (!std::filesystem::is_regular_file(FullPath, FileSystemError) || FileSystemError)
+        {
+            return nullptr;
+        }
 
         return AssetManager.Load<UStaticMesh>(AssetPath, [&]() -> UStaticMesh*
         {
@@ -195,12 +261,24 @@ namespace OBJImporter
 
     inline UStaticMesh* ImportExternalOBJ(const std::filesystem::path& SourcePath, FAssetManager& AssetManager, URenderer& Renderer)
     {
-        if (SourcePath.empty() || !std::filesystem::exists(SourcePath) || SourcePath.extension() != ".obj")
+        if (SourcePath.empty() || !HasOBJExtension(SourcePath))
         {
             return nullptr;
         }
 
         std::error_code FileSystemError;
+
+        if (!std::filesystem::is_regular_file(SourcePath, FileSystemError) || FileSystemError)
+        {
+            return nullptr;
+        }
+
+        const std::uintmax_t SourceFileSize = std::filesystem::file_size(SourcePath, FileSystemError);
+
+        if (FileSystemError || SourceFileSize == 0 || SourceFileSize > MaxOBJFileBytes)
+        {
+            return nullptr;
+        }
 
         const std::filesystem::path ImportDirectory = std::filesystem::current_path() / "Content" / "Imported";
 
@@ -247,5 +325,162 @@ namespace OBJImporter
         }
 
         return ImportedMesh;
+    }
+    
+    inline bool RunParserValidation()
+    {
+        std::error_code FileSystemError;
+
+        const std::filesystem::path TestPath = std::filesystem::temp_directory_path(FileSystemError) / "KirbyEngine_OBJValidation.obj";
+
+        if (FileSystemError)
+        {
+            return false;
+        }
+
+        auto WriteTestFile = [&TestPath](const char* Content)
+        {
+            std::ofstream OutputFile(TestPath, std::ios::binary | std::ios::trunc);
+
+            if (!OutputFile.is_open())
+            {
+                return false;
+            }
+
+            OutputFile << Content;
+            OutputFile.close();
+
+            return !OutputFile.fail();
+        };
+
+        auto RemoveTestFile = [&TestPath]()
+        {
+            std::error_code Error;
+            std::filesystem::remove(TestPath, Error);
+        };
+
+        TArray<FVertexSimple> Vertices;
+
+        // Positive Index นื Quad Triangulation
+        if (!WriteTestFile(
+            "v 0 0 0\n"
+            "v 1 0 0\n"
+            "v 1 1 0\n"
+            "v 0 1 0\n"
+            "f 1 2 3 4\n"))
+        {
+            RemoveTestFile();
+            return false;
+        }
+
+        if (!ParseOBJ(TestPath, Vertices) || Vertices.Num() != 6)
+        {
+            RemoveTestFile();
+            return false;
+        }
+
+        // Negative Index
+        if (!WriteTestFile(
+            "v 0 0 0\n"
+            "v 1 0 0\n"
+            "v 0 1 0\n"
+            "f -3 -2 -1\n"))
+        {
+            RemoveTestFile();
+            return false;
+        }
+
+        if (!ParseOBJ(TestPath, Vertices) || Vertices.Num() != 3)
+        {
+            RemoveTestFile();
+            return false;
+        }
+
+        // Slash Index
+        if (!WriteTestFile(
+            "v 0 0 0\n"
+            "v 1 0 0\n"
+            "v 0 1 0\n"
+            "f 1/1/1 2/2/1 3/3/1\n"))
+        {
+            RemoveTestFile();
+            return false;
+        }
+
+        if (!ParseOBJ(TestPath, Vertices) || Vertices.Num() != 3)
+        {
+            RemoveTestFile();
+            return false;
+        }
+
+        // Invalid Positive Index
+        if (!WriteTestFile(
+            "v 0 0 0\n"
+            "v 1 0 0\n"
+            "v 0 1 0\n"
+            "f 1 2 9\n"))
+        {
+            RemoveTestFile();
+            return false;
+        }
+
+        if (ParseOBJ(TestPath, Vertices) || !Vertices.IsEmpty())
+        {
+            RemoveTestFile();
+            return false;
+        }
+
+        // Invalid Negative Index
+        if (!WriteTestFile(
+            "v 0 0 0\n"
+            "v 1 0 0\n"
+            "v 0 1 0\n"
+            "f -4 -2 -1\n"))
+        {
+            RemoveTestFile();
+            return false;
+        }
+
+        if (ParseOBJ(TestPath, Vertices) || !Vertices.IsEmpty())
+        {
+            RemoveTestFile();
+            return false;
+        }
+
+        // Vertex Only File
+        if (!WriteTestFile(
+            "v 0 0 0\n"
+            "v 1 0 0\n"
+            "v 0 1 0\n"))
+        {
+            RemoveTestFile();
+            return false;
+        }
+
+        if (ParseOBJ(TestPath, Vertices) || !Vertices.IsEmpty())
+        {
+            RemoveTestFile();
+            return false;
+        }
+
+        // Invalid Vertex
+        if (!WriteTestFile(
+            "v 0 0 0\n"
+            "v invalid 0 0\n"
+            "v 0 1 0\n"
+            "f 1 2 3\n"))
+        {
+            RemoveTestFile();
+            return false;
+        }
+
+        if (ParseOBJ(TestPath, Vertices) || !Vertices.IsEmpty())
+        {
+            RemoveTestFile();
+            return false;
+        }
+
+        RemoveTestFile();
+        return true;
     }
 }

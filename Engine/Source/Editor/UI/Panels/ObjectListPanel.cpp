@@ -266,6 +266,8 @@ void FObjectListPanel::OnRender()
     }
 
     UObject* PendingDeleteObject = nullptr;
+    bool bPendingCopy = false;
+    bool bPendingPaste = false;
     bool bPendingDuplicate = false;
     bool bPendingDeleteSelected = false;
 
@@ -306,6 +308,20 @@ void FObjectListPanel::OnRender()
         SpawnStaticMeshObject(*Context, ImportedMesh);
     }
     
+    if (ImGui::Button("Copy Selected"))
+    {
+        bPendingCopy = true;
+    }
+
+    ImGui::SameLine();
+
+    if (ImGui::Button("Paste"))
+    {
+        bPendingPaste = true;
+    }
+
+    ImGui::SameLine();
+
     if (ImGui::Button("Duplicate Selected"))
     {
         bPendingDuplicate = true;
@@ -319,23 +335,7 @@ void FObjectListPanel::OnRender()
     }
 
     ImGui::Separator();
-
-    const bool bWindowFocused = ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows);
-    const ImGuiIO& IO = ImGui::GetIO();
-
-    if (bWindowFocused && !IO.WantTextInput)
-    {
-        if (IO.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_W, false))
-        {
-            bPendingDuplicate = true;
-        }
-
-        if (ImGui::IsKeyPressed(ImGuiKey_Delete, false))
-        {
-            bPendingDeleteSelected = true;
-        }
-    }
-
+    
     for (UObject* Object : Context->Objects)
     {
         if (Object == nullptr)
@@ -364,6 +364,11 @@ void FObjectListPanel::OnRender()
         {
             Context->SelectedObject = Object;
 
+            if (ImGui::MenuItem("Copy", "Ctrl+C"))
+            {
+                bPendingCopy = true;
+            }
+
             if (ImGui::MenuItem("Duplicate", "Ctrl+W"))
             {
                 bPendingDuplicate = true;
@@ -390,8 +395,42 @@ void FObjectListPanel::OnRender()
     {
         DeleteObject(*Context, ViewportPanel, Context->SelectedObject);
     }
+    else if (bPendingCopy)
+    {
+        if (Context->UndoManager != nullptr)
+        {
+            Context->UndoManager->CopySelected(*Context);
+        }
+    }
+    else if (bPendingPaste)
+    {
+        if (Context->UndoManager != nullptr)
+        {
+            Context->UndoManager->PasteCopied(*Context);
+        }
+    }
     else if (bPendingDuplicate)
     {
         DuplicateObject(*Context, ViewportPanel);
     }
+}
+
+void FObjectListPanel::DeleteSelectedObject()
+{
+    if (Context == nullptr || Context->SelectedObject == nullptr)
+    {
+        return;
+    }
+
+    DeleteObject(*Context, ViewportPanel, Context->SelectedObject);
+}
+
+void FObjectListPanel::DuplicateSelectedObject()
+{
+    if (Context == nullptr || Context->SelectedObject == nullptr)
+    {
+        return;
+    }
+
+    DuplicateObject(*Context, ViewportPanel);
 }

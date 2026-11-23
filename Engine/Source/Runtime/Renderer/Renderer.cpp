@@ -378,11 +378,11 @@ void URenderer::ReleaseShader()
 
 void URenderer::Prepare()
 {
-    if (mDeviceContext == nullptr || ViewportRTV == nullptr || ViewportDSV == nullptr || ViewportDepthState == nullptr)
+    if (mDeviceContext == nullptr || mFrameBufferRTV == nullptr || mRasterizerState == nullptr)
     {
         return;
     }
-    
+
     mDeviceContext->ClearRenderTargetView(mFrameBufferRTV, mClearColor);
     mDeviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
@@ -536,25 +536,41 @@ ID3D11DeviceContext* URenderer::GetDeviceContext()
 
 void URenderer::ResizeBackBuffer(uint32 Width, uint32 Height)
 {
-    if (Width == 0 || Height == 0)
+    if (Width == 0 || Height == 0 || mDeviceContext == nullptr || mSwapChain == nullptr)
     {
         return;
     }
+
     if (mViewportInfo.Width == static_cast<float>(Width) && mViewportInfo.Height == static_cast<float>(Height))
     {
         return;
     }
-    
+
     mDeviceContext->OMSetRenderTargets(0, nullptr, nullptr);
+
+    ID3D11ShaderResourceView* NullSRV = nullptr;
+    mDeviceContext->PSSetShaderResources(0, 1, &NullSRV);
+
     ReleaseFrameBuffer();
-    HRESULT hr = mSwapChain->ResizeBuffers(0, Width, Height, DXGI_FORMAT_UNKNOWN, 0);
+
+    const HRESULT hr = mSwapChain->ResizeBuffers(0, Width, Height, DXGI_FORMAT_UNKNOWN, 0);
+
     if (FAILED(hr))
     {
+        OutputDebugStringA("[Renderer] ResizeBuffers failed.\n");
+
         CreateFrameBuffer();
         return;
     }
+
+    mViewportInfo = {0.0f, 0.0f, static_cast<float>(Width), static_cast<float>(Height), 0.0f, 1.0f};
+
     CreateFrameBuffer();
-    mViewportInfo = {0.0f, 0.0f, static_cast<float>(Width), static_cast<float>(Height), 0.0f, 1.0f };
+
+    if (mFrameBufferRTV == nullptr)
+    {
+        OutputDebugStringA("[Renderer] Back buffer recreation failed.\n");
+    }
 }
 
 void URenderer::CreateViewportRenderTarget(uint32 Width, uint32 Height)
@@ -666,7 +682,7 @@ void URenderer::ResizeViewportRenderTarget(uint32 Width, uint32 Height)
 
 void URenderer::BeginViewportRender()
 {
-    if (mDeviceContext == nullptr || ViewportRTV == nullptr || ViewportDSV == nullptr || ViewportDepthState == nullptr)
+    if (mDeviceContext == nullptr || ViewportRTV == nullptr || ViewportDSV == nullptr || ViewportDepthState == nullptr || mRasterizerState == nullptr)
     {
         return;
     }

@@ -16,6 +16,12 @@
 #include "UI/Panels/StatsPanel.h"
 #include "UObject/Object.h"
 #include "Resources/StaticMesh.h"
+#include "EditorSceneSerializer.h"
+#include "OBJStaticMeshImporter.h"
+
+#include <filesystem>
+#include <fstream>
+#include <cmath>
 #include <unordered_set>
 
 namespace 
@@ -36,6 +42,294 @@ namespace
             assert(UniqueObjects.contains(Context.SelectedObject));
         }
 #endif
+    }
+    bool RunEditorDebugValidation(FAssetManager& AssetManager, URenderer& Renderer)
+    {
+#if defined(_DEBUG)
+    auto DestroyContextObjects = [](FEditorObjectContext& Context)
+    {
+        for (UObject* Object : Context.Objects)
+        {
+            delete Object;
+        }
+
+        Context.Objects.Reset();
+        Context.SelectedObject = nullptr;
+    };
+
+    UStaticMesh* CubeMesh = AssetManager.Find<UStaticMesh>(BuiltinAssetPaths::Cube);
+
+    if (CubeMesh == nullptr)
+    {
+        return false;
+    }
+
+    // ============================================================
+    // Undo / Redo / Clipboard Test
+    // ============================================================
+
+    FEditorObjectContext UndoContext;
+    FEditorUndoManager TestUndoManager;
+    UndoContext.UndoManager = &TestUndoManager;
+
+    UStaticMeshComponent* TestComponent = NewObject<UStaticMeshComponent>();
+
+    if (TestComponent == nullptr)
+    {
+        return false;
+    }
+
+    TestComponent->SetStaticMesh(CubeMesh);
+
+    UndoContext.Objects.Add(TestComponent);
+    UndoContext.SelectedObject = TestComponent;
+
+    const uint32 OriginalUUID = TestComponent->GetUUID();
+
+    TestUndoManager.RecordCreate(UndoContext, TestComponent, 0);
+    TestUndoManager.Undo(UndoContext);
+
+    if (!UndoContext.Objects.IsEmpty())
+    {
+        DestroyContextObjects(UndoContext);
+        return false;
+    }
+
+    TestUndoManager.Redo(UndoContext);
+
+    if (UndoContext.Objects.Num() != 1 || UndoContext.Objects[0]->GetUUID() != OriginalUUID)
+    {
+        DestroyContextObjects(UndoContext);
+        return false;
+    }
+
+    // Clipboard Copy / Paste
+    if (!TestUndoManager.CopySelected(UndoContext))
+    {
+        DestroyContextObjects(UndoContext);
+        return false;
+    }
+
+    UObject* PastedObject = TestUndoManager.PasteCopied(UndoContext);
+
+    if (PastedObject == nullptr || UndoContext.Objects.Num() != 2 || PastedObject->GetUUID() == OriginalUUID)
+    {
+        DestroyContextObjects(UndoContext);
+        return false;
+    }
+
+    UStaticMeshComponent* PastedComponent = Cast<UStaticMeshComponent>(PastedObject);
+
+    if (PastedComponent == nullptr || PastedComponent->GetStaticMesh() != CubeMesh)
+    {
+        DestroyContextObjects(UndoContext);
+        return false;
+    }
+
+    TestUndoManager.Undo(UndoContext);
+
+    if (UndoContext.Objects.Num() != 1)
+    {
+        DestroyContextObjects(UndoContext);
+        return false;
+    }
+
+    TestUndoManager.Redo(UndoContext);
+
+    if (UndoContext.Objects.Num() != 2)
+    {
+        DestroyContextObjects(UndoContext);
+        return false;
+    }
+
+    // Transform Undo / Redo
+    UndoContext.SelectedObject = UndoContext.Objects[0];
+
+    UStaticMeshComponent* TransformTarget = Cast<UStaticMeshComponent>(UndoContext.SelectedObject);
+
+    if (TransformTarget == nullptr)
+    {
+        DestroyContextObjects(UndoContext);
+        return false;
+    }
+
+    const FTransform BeforeTransform = TransformTarget->GetWorldTransform();
+    FTransform AfterTransform = BeforeTransform;
+    AfterTransform.Location.x += 2.0f;
+
+    if (!TransformTarget->SetWorldTransform(AfterTransform))
+    {
+        DestroyContextObjects(UndoContext);
+        return false;
+    }
+
+    TestUndoManager.RecordTransform(UndoContext, TransformTarget->GetUUID(), BeforeTransform, AfterTransform);
+    TestUndoManager.Undo(UndoContext);
+
+    TransformTarget = Cast<UStaticMeshComponent>(UndoContext.SelectedObject);
+
+    if (TransformTarget == nullptr || std::fabs(TransformTarget->GetWorldTransform().Location.x - BeforeTransform.Location.x) > 0.0001f)
+    {
+        DestroyContextObjects(UndoContext);
+        return false;
+    }
+
+    TestUndoManager.Redo(UndoContext);
+
+    TransformTarget = Cast<UStaticMeshComponent>(UndoContext.SelectedObject);
+
+    if (TransformTarget == nullptr || std::fabs(TransformTarget->GetWorldTransform().Location.x - AfterTransform.Location.x) > 0.0001f)
+    {
+        DestroyContextObjects(UndoContext);
+        return false;
+    }
+
+    // Delete Undo / Redo
+    UObject* DeleteTarget = UndoContext.Objects[1];
+    UndoContext.SelectedObject = DeleteTarget;
+
+    TestUndoManager.RecordDelete(UndoContext, DeleteTarget);
+
+    const int32 DeleteIndex = UndoContext.Objects.Find(DeleteTarget);
+
+    if (DeleteIndex == INDEX_NONE)
+    {
+        DestroyContextObjects(UndoContext);
+        return false;
+    }
+
+    UndoContext.Objects.RemoveAt(DeleteIndex);
+    UndoContext.SelectedObject = nullptr;
+    delete DeleteTarget;
+
+    TestUndoManager.Undo(UndoContext);
+
+    if (UndoContext.Objects.Num() != 2)
+    {
+        DestroyContextObjects(UndoContext);
+        return false;
+    }
+
+    TestUndoManager.Redo(UndoContext);
+
+    if (UndoContext.Objects.Num() != 1)
+    {
+        DestroyContextObjects(UndoContext);
+        return false;
+    }
+
+    TestUndoManager.Clear();
+    DestroyContextObjects(UndoContext);
+
+    // ============================================================
+    // Scene Save / Load Test
+    // ============================================================
+
+    FEditorObjectContext SceneContext;
+
+    UStaticMeshComponent* SceneMesh = NewObject<UStaticMeshComponent>();
+    UCameraComponent* SceneCamera = NewObject<UCameraComponent>();
+    UCameraComponent* TestViewportCamera = NewObject<UCameraComponent>();
+
+    if (SceneMesh == nullptr || SceneCamera == nullptr || TestViewportCamera == nullptr)
+    {
+        delete SceneMesh;
+        delete SceneCamera;
+        delete TestViewportCamera;
+        return false;
+    }
+
+    SceneMesh->SetStaticMesh(CubeMesh);
+
+    FTransform MeshTransform = SceneMesh->GetTransform();
+    MeshTransform.Location.x = 5.0f;
+    SceneMesh->SetTransform(MeshTransform);
+
+    SceneContext.Objects.Add(SceneMesh);
+    SceneContext.Objects.Add(SceneCamera);
+
+    const std::filesystem::path ScenePath = std::filesystem::temp_directory_path() / ("KirbyEngine_Validation_" + std::to_string(GetCurrentProcessId()) + ".Scene");
+
+    auto RemoveTestScene = [&ScenePath]()
+    {
+        std::error_code Error;
+        std::filesystem::remove(ScenePath, Error);
+    };
+
+    if (!FSceneSerializer::Save(ScenePath, SceneContext, *TestViewportCamera))
+    {
+        DestroyContextObjects(SceneContext);
+        delete TestViewportCamera;
+        RemoveTestScene();
+        return false;
+    }
+
+    if (!FSceneSerializer::Load(ScenePath, SceneContext, AssetManager, *TestViewportCamera, Renderer))
+    {
+        DestroyContextObjects(SceneContext);
+        delete TestViewportCamera;
+        RemoveTestScene();
+        return false;
+    }
+
+    if (SceneContext.Objects.Num() != 2 || Cast<UStaticMeshComponent>(SceneContext.Objects[0]) == nullptr || Cast<UCameraComponent>(SceneContext.Objects[1]) == nullptr)
+    {
+        DestroyContextObjects(SceneContext);
+        delete TestViewportCamera;
+        RemoveTestScene();
+        return false;
+    }
+
+    if (Cast<UStaticMeshComponent>(SceneContext.Objects[0])->GetStaticMesh() != CubeMesh)
+    {
+        DestroyContextObjects(SceneContext);
+        delete TestViewportCamera;
+        RemoveTestScene();
+        return false;
+    }
+
+    // 잘못된 Scene Load가 기존 Scene 상태를 변경하지 않는지 확인
+    UObject* ExistingObject = SceneContext.Objects[0];
+    const uint32 NextUUIDBeforeInvalidLoad = FEngineStatics::NextUUID;
+
+    {
+        std::ofstream InvalidScene(ScenePath, std::ios::binary | std::ios::trunc);
+
+        InvalidScene << R"({"Version":999,"NextUUID":1,"Primitives":{},"Cameras":{}})";
+
+        if (!InvalidScene.good())
+        {
+            DestroyContextObjects(SceneContext);
+            delete TestViewportCamera;
+            RemoveTestScene();
+            return false;
+        }
+    }
+
+    const bool bInvalidLoadRejected = !FSceneSerializer::Load(ScenePath, SceneContext, AssetManager, *TestViewportCamera, Renderer);
+    const bool bSceneStatePreserved = SceneContext.Objects.Num() == 2 && SceneContext.Objects[0] == ExistingObject && FEngineStatics::NextUUID == NextUUIDBeforeInvalidLoad;
+
+    DestroyContextObjects(SceneContext);
+    delete TestViewportCamera;
+    RemoveTestScene();
+
+    if (!bInvalidLoadRejected || !bSceneStatePreserved)
+    {
+        return false;
+    }
+
+    // ============================================================
+    // OBJ Parser Test
+    // ============================================================
+
+    if (!OBJImporter::RunParserValidation())
+    {
+        return false;
+    }
+
+#endif
+
+    return true;
     }
 }
 
@@ -75,6 +369,16 @@ bool FEditorEngine::Init(HINSTANCE hInstance)
             return false;
         }
     }
+#if defined(_DEBUG)
+    if (!RunEditorDebugValidation(AssetManager, *Renderer))
+    {
+        UE_LOG(Error, "Editor debug validation failed");
+        Shutdown();
+        return false;
+    }
+
+    UE_LOG(Info, "Editor debug validation passed");
+#endif
     if (!ImGuiRenderer->Init(WindowsWindow->GetHWND(), Renderer->GetDevice(), Renderer->GetDeviceContext()))
     {
         UE_LOG(Error, "ImGui initialization failed");
@@ -276,21 +580,44 @@ void FEditorEngine::Run()
         }
         
         ImGuiRenderer->OnRender();
-        
+
 #if defined(_DEBUG)
         ValidateEditorObjectContext(ObjectContext);
 #endif
         
         const ImGuiIO& IO = ImGui::GetIO();
 
-        if (!IO.WantTextInput && IO.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_Z, false))
+        const bool bEditorFocused = WindowsWindow != nullptr && GetForegroundWindow() == WindowsWindow->GetHWND();
+        const bool bCanProcessShortcut = bEditorFocused && !IO.WantTextInput && !ImGui::IsAnyItemActive();
+
+        if (bCanProcessShortcut)
         {
-            UndoManager.Undo(ObjectContext);
+            if (IO.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_C, false))
+            {
+                UndoManager.CopySelected(ObjectContext);
+            }
+            else if (IO.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_V, false))
+            {
+                UndoManager.PasteCopied(ObjectContext);
+            }
+            else if (IO.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_W, false))
+            {
+                ObjectListPanel->DuplicateSelectedObject();
+            }
+            else if (IO.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_Z, false))
+            {
+                UndoManager.Undo(ObjectContext);
+            }
+            else if (IO.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_Y, false))
+            {
+                UndoManager.Redo(ObjectContext);
+            }
+            else if (ImGui::IsKeyPressed(ImGuiKey_Delete, false))
+            {
+                ObjectListPanel->DeleteSelectedObject();
+            }
         }
-        else if (!IO.WantTextInput && IO.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_Y, false))
-        {
-            UndoManager.Redo(ObjectContext);
-        }
+        
         
         Renderer->SwapBuffer();
     }
