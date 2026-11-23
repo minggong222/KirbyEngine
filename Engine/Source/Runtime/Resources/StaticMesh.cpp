@@ -37,7 +37,7 @@ bool UStaticMesh::Initialize(URenderer& Renderer, FStaticMeshBuildData&& SourceD
         return false;
     }
     
-    ID3D11Buffer* NewIndexBuffer = Renderer.CreateIndexBuffer(SourceData.Indices.GetData(), static_cast<UINT>(IndexByteWidth));
+    ID3D11Buffer* NewIndexBuffer = Renderer.CreateIndexBuffer(SourceData.Indices.GetData(), static_cast<UINT>(SourceData.Indices.Num()));
     
     if (NewIndexBuffer == nullptr)
     {
