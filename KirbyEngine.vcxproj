@@ -163,6 +163,7 @@
     <ClCompile Include="Engine\Source\Editor\EditorCameraController.cpp" />
     <ClCompile Include="Engine\Source\Editor\EditorEngine.cpp" />
     <ClCompile Include="Engine\Source\Editor\EditorObjectPicker.cpp" />
+    <ClCompile Include="Engine\Source\Editor\EditorTransformGizmo.cpp" />
     <ClCompile Include="Engine\Source\Editor\UI\ImGuiRenderer.cpp" />
     <ClCompile Include="Engine\Source\Editor\UI\PanelManager.cpp" />
     <ClCompile Include="Engine\Source\Editor\UI\Panels\ConsolePanel.cpp" />
@@ -369,6 +370,7 @@
     <ClInclude Include="Engine\Source\Editor\EditorEngine.h" />
     <ClInclude Include="Engine\Source\Editor\EditorObjectContext.h" />
     <ClInclude Include="Engine\Source\Editor\EditorObjectPicker.h" />
+    <ClInclude Include="Engine\Source\Editor\EditorTransformGizmo.h" />
     <ClInclude Include="Engine\Source\Editor\UI\ImGuiRenderer.h" />
     <ClInclude Include="Engine\Source\Editor\UI\PanelManager.h" />
     <ClInclude Include="Engine\Source\Editor\UI\Panels\ConsolePanel.h" />

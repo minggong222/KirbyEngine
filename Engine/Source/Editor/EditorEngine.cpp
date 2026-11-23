@@ -122,13 +122,16 @@ void FEditorEngine::Run()
         }
         CameraController.Update(*MainCamera, *WindowsWindow, static_cast<float>(DeltaTime));
         
+        const FMatrix View = MainCamera->GetViewMatrix();
+        const FMatrix Projection = MainCamera->GetProjectionMatrix();
+        
+        ViewportPanel->SetGizmoContext(&ObjectContext, View, Projection);
+        
         {
             // 준비 작업
             Renderer->Prepare();
             Renderer->BeginViewportRender();
             Renderer->PrepareShader();
-            const FMatrix View = MainCamera->GetViewMatrix();
-            const FMatrix Projection = MainCamera->GetProjectionMatrix();
             
             for (UObject* Object : ObjectContext.Objects)
             {

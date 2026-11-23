@@ -14,34 +14,54 @@ void FViewportPanel::Tick(float DeltaTime)
 void FViewportPanel::OnRender()
 {
     ImGui::Begin("Viewport");
+
     const ImVec2 AvailableSize = ImGui::GetContentRegionAvail();
-    if (AvailableSize.x > 0 && AvailableSize.y > 0)
+
+    if (AvailableSize.x > 0.0f && AvailableSize.y > 0.0f)
     {
         const ImVec2 FramebufferScale = ImGui::GetIO().DisplayFramebufferScale;
+
         const float ScaleX = FramebufferScale.x > 0.0f ? FramebufferScale.x : 1.0f;
         const float ScaleY = FramebufferScale.y > 0.0f ? FramebufferScale.y : 1.0f;
+
         const uint32 Width = static_cast<uint32>(AvailableSize.x * ScaleX + 0.5f);
         const uint32 Height = static_cast<uint32>(AvailableSize.y * ScaleY + 0.5f);
+
         SetDesiredSize(Width, Height);
+
         if (SRV != nullptr)
         {
             ImGui::Image((ImTextureID)SRV, AvailableSize);
-            if (ImGui::IsItemHovered() && ImGui::IsMouseClicked(ImGuiMouseButton_Left))
+
+            const ImVec2 ImageMin = ImGui::GetItemRectMin();
+            const ImVec2 ImageMax = ImGui::GetItemRectMax();
+
+            const ImVec2 ImageSize(ImageMax.x - ImageMin.x, ImageMax.y - ImageMin.y);
+
+            const bool bImageHovered = ImGui::IsItemHovered();
+
+            bool bGizmoConsumed = false;
+
+            if (ObjectContext != nullptr)
             {
-                const ImVec2 ImageMin = ImGui::GetItemRectMin();
-                const ImVec2 ImageMax = ImGui::GetItemRectMax();
+                bGizmoConsumed = TransformGizmo.Draw(*ObjectContext, ViewMatrix, ProjectionMatrix, ImGui::GetWindowDrawList(), ImageMin, ImageSize, bImageHovered);
+            }
+
+            if (bImageHovered && ImGui::IsMouseClicked(ImGuiMouseButton_Left) && !bGizmoConsumed)
+            {
                 const ImVec2 MousePos = ImGui::GetIO().MousePos;
-                const float ImageWidth = ImageMax.x - ImageMin.x;
-                const float ImageHeight = ImageMax.y - ImageMin.y;
-                if (ImageWidth > 0.0f && ImageHeight > 0.0f)
+
+                if (ImageSize.x > 0.0f && ImageSize.y > 0.0f)
                 {
-                    ClickU = (MousePos.x - ImageMin.x) / ImageWidth;
-                    ClickV = (MousePos.y - ImageMin.y) / ImageHeight;
+                    ClickU = (MousePos.x - ImageMin.x) / ImageSize.x;
+                    ClickV = (MousePos.y - ImageMin.y) / ImageSize.y;
+
                     bHasPendingClick = true;
                 }
             }
         }
     }
+
     ImGui::End();
 }
 
