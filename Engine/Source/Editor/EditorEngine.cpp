@@ -174,30 +174,31 @@ void FEditorEngine::Run()
                 Renderer->UpdateConstant(World, View, Projection, false);
                 Renderer->RenderPrimitive(RenderData.VertexBuffer, RenderData.VertexCount);
             }
+            
+            UStaticMeshComponent* SelectedComponent = Cast<UStaticMeshComponent>(ObjectContext.SelectedObject);
+
+            if (SelectedComponent != nullptr)
+            {
+                const UStaticMesh* SelectedMesh = SelectedComponent->GetStaticMesh();
+
+                if (SelectedMesh != nullptr)
+                {
+                    const FStaticMeshRenderData& SelectedRenderData = SelectedMesh->GetRenderData();
+
+                    if (SelectedRenderData.VertexBuffer != nullptr && SelectedRenderData.VertexCount > 0)
+                    {
+                        const FMatrix OutlineScale = FMatrix::CreateScale(FVector(1.03f, 1.03f, 1.03f));
+                        const FMatrix OutlineWorld = OutlineScale * SelectedComponent->GetWorldMatrix();
+
+                        Renderer->UpdateConstant(OutlineWorld, View, Projection, true);
+                        Renderer->RenderPrimitive(SelectedRenderData.VertexBuffer, SelectedRenderData.VertexCount, true);
+                    }
+                }
+            }
+            
             Renderer->EndViewportRender();            
         }
         
-        UStaticMeshComponent* SelectedComponent = Cast<UStaticMeshComponent>(ObjectContext.SelectedObject);
-
-        if (SelectedComponent != nullptr)
-        {
-            const UStaticMesh* SelectedMesh = SelectedComponent->GetStaticMesh();
-
-            if (SelectedMesh != nullptr)
-            {
-                const FStaticMeshRenderData& SelectedRenderData = SelectedMesh->GetRenderData();
-
-                if (SelectedRenderData.VertexBuffer != nullptr && SelectedRenderData.VertexCount > 0)
-                {
-                    const FMatrix OutlineScale = FMatrix::CreateScale(FVector(1.03f, 1.03f, 1.03f));
-                    const FMatrix OutlineWorld = OutlineScale * SelectedComponent->GetWorldMatrix();
-
-                    Renderer->UpdateConstant(OutlineWorld, View, Projection, true);
-                    Renderer->RenderPrimitive(SelectedRenderData.VertexBuffer, SelectedRenderData.VertexCount, true);
-                }
-            }
-        }
-
         ImGuiRenderer->OnRender();
         Renderer->SwapBuffer();
     }
