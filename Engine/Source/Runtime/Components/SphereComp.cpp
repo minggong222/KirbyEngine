@@ -1,7 +1,5 @@
 ﻿#include "SphereComp.h"
 
-IMPLEMENT_CLASS_NO_PROPERTIES(USphereComp, UPrimitiveComponent)
-
 TArray<FVertexSimple> USphereComp::CreateMeshVertices()
 {
     return {

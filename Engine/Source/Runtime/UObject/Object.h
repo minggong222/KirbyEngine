@@ -16,6 +16,8 @@ public:
     static UClass* StaticClass();
     virtual UClass* GetClass() const;
     bool IsA(const UClass* InClass) const;
+
+    void ProcessEvent(const char* FunctionName, void* Parameters);
     
     template<typename T>
     bool IsA() const { return IsA(T::StaticClass()); }

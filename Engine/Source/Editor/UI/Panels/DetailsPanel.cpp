@@ -205,10 +205,38 @@ void FDetailsPanel::OnRender()
     
     TArray<const FProperty*> Properties;
     ObjectClass->GetProperties(Properties, true);
-    
+
+    TArray<FString> Categories;
+
     for (const FProperty* Property : Properties)
     {
-        DrawProperty(SelectedObject, Property);
+        if (!Property->IsVisible())
+        {
+            continue;
+        }
+
+        const FString& Category = Property->GetCategory();
+
+        if (!Categories.Contains(Category))
+        {
+            Categories.Add(Category);
+        }
+    }
+
+    for (const FString& Category : Categories)
+    {
+        if (!ImGui::CollapsingHeader(Category.c_str(), ImGuiTreeNodeFlags_DefaultOpen))
+        {
+            continue;
+        }
+
+        for (const FProperty* Property : Properties)
+        {
+            if (Property->GetCategory() == Category)
+            {
+                DrawProperty(SelectedObject, Property);
+            }
+        }
     }
     ImGui::End();
 }

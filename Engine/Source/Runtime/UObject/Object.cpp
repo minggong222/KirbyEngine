@@ -72,6 +72,36 @@ bool UObject::IsA(const UClass* InClass) const
     return ActualClass != nullptr && ActualClass->IsChildOf(InClass);
 }
 
+void UObject::ProcessEvent(const char* FunctionName, void* Parameters)
+{
+    if (FunctionName == nullptr)
+    {
+        assert(false && "FunctionName is null");
+        return;
+    }
+
+    UClass* ObjectClass = GetClass();
+
+    if (ObjectClass == nullptr)
+    {
+        assert(false && "Object class is null");
+        return;
+    }
+
+    const UFunction* Function = ObjectClass->FindFunction(FunctionName);
+
+    if (Function == nullptr)
+    {
+        assert(false && "Reflected function not found");
+        return;
+    }
+
+    if (!Function->Invoke(this, Parameters))
+    {
+        assert(false && "Failed to invoke reflected function");
+    }
+}
+
 void* UObject::operator new(SIZE_T size)
 {
     void* Ptr = malloc(size);

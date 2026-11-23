@@ -2,12 +2,15 @@
 #include "Asset.h"
 #include "FVertexSimple.h"
 #include "StaticMeshData.h"
+#include "UObject/ObjectMacros.h"
+#include "Resources/StaticMesh.generated.h"
 
 class URenderer;
 
+UCLASS()
 class UStaticMesh : public UAsset
 {
-    DECLARE_CLASS( UStaticMesh, UAsset );
+    GENERATED_BODY()
 public:
     bool Initialize(URenderer& Renderer, TArray<FVertexSimple>&& SourceVertices);
     const FStaticMeshRenderData& GetRenderData() const { return RenderData; }

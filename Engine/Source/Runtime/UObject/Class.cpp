@@ -1,7 +1,27 @@
 ﻿#include "Class.h"
 
 FProperty::FProperty(const char* InName, EPropertyType InType, SIZE_T InSize, uint32 InFlags, const char* InDisplayName, const char* InCategory, const FTypeInfo* InValueTypeInfo)
-    : Name(InName), DisplayName(InDisplayName != nullptr ? InDisplayName : nullptr), Category(InCategory), Type(InType), Size(InSize), Flags(InFlags), ValueTypeInfo(InValueTypeInfo) {}
+    : Name(InName), DisplayName(InDisplayName != nullptr ? InDisplayName : InName), Category(InCategory != nullptr ? InCategory : "Default"), Type(InType), Size(InSize), Flags(InFlags), ValueTypeInfo(InValueTypeInfo) {}
+
+UFunction::UFunction(const char* InName, const char* InReturnType, const char* InCategory, FFunctionExec InExecFunction, std::initializer_list<FFunctionParameterInfo> InParameters)
+    : Name(InName), ReturnType(InReturnType), Category(InCategory != nullptr ? InCategory : "Default"), ExecFunction(InExecFunction)
+{
+    for (const FFunctionParameterInfo& Parameter : InParameters)
+    {
+        Parameters.Add(Parameter);
+    }
+}
+
+bool UFunction::Invoke(UObject* Object, void* InParameters) const
+{
+    if (Object == nullptr || InParameters == nullptr || ExecFunction == nullptr)
+    {
+        return false;
+    }
+
+    ExecFunction(Object, InParameters);
+    return true;
+}
 
 FTypeInfo::FTypeInfo(const char* InName, SIZE_T InSize, const FTypeInfo* InSuperType)
     : Name(InName), Size(InSize), SuperType(InSuperType){}
@@ -12,7 +32,15 @@ FTypeInfo::~FTypeInfo()
     {
         delete Properties[Index];
     }
+
     Properties.Reset();
+
+    for (int32 Index = 0; Index < Functions.Num(); ++Index)
+    {
+        delete Functions[Index];
+    }
+
+    Functions.Reset();
 }
 
 bool FTypeInfo::IsChildOf(const FTypeInfo* InType) const
@@ -78,6 +106,43 @@ void FTypeInfo::GetProperties(TArray<const FProperty*>& OutProperties, bool bInc
     {
         OutProperties.Add(Properties[Index]);
     }
+}
+
+void FTypeInfo::AddFunction(UFunction* Function)
+{
+    assert(Function != nullptr);
+
+    if (Function == nullptr)
+    {
+        return;
+    }
+
+    for (int32 Index = 0; Index < Functions.Num(); ++Index)
+    {
+        assert(Functions[Index]->GetName() != Function->GetName());
+    }
+
+    Functions.Add(Function);
+}
+
+const UFunction* FTypeInfo::FindFunction(const char* InName) const
+{
+    if (InName == nullptr)
+    {
+        return nullptr;
+    }
+
+    const FString SearchName(InName);
+
+    for (int32 Index = Functions.Num() - 1; Index >= 0; --Index)
+    {
+        if (Functions[Index]->GetName() == SearchName)
+        {
+            return Functions[Index];
+        }
+    }
+
+    return SuperType != nullptr ? SuperType->FindFunction(InName) : nullptr;
 }
 
 UClass::UClass(const char* InName, const UClass* InSuperClass, SIZE_T InClassSize, FObjectConstructor InConstructor)

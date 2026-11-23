@@ -2,8 +2,11 @@
 #include "SceneComponent.h"
 #include "Core/Math/Box.h"
 #include "Resources/StaticMeshData.h"
+#include "UObject/ObjectMacros.h"
+#include "Components/PrimitiveComponent.generated.h"
 
+UCLASS()
 class UPrimitiveComponent : public USceneComponent
 {
-    DECLARE_CLASS(UPrimitiveComponent, USceneComponent)
+    GENERATED_BODY()
 };

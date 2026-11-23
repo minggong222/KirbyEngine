@@ -1,7 +1,6 @@
 ﻿#include "StaticMesh.h"
 
 #include "Renderer/Renderer.h"
-IMPLEMENT_CLASS_NO_PROPERTIES(UStaticMesh, UAsset);
 
 bool UStaticMesh::Initialize(URenderer& Renderer, TArray<FVertexSimple>&& SourceVertices)
 {

@@ -2,7 +2,13 @@
 <project version="4">
   <component name="UserContentModel">
     <attachedFolders />
-    <explicitIncludes />
-    <explicitExcludes />
+    <explicitIncludes>
+      <Path>Engine/Programs</Path>
+      <Path>Engine/Source/Editor/UI/Panels/EditorPanel.cpp</Path>
+      <Path>Engine/Source/Editor/UI/ViewportPanel.cpp</Path>
+    </explicitIncludes>
+    <explicitExcludes>
+      <Path>Build</Path>
+    </explicitExcludes>
   </component>
 </project>

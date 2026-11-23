@@ -59,6 +59,34 @@ private:
     const FTypeInfo* ValueTypeInfo;
 };
 
+struct FFunctionParameterInfo
+{
+    FString Name;
+    FString TypeName;
+};
+
+using FFunctionExec = void (*)(UObject*, void*);
+
+class UFunction
+{
+public:
+    UFunction(const char* InName, const char* InReturnType, const char* InCategory, FFunctionExec InExecFunction, std::initializer_list<FFunctionParameterInfo> InParameters);
+
+    const FString& GetName() const { return Name; }
+    const FString& GetReturnType() const { return ReturnType; }
+    const FString& GetCategory() const { return Category; }
+    const TArray<FFunctionParameterInfo>& GetParameters() const { return Parameters; }
+
+    bool Invoke(UObject* Object, void* Parameters) const;
+
+private:
+    FString Name;
+    FString ReturnType;
+    FString Category;
+    FFunctionExec ExecFunction = nullptr;
+    TArray<FFunctionParameterInfo> Parameters;
+};
+
 class FTypeInfo
 {
 public:
@@ -73,12 +101,16 @@ public:
     void AddProperty(FProperty* Property);
     const FProperty* FindProperty(const char* InName) const;
     void GetProperties(TArray<const FProperty*>& OutProperties, bool bIncludeSuper = true) const;
+
+    void AddFunction(UFunction* Function);
+    const UFunction* FindFunction(const char* InName) const;
 private:
     FString Name;
     SIZE_T Size;
     
     const FTypeInfo* SuperType;
     TArray<FProperty*> Properties;
+    TArray<UFunction*> Functions;
 };
 
 template<typename T>
@@ -273,57 +305,3 @@ T* Cast(UObject* Object)
         ? static_cast<T*>(Object)
         : nullptr;
 }
-// 클래스 선언부에서 사용
-#define DECLARE_CLASS(ClassName, SuperClassName)                    \
-public:                                                             \
-    static UClass* StaticClass();                                   \
-    UClass* GetClass() const override;                              \
-    static void RegisterProperties(UClass& ClassInfo);
-
-// 프로퍼티를 직접 등록
-#define REGISTER_PROPERTY(ClassInfo, OwnerType, MemberName)         \
-    (ClassInfo).AddProperty(                                        \
-        MakeProperty(#MemberName, &OwnerType::MemberName)           \
-    )
-
-// 표시 이름, 카테고리, 편집 가능 여부까지 지정
-#define REGISTER_PROPERTY_META(                                     \
-    ClassInfo, OwnerType, MemberName, DisplayName, Category, Flags  \
-)                                                                   \
-    (ClassInfo).AddProperty(                                        \
-        MakeProperty(                                               \
-            #MemberName,                                            \
-            &OwnerType::MemberName,                                 \
-            Flags,                                                  \
-            DisplayName,                                            \
-            Category                                                \
-        )                                                           \
-    )
-
-// 클래스 구현부에서 사용
-#define IMPLEMENT_CLASS(ClassName, SuperClassName)                  \
-UClass* ClassName::StaticClass()                                    \
-{                                                                   \
-    static UClass* ClassInfo = new UClass(                          \
-        #ClassName,                                                 \
-        SuperClassName::StaticClass(),                              \
-        sizeof(ClassName),                                          \
-        []() -> UObject* { return new ClassName(); }                \
-    );                                                              \
-    static const bool bRegistered = []()                            \
-    {                                                               \
-        ClassName::RegisterProperties(*ClassInfo);                  \
-        return true;                                                \
-    }();                                                            \
-    (void)bRegistered;                                              \
-    return ClassInfo;                                               \
-}                                                                   \
-UClass* ClassName::GetClass() const                                 \
-{                                                                   \
-    return ClassName::StaticClass();                                \
-}
-
-#define IMPLEMENT_CLASS_NO_PROPERTIES(ClassName, SuperClassName)    \
-IMPLEMENT_CLASS(ClassName, SuperClassName)                          \
-void ClassName::RegisterProperties(UClass&) {}
-   

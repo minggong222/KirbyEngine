@@ -4,15 +4,36 @@
 #include <cctype>
 #include <fstream>
 #include <iterator>
-#include <sstream>
+#include <unordered_set>
 
 namespace
 {
+    enum class ETokenKind
+    {
+        Identifier,
+        Number,
+        StringLiteral,
+        Symbol
+    };
+
     struct FToken
     {
         std::string Text;
         unsigned int Line = 1;
+        ETokenKind Kind = ETokenKind::Symbol;
     };
+
+    bool IsIdentifierStart(char Character)
+    {
+        const unsigned char Value = static_cast<unsigned char>(Character);
+        return std::isalpha(Value) || Character == '_';
+    }
+
+    bool IsIdentifierCharacter(char Character)
+    {
+        const unsigned char Value = static_cast<unsigned char>(Character);
+        return std::isalnum(Value) || Character == '_';
+    }
 
     bool Tokenize(const std::string& Source, std::vector<FToken>& OutTokens, std::string& OutError)
     {
@@ -96,37 +117,48 @@ namespace
             if (Current == '"' || Current == '\'')
             {
                 const char Quote = Current;
+                const unsigned int TokenLine = Line;
+                std::string Value;
+
                 ++Index;
                 bool bClosed = false;
 
                 while (Index < Source.size())
                 {
-                    if (Source[Index] == '\\')
-                    {
-                        if (Index + 1 < Source.size())
-                        {
-                            if (Source[Index + 1] == '\n')
-                            {
-                                ++Line;
-                            }
+                    const char Character = Source[Index];
 
-                            Index += 2;
-                            continue;
+                    if (Character == '\\' && Index + 1 < Source.size())
+                    {
+                        const char Escaped = Source[Index + 1];
+
+                        switch (Escaped)
+                        {
+                        case 'n': Value.push_back('\n'); break;
+                        case 'r': Value.push_back('\r'); break;
+                        case 't': Value.push_back('\t'); break;
+                        case '\\': Value.push_back('\\'); break;
+                        case '"': Value.push_back('"'); break;
+                        case '\'': Value.push_back('\''); break;
+                        default: Value.push_back(Escaped); break;
                         }
+
+                        Index += 2;
+                        continue;
                     }
 
-                    if (Source[Index] == Quote)
+                    if (Character == Quote)
                     {
                         ++Index;
                         bClosed = true;
                         break;
                     }
 
-                    if (Source[Index] == '\n')
+                    if (Character == '\n')
                     {
                         ++Line;
                     }
 
+                    Value.push_back(Character);
                     ++Index;
                 }
 
@@ -136,10 +168,28 @@ namespace
                     return false;
                 }
 
+                if (Quote == '"')
+                {
+                    OutTokens.push_back({Value, TokenLine, ETokenKind::StringLiteral});
+                }
+
                 continue;
             }
 
-            if (std::isalpha(static_cast<unsigned char>(Current)) || Current == '_')
+            if (IsIdentifierStart(Current))
+            {
+                const size_t Start = Index;
+
+                while (Index < Source.size() && IsIdentifierCharacter(Source[Index]))
+                {
+                    ++Index;
+                }
+
+                OutTokens.push_back({Source.substr(Start, Index - Start), Line, ETokenKind::Identifier});
+                continue;
+            }
+
+            if (std::isdigit(static_cast<unsigned char>(Current)))
             {
                 const size_t Start = Index;
 
@@ -147,7 +197,7 @@ namespace
                 {
                     const unsigned char Character = static_cast<unsigned char>(Source[Index]);
 
-                    if (!std::isalnum(Character) && Source[Index] != '_')
+                    if (!std::isalnum(Character) && Source[Index] != '.')
                     {
                         break;
                     }
@@ -155,11 +205,25 @@ namespace
                     ++Index;
                 }
 
-                OutTokens.push_back({Source.substr(Start, Index - Start), Line});
+                OutTokens.push_back({Source.substr(Start, Index - Start), Line, ETokenKind::Number});
                 continue;
             }
 
-            OutTokens.push_back({std::string(1, Current), Line});
+            if (Current == ':' && Next == ':')
+            {
+                OutTokens.push_back({"::", Line, ETokenKind::Symbol});
+                Index += 2;
+                continue;
+            }
+
+            if (Current == '&' && Next == '&')
+            {
+                OutTokens.push_back({"&&", Line, ETokenKind::Symbol});
+                Index += 2;
+                continue;
+            }
+
+            OutTokens.push_back({std::string(1, Current), Line, ETokenKind::Symbol});
             ++Index;
         }
 
@@ -194,6 +258,321 @@ namespace
         }
 
         return false;
+    }
+
+    bool ReadMacroArguments(const std::vector<FToken>& Tokens, size_t MacroIndex, size_t& OutAfterIndex, std::vector<FToken>& OutArguments)
+    {
+        const size_t OpenIndex = MacroIndex + 1;
+
+        if (OpenIndex >= Tokens.size() || Tokens[OpenIndex].Text != "(")
+        {
+            return false;
+        }
+
+        size_t AfterIndex = OpenIndex;
+
+        if (!SkipBalanced(Tokens, AfterIndex, "(", ")"))
+        {
+            return false;
+        }
+
+        OutArguments.assign(Tokens.begin() + OpenIndex + 1, Tokens.begin() + AfterIndex - 1);
+        OutAfterIndex = AfterIndex;
+        return true;
+    }
+
+    std::string JoinTypeTokens(const std::vector<FToken>& Tokens, size_t Start, size_t End)
+    {
+        std::string Result;
+
+        for (size_t Index = Start; Index < End; ++Index)
+        {
+            if (!Result.empty())
+            {
+                Result += " ";
+            }
+
+            Result += Tokens[Index].Text;
+        }
+
+        return Result;
+    }
+
+    std::string JoinTypeTokens(const std::vector<FToken>& Tokens)
+    {
+        return JoinTypeTokens(Tokens, 0, Tokens.size());
+    }
+
+    bool IsSupportedPropertyType(const std::string& TypeName)
+    {
+        static const std::unordered_set<std::string> SupportedTypes =
+        {
+            "bool",
+            "int32",
+            "uint32",
+            "float",
+            "double",
+            "FString",
+            "FVector",
+            "FRotator",
+            "FTransform"
+        };
+
+        return SupportedTypes.contains(TypeName);
+    }
+
+    bool IsSupportedFunctionType(const std::string& TypeName)
+    {
+        return TypeName == "void" || IsSupportedPropertyType(TypeName);
+    }
+
+    std::string FindStringSpecifier(const std::vector<FToken>& Tokens, const std::string& Name)
+    {
+        for (size_t Index = 0; Index + 2 < Tokens.size(); ++Index)
+        {
+            if (Tokens[Index].Text == Name && Tokens[Index + 1].Text == "=" && Tokens[Index + 2].Kind == ETokenKind::StringLiteral)
+            {
+                return Tokens[Index + 2].Text;
+            }
+        }
+
+        return {};
+    }
+
+    bool ReadStatementEnd(const std::vector<FToken>& Tokens, size_t StartIndex, size_t& OutEndIndex)
+    {
+        int ParenthesisDepth = 0;
+        int BracketDepth = 0;
+        int BraceDepth = 0;
+
+        for (size_t Index = StartIndex; Index < Tokens.size(); ++Index)
+        {
+            const std::string& Token = Tokens[Index].Text;
+
+            if (Token == "(") ++ParenthesisDepth;
+            else if (Token == ")") --ParenthesisDepth;
+            else if (Token == "[") ++BracketDepth;
+            else if (Token == "]") --BracketDepth;
+            else if (Token == "{") ++BraceDepth;
+            else if (Token == "}") --BraceDepth;
+
+            if (Token == ";" && ParenthesisDepth == 0 && BracketDepth == 0 && BraceDepth == 0)
+            {
+                OutEndIndex = Index;
+                return true;
+            }
+
+            if (ParenthesisDepth < 0 || BracketDepth < 0 || BraceDepth < 0)
+            {
+                return false;
+            }
+        }
+
+        return false;
+    }
+
+    bool ParseProperty(const std::vector<FToken>& Tokens, size_t StartIndex, const std::vector<FToken>& Specifiers, FReflectedPropertyInfo& OutProperty, size_t& OutEndIndex, std::string& OutError)
+    {
+        if (!ReadStatementEnd(Tokens, StartIndex, OutEndIndex))
+        {
+            OutError = "UPROPERTY declaration must end with a semicolon.";
+            return false;
+        }
+
+        size_t DeclarationEnd = OutEndIndex;
+
+        for (size_t Index = StartIndex; Index < OutEndIndex; ++Index)
+        {
+            if (Tokens[Index].Text == "=")
+            {
+                DeclarationEnd = Index;
+                break;
+            }
+        }
+
+        size_t NameIndex = DeclarationEnd;
+
+        while (NameIndex > StartIndex)
+        {
+            --NameIndex;
+
+            if (Tokens[NameIndex].Kind == ETokenKind::Identifier)
+            {
+                break;
+            }
+        }
+
+        if (NameIndex <= StartIndex || Tokens[NameIndex].Kind != ETokenKind::Identifier)
+        {
+            OutError = "Failed to parse UPROPERTY member name.";
+            return false;
+        }
+
+        OutProperty.PropertyName = Tokens[NameIndex].Text;
+        OutProperty.TypeName = JoinTypeTokens(Tokens, StartIndex, NameIndex);
+
+        if (!IsSupportedPropertyType(OutProperty.TypeName))
+        {
+            OutError = "Unsupported UPROPERTY type: " + OutProperty.TypeName;
+            return false;
+        }
+
+        OutProperty.DisplayName = FindStringSpecifier(Specifiers, "DisplayName");
+        OutProperty.Category = FindStringSpecifier(Specifiers, "Category");
+
+        for (const FToken& Token : Specifiers)
+        {
+            if (Token.Text == "EditAnywhere")
+            {
+                OutProperty.bVisible = true;
+                OutProperty.bEditable = true;
+            }
+            else if (Token.Text == "VisibleAnywhere")
+            {
+                OutProperty.bVisible = true;
+                OutProperty.bEditable = false;
+            }
+        }
+
+        return true;
+    }
+
+    bool SplitFunctionParameters(const std::vector<FToken>& Tokens, size_t StartIndex, size_t EndIndex, std::vector<FReflectedFunctionParameterInfo>& OutParameters, std::string& OutError)
+    {
+        if (StartIndex >= EndIndex)
+        {
+            return true;
+        }
+
+        size_t SegmentStart = StartIndex;
+        int ParenthesisDepth = 0;
+
+        for (size_t Index = StartIndex; Index <= EndIndex; ++Index)
+        {
+            const bool bAtEnd = Index == EndIndex;
+            const std::string Token = bAtEnd ? "," : Tokens[Index].Text;
+
+            if (Token == "(") ++ParenthesisDepth;
+            else if (Token == ")") --ParenthesisDepth;
+
+            if (Token == "," && ParenthesisDepth == 0)
+            {
+                size_t SegmentEnd = Index;
+
+                for (size_t Cursor = SegmentStart; Cursor < SegmentEnd; ++Cursor)
+                {
+                    if (Tokens[Cursor].Text == "=")
+                    {
+                        SegmentEnd = Cursor;
+                        break;
+                    }
+                }
+
+                if (SegmentEnd == SegmentStart + 1 && Tokens[SegmentStart].Text == "void")
+                {
+                    SegmentStart = Index + 1;
+                    continue;
+                }
+
+                size_t NameIndex = SegmentEnd;
+
+                while (NameIndex > SegmentStart)
+                {
+                    --NameIndex;
+
+                    if (Tokens[NameIndex].Kind == ETokenKind::Identifier)
+                    {
+                        break;
+                    }
+                }
+
+                if (NameIndex <= SegmentStart || Tokens[NameIndex].Kind != ETokenKind::Identifier)
+                {
+                    OutError = "Failed to parse UFUNCTION parameter name.";
+                    return false;
+                }
+
+                FReflectedFunctionParameterInfo Parameter;
+                Parameter.ParameterName = Tokens[NameIndex].Text;
+                Parameter.TypeName = JoinTypeTokens(Tokens, SegmentStart, NameIndex);
+
+                if (!IsSupportedFunctionType(Parameter.TypeName) || Parameter.TypeName == "void")
+                {
+                    OutError = "Unsupported UFUNCTION parameter type: " + Parameter.TypeName;
+                    return false;
+                }
+
+                OutParameters.push_back(Parameter);
+                SegmentStart = Index + 1;
+            }
+        }
+
+        return true;
+    }
+
+    bool ParseFunction(const std::vector<FToken>& Tokens, size_t StartIndex, const std::vector<FToken>& Specifiers, FReflectedFunctionInfo& OutFunction, size_t& OutEndIndex, std::string& OutError)
+    {
+        if (!ReadStatementEnd(Tokens, StartIndex, OutEndIndex))
+        {
+            OutError = "UFUNCTION declaration must end with a semicolon.";
+            return false;
+        }
+
+        size_t OpenParenIndex = OutEndIndex;
+
+        for (size_t Index = StartIndex; Index < OutEndIndex; ++Index)
+        {
+            if (Tokens[Index].Text == "(")
+            {
+                OpenParenIndex = Index;
+                break;
+            }
+        }
+
+        if (OpenParenIndex == OutEndIndex || OpenParenIndex == StartIndex)
+        {
+            OutError = "Failed to parse UFUNCTION declaration.";
+            return false;
+        }
+
+        if (Tokens[OpenParenIndex - 1].Kind != ETokenKind::Identifier)
+        {
+            OutError = "Failed to parse UFUNCTION name.";
+            return false;
+        }
+
+        OutFunction.FunctionName = Tokens[OpenParenIndex - 1].Text;
+        OutFunction.ReturnType = JoinTypeTokens(Tokens, StartIndex, OpenParenIndex - 1);
+        OutFunction.Category = FindStringSpecifier(Specifiers, "Category");
+
+        if (!IsSupportedFunctionType(OutFunction.ReturnType))
+        {
+            OutError = "Unsupported UFUNCTION return type: " + OutFunction.ReturnType;
+            return false;
+        }
+
+        size_t AfterParameters = OpenParenIndex;
+
+        if (!SkipBalanced(Tokens, AfterParameters, "(", ")"))
+        {
+            OutError = "Invalid UFUNCTION parameter list.";
+            return false;
+        }
+
+        if (!SplitFunctionParameters(Tokens, OpenParenIndex + 1, AfterParameters - 1, OutFunction.Parameters, OutError))
+        {
+            return false;
+        }
+
+        for (size_t Index = AfterParameters; Index < OutEndIndex; ++Index)
+        {
+            if (Tokens[Index].Text == "const")
+            {
+                OutFunction.bIsConst = true;
+            }
+        }
+
+        return true;
     }
 
     std::string MakeFileId(const std::string& RelativePath)
@@ -247,8 +626,9 @@ bool FHeaderParser::ParseFile(const std::filesystem::path& HeaderFile, const std
         }
 
         size_t Cursor = Index + 1;
+        std::vector<FToken> ClassSpecifiers;
 
-        if (Cursor >= Tokens.size() || Tokens[Cursor].Text != "(" || !SkipBalanced(Tokens, Cursor, "(", ")"))
+        if (!ReadMacroArguments(Tokens, Index, Cursor, ClassSpecifiers))
         {
             OutError = HeaderFile.string() + ":" + std::to_string(Tokens[Index].Line) + ": Invalid UCLASS declaration.";
             return false;
@@ -297,11 +677,15 @@ bool FHeaderParser::ParseFile(const std::filesystem::path& HeaderFile, const std
 
         for (size_t BodyIndex = OpenBraceIndex; BodyIndex < Tokens.size(); ++BodyIndex)
         {
-            if (Tokens[BodyIndex].Text == "{")
+            const std::string& Token = Tokens[BodyIndex].Text;
+
+            if (Token == "{")
             {
                 ++BraceDepth;
+                continue;
             }
-            else if (Tokens[BodyIndex].Text == "}")
+
+            if (Token == "}")
             {
                 --BraceDepth;
 
@@ -310,32 +694,85 @@ bool FHeaderParser::ParseFile(const std::filesystem::path& HeaderFile, const std
                     ClassEndIndex = BodyIndex;
                     break;
                 }
+
+                continue;
             }
 
-            if (BraceDepth == 1 && Tokens[BodyIndex].Text == "GENERATED_BODY")
+            if (BraceDepth != 1)
             {
+                continue;
+            }
+
+            if (Token == "GENERATED_BODY")
+            {
+                size_t AfterBody = BodyIndex + 1;
+                std::vector<FToken> BodyArguments;
+
+                if (!ReadMacroArguments(Tokens, BodyIndex, AfterBody, BodyArguments) || !BodyArguments.empty())
+                {
+                    OutError = HeaderFile.string() + ":" + std::to_string(Tokens[BodyIndex].Line) + ": Invalid GENERATED_BODY declaration.";
+                    return false;
+                }
+
                 if (bFoundGeneratedBody)
                 {
                     OutError = HeaderFile.string() + ":" + std::to_string(Tokens[BodyIndex].Line) + ": Multiple GENERATED_BODY declarations.";
                     return false;
                 }
 
-                if (BodyIndex + 1 >= Tokens.size() || Tokens[BodyIndex + 1].Text != "(")
-                {
-                    OutError = HeaderFile.string() + ":" + std::to_string(Tokens[BodyIndex].Line) + ": Invalid GENERATED_BODY declaration.";
-                    return false;
-                }
-
-                size_t BodyCursor = BodyIndex + 1;
-
-                if (!SkipBalanced(Tokens, BodyCursor, "(", ")"))
-                {
-                    OutError = HeaderFile.string() + ":" + std::to_string(Tokens[BodyIndex].Line) + ": Invalid GENERATED_BODY arguments.";
-                    return false;
-                }
-
                 ClassInfo.GeneratedBodyLine = Tokens[BodyIndex].Line;
                 bFoundGeneratedBody = true;
+                BodyIndex = AfterBody - 1;
+                continue;
+            }
+
+            if (Token == "UPROPERTY")
+            {
+                size_t AfterPropertyMacro = BodyIndex + 1;
+                std::vector<FToken> PropertySpecifiers;
+
+                if (!ReadMacroArguments(Tokens, BodyIndex, AfterPropertyMacro, PropertySpecifiers))
+                {
+                    OutError = HeaderFile.string() + ":" + std::to_string(Tokens[BodyIndex].Line) + ": Invalid UPROPERTY declaration.";
+                    return false;
+                }
+
+                FReflectedPropertyInfo Property;
+                size_t StatementEnd = 0;
+
+                if (!ParseProperty(Tokens, AfterPropertyMacro, PropertySpecifiers, Property, StatementEnd, OutError))
+                {
+                    OutError = HeaderFile.string() + ":" + std::to_string(Tokens[BodyIndex].Line) + ": " + OutError;
+                    return false;
+                }
+
+                ClassInfo.Properties.push_back(Property);
+                BodyIndex = StatementEnd;
+                continue;
+            }
+
+            if (Token == "UFUNCTION")
+            {
+                size_t AfterFunctionMacro = BodyIndex + 1;
+                std::vector<FToken> FunctionSpecifiers;
+
+                if (!ReadMacroArguments(Tokens, BodyIndex, AfterFunctionMacro, FunctionSpecifiers))
+                {
+                    OutError = HeaderFile.string() + ":" + std::to_string(Tokens[BodyIndex].Line) + ": Invalid UFUNCTION declaration.";
+                    return false;
+                }
+
+                FReflectedFunctionInfo Function;
+                size_t StatementEnd = 0;
+
+                if (!ParseFunction(Tokens, AfterFunctionMacro, FunctionSpecifiers, Function, StatementEnd, OutError))
+                {
+                    OutError = HeaderFile.string() + ":" + std::to_string(Tokens[BodyIndex].Line) + ": " + OutError;
+                    return false;
+                }
+
+                ClassInfo.Functions.push_back(Function);
+                BodyIndex = StatementEnd;
             }
         }
 
@@ -362,7 +799,7 @@ bool FHeaderParser::ParseFile(const std::filesystem::path& HeaderFile, const std
         ClassInfo.GeneratedIncludePath = GeneratedPath.generic_string();
         ClassInfo.FileId = MakeFileId(RelativePath.generic_string());
 
-        OutClasses.push_back(ClassInfo);
+        OutClasses.push_back(std::move(ClassInfo));
         Index = ClassEndIndex;
     }
 

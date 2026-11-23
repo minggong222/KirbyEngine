@@ -1,10 +1,13 @@
 ﻿#pragma once
 #include "FVertexSimple.h"
 #include "PrimitiveComponent.h"
+#include "UObject/ObjectMacros.h"
+#include "Components/SphereComp.generated.h"
 
+UCLASS()
 class USphereComp : public UPrimitiveComponent
 {
-	DECLARE_CLASS(USphereComp, UPrimitiveComponent);
+	GENERATED_BODY()
 public:
 	USphereComp() = default;
 	

@@ -54,6 +54,22 @@
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <OutDir>$(SolutionDir)Build\Bin\$(Platform)\$(Configuration)\</OutDir>
+    <IntDir>$(SolutionDir)Build\Intermediate\$(ProjectName)\$(Platform)\$(Configuration)\</IntDir>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <OutDir>$(SolutionDir)Build\Bin\$(Platform)\$(Configuration)\</OutDir>
+    <IntDir>$(SolutionDir)Build\Intermediate\$(ProjectName)\$(Platform)\$(Configuration)\</IntDir>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <OutDir>$(SolutionDir)Build\Bin\$(Platform)\$(Configuration)\</OutDir>
+    <IntDir>$(SolutionDir)Build\Intermediate\$(ProjectName)\$(Platform)\$(Configuration)\</IntDir>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <OutDir>$(SolutionDir)Build\Bin\$(Platform)\$(Configuration)\</OutDir>
+    <IntDir>$(SolutionDir)Build\Intermediate\$(ProjectName)\$(Platform)\$(Configuration)\</IntDir>
+  </PropertyGroup>
   <ImportGroup Label="ExtensionSettings">
   </ImportGroup>
   <ImportGroup Label="Shared">
@@ -116,10 +132,10 @@
       <AdditionalIncludeDirectories>
         $(IntDir)Generated;
         $(ProjectDir);
+        $(ProjectDir)Engine\Source\Editor;
+        $(ProjectDir)Engine\Source\Runtime;
+        $(ProjectDir)Engine\Source\ThirdParty;
         $(ProjectDir)Engine\Source\ThirdParty\ImGui;
-        C:\Users\JUNGLE\Documents\GitHub\KirbyEngine\Engine\Source\Editor;
-        C:\Users\JUNGLE\Documents\GitHub\KirbyEngine\Engine\Source\Runtime;
-        C:\Users\JUNGLE\Documents\GitHub\KirbyEngine\Engine\Source\ThirdParty;
         %(AdditionalIncludeDirectories)
       </AdditionalIncludeDirectories>
 
@@ -143,11 +159,12 @@
       <LanguageStandard>stdcpp20</LanguageStandard>
 
       <AdditionalIncludeDirectories>
+        $(IntDir)Generated;
         $(ProjectDir);
+        $(ProjectDir)Engine\Source\Editor;
+        $(ProjectDir)Engine\Source\Runtime;
+        $(ProjectDir)Engine\Source\ThirdParty;
         $(ProjectDir)Engine\Source\ThirdParty\ImGui;
-        C:\Users\JUNGLE\Documents\GitHub\KirbyEngine\Engine\Source\Editor;
-        C:\Users\JUNGLE\Documents\GitHub\KirbyEngine\Engine\Source\Runtime;
-        C:\Users\JUNGLE\Documents\GitHub\KirbyEngine\Engine\Source\ThirdParty;
         %(AdditionalIncludeDirectories)
       </AdditionalIncludeDirectories>
       
@@ -160,10 +177,34 @@
       <EnableSegmentHeap>true</EnableSegmentHeap>
     </Manifest>
   </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <ClCompile>
+      <AdditionalIncludeDirectories>
+        $(IntDir)Generated;
+        $(ProjectDir);
+        $(ProjectDir)Engine\Source\Editor;
+        $(ProjectDir)Engine\Source\Runtime;
+        $(ProjectDir)Engine\Source\ThirdParty;
+        $(ProjectDir)Engine\Source\ThirdParty\ImGui;
+        %(AdditionalIncludeDirectories)
+      </AdditionalIncludeDirectories>
+    </ClCompile>
+  </ItemDefinitionGroup>
+
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <ClCompile>
+      <AdditionalIncludeDirectories>
+        $(IntDir)Generated;
+        $(ProjectDir);
+        $(ProjectDir)Engine\Source\Editor;
+        $(ProjectDir)Engine\Source\Runtime;
+        $(ProjectDir)Engine\Source\ThirdParty;
+        $(ProjectDir)Engine\Source\ThirdParty\ImGui;
+        %(AdditionalIncludeDirectories)
+      </AdditionalIncludeDirectories>
+    </ClCompile>
+  </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="Engine\Programs\KirbyHeaderTool\CodeGenerator.cpp" />
-    <ClCompile Include="Engine\Programs\KirbyHeaderTool\HeaderParser.cpp" />
-    <ClCompile Include="Engine\Programs\KirbyHeaderTool\Main.cpp" />
     <ClCompile Include="Engine\Source\Editor\EditorCameraController.cpp" />
     <ClCompile Include="Engine\Source\Editor\EditorEngine.cpp" />
     <ClCompile Include="Engine\Source\Editor\EditorObjectPicker.cpp" />
@@ -258,12 +299,13 @@
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;_UNICODE;UNICODE;</PreprocessorDefinitions>
       <SDLCheck>true</SDLCheck>
       <AdditionalIncludeDirectories>
-        C:\Users\JUNGLE\Documents\GitHub\KirbyEngine\;
-        C:\Users\JUNGLE\Documents\GitHub\KirbyEngine\Engine\Source\ThirdParty\ImGui;
-        C:\Users\JUNGLE\Documents\GitHub\KirbyEngine\Engine\Source\Editor;
-        C:\Users\JUNGLE\Documents\GitHub\KirbyEngine\Engine\Source\Runtime;
-        C:\Users\JUNGLE\Documents\GitHub\KirbyEngine\Engine\Source\ThirdParty;
-        
+        $(IntDir)Generated;
+        $(ProjectDir);
+        $(ProjectDir)Engine\Source\ThirdParty\ImGui;
+        $(ProjectDir)Engine\Source\Editor;
+        $(ProjectDir)Engine\Source\Runtime;
+        $(ProjectDir)Engine\Source\ThirdParty;
+        %(AdditionalIncludeDirectories)
       </AdditionalIncludeDirectories>
       <LinkCompiled>true</LinkCompiled>
     </ClCompile>
@@ -353,11 +395,13 @@
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;_UNICODE;UNICODE;</PreprocessorDefinitions>
       <SDLCheck>true</SDLCheck>
       <AdditionalIncludeDirectories>
-        C:\Users\JUNGLE\Documents\GitHub\KirbyEngine\;
-        C:\Users\JUNGLE\Documents\GitHub\KirbyEngine\Engine\Source\Editor;
-        C:\Users\JUNGLE\Documents\GitHub\KirbyEngine\Engine\Source\Runtime;
-        C:\Users\JUNGLE\Documents\GitHub\KirbyEngine\Engine\Source\ThirdParty;
-        
+        $(IntDir)Generated;
+        $(ProjectDir);
+        $(ProjectDir)Engine\Source\ThirdParty\ImGui;
+        $(ProjectDir)Engine\Source\Editor;
+        $(ProjectDir)Engine\Source\Runtime;
+        $(ProjectDir)Engine\Source\ThirdParty;
+        %(AdditionalIncludeDirectories)
       </AdditionalIncludeDirectories>
       <LinkCompiled>true</LinkCompiled>
     </ClCompile>
@@ -377,8 +421,6 @@
     <ClCompile Include="Engine\Source\ThirdParty\ImGui\imgui_widgets.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="Engine\Programs\KirbyHeaderTool\CodeGenerator.h" />
-    <ClInclude Include="Engine\Programs\KirbyHeaderTool\HeaderParser.h" />
     <ClInclude Include="Engine\Source\Editor\EditorCameraController.h" />
     <ClInclude Include="Engine\Source\Editor\EditorEngine.h" />
     <ClInclude Include="Engine\Source\Editor\EditorObjectContext.h" />
@@ -450,26 +492,6 @@
       <ExcludedFromBuild>true</ExcludedFromBuild>
     </FxCompile>
   </ItemGroup>
-  <ItemGroup>
-    <Content Include="Engine\Programs\KirbyHeaderTool\KirbyHeaderTool.vcxproj" />
-    <Content Include="Engine\Source\Runtime\UObject\ObjectMacros.h" />
-  </ItemGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
-    <OutDir>$(SolutionDir)Build\Bin\$(Platform)\$(Configuration)\</OutDir>
-    <IntDir>$(SolutionDir)Build\Intermediate\$(ProjectName)\$(Platform)\$(Configuration)\</IntDir>
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
-    <OutDir>$(SolutionDir)Build\Bin\$(Platform)\$(Configuration)\</OutDir>
-    <IntDir>$(SolutionDir)Build\Intermediate\$(ProjectName)\$(Platform)\$(Configuration)\</IntDir>
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <OutDir>$(SolutionDir)Build\Bin\$(Platform)\$(Configuration)\</OutDir>
-    <IntDir>$(SolutionDir)Build\Intermediate\$(ProjectName)\$(Platform)\$(Configuration)\</IntDir>
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <OutDir>$(SolutionDir)Build\Bin\$(Platform)\$(Configuration)\</OutDir>
-    <IntDir>$(SolutionDir)Build\Intermediate\$(ProjectName)\$(Platform)\$(Configuration)\</IntDir>
-  </PropertyGroup>
   <ItemGroup>
     <ClCompile Include="$(IntDir)Generated\KirbyEngine.generated.cpp" />
   </ItemGroup>

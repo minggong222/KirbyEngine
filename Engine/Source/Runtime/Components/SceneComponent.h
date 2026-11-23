@@ -14,5 +14,6 @@ public:
     FTransform GetTransform() const { return Transform; }
     void SetTransform(FTransform InTransform){ Transform = InTransform; }
 private:
+    UPROPERTY(EditAnywhere, Category="Transform")
     FTransform Transform;
 };
