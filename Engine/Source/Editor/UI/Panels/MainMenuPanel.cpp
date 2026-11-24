@@ -13,6 +13,8 @@
 #include <commdlg.h>
 #include <cwchar>
 
+#include "imgui_internal.h"
+
 #pragma comment(lib, "Comdlg32.lib")
 
 bool FMainMenuPanel::Init()
@@ -164,6 +166,40 @@ void FMainMenuPanel::OnRender()
         }
 
         ImGui::EndMainMenuBar();
+    }
+    
+    if (ImGui::BeginViewportSideBar("##MainToolbar", ImGui::GetMainViewport(), ImGuiDir_Up, 36.0f, ImGuiWindowFlags_NoSavedSettings))
+    {
+        FEditorUndoManager* UndoManager = Context != nullptr ? Context->UndoManager : nullptr;
+
+        if (ImGui::Button("Save"))
+        {
+            SaveScene(false);
+        }
+
+        ImGui::SameLine();
+
+        ImGui::BeginDisabled(UndoManager == nullptr || !UndoManager->CanUndo());
+
+        if (ImGui::Button("Undo"))
+        {
+            UndoManager->Undo(*Context);
+        }
+
+        ImGui::EndDisabled();
+
+        ImGui::SameLine();
+
+        ImGui::BeginDisabled(UndoManager == nullptr || !UndoManager->CanRedo());
+
+        if (ImGui::Button("Redo"))
+        {
+            UndoManager->Redo(*Context);
+        }
+
+        ImGui::EndDisabled();
+
+        ImGui::End();
     }
 
     const ImGuiIO& IO = ImGui::GetIO();

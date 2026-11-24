@@ -14,6 +14,7 @@ class FPanelManager;
 class FMainMenuPanel : public IEditorPanel
 {
 public:
+    const char* GetPanelName() const override { return "Main Menu"; }
     FMainMenuPanel(FEditorObjectContext* InContext, FAssetManager* InAssetManager, HWND InOwnerWindow, UCameraComponent* InViewportCamera, URenderer* InRenderer, FPanelManager* InPanelManager)
 : Context(InContext), AssetManager(InAssetManager), OwnerWindow(InOwnerWindow), ViewportCamera(InViewportCamera), Renderer(InRenderer), PanelManager(InPanelManager) {}
 

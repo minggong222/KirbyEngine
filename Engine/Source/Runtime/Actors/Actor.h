@@ -47,43 +47,12 @@ public:
         return nullptr;
     }
 
+    UActorComponent* CreateComponent(const UClass* ComponentClass, FName InName = FName());
     template<typename TComponent>
     TComponent* CreateComponent(FName InName = FName())
     {
         static_assert(std::is_base_of_v<UActorComponent, TComponent>, "TComponent must derive from UActorComponent");
-
-        FName ComponentName = InName;
-
-        if (ComponentName.IsNone())
-        {
-            const FName BaseName(TComponent::StaticClass()->GetName());
-            ComponentName = BaseName;
-
-            int32 InternalNumber = 2;
-
-            while (FindComponentByName(ComponentName) != nullptr)
-            {
-                ComponentName = FName(BaseName, InternalNumber++);
-            }
-        }
-
-        TComponent* Component = NewObject<TComponent>(this, ComponentName);
-
-        if (Component == nullptr)
-        {
-            return nullptr;
-        }
-
-        Components.Add(Component);
-
-        if (USceneComponent* SceneComponent = Cast<USceneComponent>(Component); SceneComponent != nullptr && RootComponent == nullptr)
-        {
-            RootComponent = SceneComponent;
-        }
-
-        Component->OnComponentCreated();
-
-        return Component;
+        return Cast<TComponent>(CreateComponent(TComponent::StaticClass(), InName));
     }
 
     virtual void BeginPlay();

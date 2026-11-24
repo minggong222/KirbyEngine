@@ -11,6 +11,7 @@ public:
     bool AddPanel(IEditorPanel* Panel);
     IEditorPanel* FindPanel(const char* PanelName) const;
     void SetPanelOpen(const char* PanelName, bool bOpen);
+    void OnRenderMainMenu();
 private:
     TArray<IEditorPanel*> Panels;
 };

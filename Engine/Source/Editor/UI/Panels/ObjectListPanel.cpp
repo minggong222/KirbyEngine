@@ -224,6 +224,10 @@ void FObjectListPanel::OnRender()
         return;
     }
 
+    static char ActorSearchBuffer[128] = {};
+
+    ImGui::InputTextWithHint("##ActorSearch", "Search Actors...", ActorSearchBuffer, IM_ARRAYSIZE(ActorSearchBuffer));
+    
     AActor* PendingDeleteActor = nullptr;
     
     TArray<UStaticMesh*> StaticMeshes;
@@ -329,6 +333,13 @@ void FObjectListPanel::OnRender()
 
             const FString ActorName = Actor->GetName();
 
+            const std::string SearchText = ActorSearchBuffer;
+
+            if (!SearchText.empty() && ActorName.ToStd().find(SearchText) == std::string::npos)
+            {
+                continue;
+            }
+            
             if (ImGui::Selectable(ActorName.c_str(), Context->SelectedActor == Actor))
             {
                 Context->SelectActor(Actor);

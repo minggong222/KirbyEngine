@@ -9,7 +9,7 @@ void FPanelManager::OnRender()
 {
     for (IEditorPanel* Panel : Panels)
     {
-        if (Panel != nullptr)
+        if (Panel != nullptr && std::strcmp(Panel->GetPanelName(), "Main Menu") != 0)
         {
             Panel->OnRender();
         }
@@ -68,5 +68,15 @@ void FPanelManager::SetPanelOpen(const char* PanelName, bool bOpen)
     if (Panel != nullptr)
     {
         Panel->SetOpen(bOpen);
+    }
+}
+
+void FPanelManager::OnRenderMainMenu()
+{
+    IEditorPanel* MainMenu = FindPanel("Main Menu");
+
+    if (MainMenu != nullptr)
+    {
+        MainMenu->OnRender();
     }
 }

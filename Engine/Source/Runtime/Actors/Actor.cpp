@@ -53,6 +53,41 @@ UActorComponent* AActor::FindComponentByName(FName InName) const
     return nullptr;
 }
 
+UActorComponent* AActor::CreateComponent(const UClass* ComponentClass, FName InName)
+{
+    if (ComponentClass == nullptr || !ComponentClass->IsChildOf(UActorComponent::StaticClass()) || ComponentClass == UActorComponent::StaticClass())
+    {
+        return nullptr;
+    }
+
+    const FName BaseName = FName(ComponentClass->GetName());
+    FName ComponentName = InName.IsNone() ? BaseName : InName;
+    int32 InternalNumber = 2;
+
+    while (FindComponentByName(ComponentName) != nullptr)
+    {
+        ComponentName = FName(BaseName, InternalNumber++);
+    }
+
+    UActorComponent* Component = Cast<UActorComponent>(NewObject(ComponentClass, this, ComponentName));
+
+    if (Component == nullptr)
+    {
+        return nullptr;
+    }
+
+    Components.Add(Component);
+
+    if (USceneComponent* SceneComponent = Cast<USceneComponent>(Component); SceneComponent != nullptr && RootComponent == nullptr)
+    {
+        RootComponent = SceneComponent;
+    }
+
+    Component->OnComponentCreated();
+
+    return Component;
+}
+
 bool AActor::SetRootComponent(USceneComponent* InRootComponent)
 {
     if (InRootComponent != nullptr)
