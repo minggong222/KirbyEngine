@@ -3,6 +3,8 @@
 #include "EditorTransformGizmo.h"
 #include "Renderer/Renderer.h"
 
+class FEditorSettings;
+
 class FViewportPanel : public IEditorPanel
 {
 public:
@@ -28,11 +30,15 @@ public:
     
     bool IsViewportHovered() const { return bViewportHovered; }
     void CancelGizmoDrag() { TransformGizmo.CancelDrag(); }
+    
+    void SetEditorSettings(FEditorSettings* InSettings);
 private:
     ID3D11ShaderResourceView* SRV = nullptr;
     
     FEditorObjectContext* ObjectContext = nullptr;
     FEditorTransformGizmo TransformGizmo;
+    
+    FEditorSettings* EditorSettings = nullptr;
     
     FMatrix ViewMatrix = FMatrix::Identity;
     FMatrix ProjectionMatrix = FMatrix::Identity;

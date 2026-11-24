@@ -1,104 +1,27 @@
 ﻿#include "ViewportPanel.h"
 
 #include "imgui.h"
+#include "EditorSettings.h"
 #include "Core/Math/MathUtility.h"
 
 #include <cmath>
 
-namespace
-{
-    bool ProjectWorldToViewport(const FVector& WorldPosition, const FViewport& Viewport, const FMatrix& View, const FMatrix& Projection, const ImVec2& ImageMin, ImVec2& OutScreenPosition)
-    {
-        const FVector ScreenPosition = Viewport.Project(WorldPosition, Projection, View, FMatrix::Identity);
-
-        if (!std::isfinite(ScreenPosition.x) || !std::isfinite(ScreenPosition.y) || !std::isfinite(ScreenPosition.z))
-        {
-            return false;
-        }
-
-        if (ScreenPosition.z < 0.0f || ScreenPosition.z > 1.0f)
-        {
-            return false;
-        }
-
-        OutScreenPosition = ImVec2(ImageMin.x + ScreenPosition.x, ImageMin.y + ScreenPosition.y);
-        return true;
-    }
-
-    void DrawProjectedWorldLine(ImDrawList* DrawList, const FVector& Start, const FVector& End, ImU32 Color, const FViewport& Viewport, const FMatrix& View, const FMatrix& Projection, const ImVec2& ImageMin)
-    {
-        constexpr int32 SegmentCount = 24;
-
-        FVector PreviousWorld = Start;
-        ImVec2 PreviousScreen;
-        bool bPreviousValid = ProjectWorldToViewport(PreviousWorld, Viewport, View, Projection, ImageMin, PreviousScreen);
-
-        for (int32 Index = 1; Index <= SegmentCount; ++Index)
-        {
-            const float Alpha = static_cast<float>(Index) / static_cast<float>(SegmentCount);
-            const FVector CurrentWorld = Start + (End - Start) * Alpha;
-
-            ImVec2 CurrentScreen;
-            const bool bCurrentValid = ProjectWorldToViewport(CurrentWorld, Viewport, View, Projection, ImageMin, CurrentScreen);
-
-            if (bPreviousValid && bCurrentValid)
-            {
-                DrawList->AddLine(PreviousScreen, CurrentScreen, Color, 1.0f);
-            }
-
-            PreviousWorld = CurrentWorld;
-            PreviousScreen = CurrentScreen;
-            bPreviousValid = bCurrentValid;
-        }
-    }
-
-    void DrawWorldGridAndAxes(ImDrawList* DrawList, const ImVec2& ImageMin, const ImVec2& ImageMax, const ImVec2& ImageSize, const FMatrix& View, const FMatrix& Projection)
-    {
-        if (DrawList == nullptr || ImageSize.x <= 0.0f || ImageSize.y <= 0.0f)
-        {
-            return;
-        }
-
-        const FViewport Viewport(0.0f, 0.0f, ImageSize.x, ImageSize.y, 0.0f, 1.0f);
-
-        const ImU32 MinorGridColor = IM_COL32(150, 160, 175, 45);
-        const ImU32 MajorGridColor = IM_COL32(170, 180, 195, 85);
-        const ImU32 XAxisColor = IM_COL32(255, 70, 70, 220);
-        const ImU32 YAxisColor = IM_COL32(70, 230, 100, 220);
-        const ImU32 ZAxisColor = IM_COL32(80, 140, 255, 230);
-
-        DrawList->PushClipRect(ImageMin, ImageMax, true);
-
-        constexpr float GridExtent = 40.0f;
-        constexpr float GridSpacing = 2.0f;
-        constexpr int32 GridIndexLimit = 20;
-
-        for (int32 Index = -GridIndexLimit; Index <= GridIndexLimit; ++Index)
-        {
-            if (Index == 0)
-            {
-                continue;
-            }
-
-            const float Offset = static_cast<float>(Index) * GridSpacing;
-            const bool bMajorLine = Index % 5 == 0;
-            const ImU32 GridColor = bMajorLine ? MajorGridColor : MinorGridColor;
-
-            DrawProjectedWorldLine(DrawList, FVector(-GridExtent, Offset, 0.0f), FVector(GridExtent, Offset, 0.0f), GridColor, Viewport, View, Projection, ImageMin);
-            DrawProjectedWorldLine(DrawList, FVector(Offset, -GridExtent, 0.0f), FVector(Offset, GridExtent, 0.0f), GridColor, Viewport, View, Projection, ImageMin);
-        }
-
-        DrawProjectedWorldLine(DrawList, FVector(-GridExtent, 0.0f, 0.0f), FVector(GridExtent, 0.0f, 0.0f), XAxisColor, Viewport, View, Projection, ImageMin);
-        DrawProjectedWorldLine(DrawList, FVector(0.0f, -GridExtent, 0.0f), FVector(0.0f, GridExtent, 0.0f), YAxisColor, Viewport, View, Projection, ImageMin);
-        DrawProjectedWorldLine(DrawList, FVector(0.0f, 0.0f, -10.0f), FVector(0.0f, 0.0f, 20.0f), ZAxisColor, Viewport, View, Projection, ImageMin);
-
-        DrawList->PopClipRect();
-    }
-}
-
 bool FViewportPanel::Init()
 {
     return true;
+}
+
+void FViewportPanel::SetEditorSettings(FEditorSettings* InSettings)
+{
+    EditorSettings = InSettings;
+
+    if (EditorSettings != nullptr)
+    {
+        TransformGizmo.SetSnapEnabled(EditorSettings->bSnapEnabled);
+        TransformGizmo.SetTranslationSnap(EditorSettings->TranslationSnap);
+        TransformGizmo.SetRotationSnap(EditorSettings->RotationSnap);
+        TransformGizmo.SetScaleSnap(EditorSettings->ScaleSnap);
+    }
 }
 
 void FViewportPanel::Tick(float DeltaTime)
@@ -115,6 +38,44 @@ void FViewportPanel::OnRender()
         return;
     }
 
+    if (ImGui::Button("View Options"))
+    {
+        ImGui::OpenPopup("ViewportOptions");
+    }
+
+    if (ImGui::BeginPopup("ViewportOptions"))
+    {
+        if (EditorSettings != nullptr)
+        {
+            int32 ViewMode = static_cast<int32>(EditorSettings->ViewMode);
+            const char* ViewModes[] = {"Lit", "Wireframe"};
+
+            if (ImGui::Combo("View Mode", &ViewMode, ViewModes, IM_ARRAYSIZE(ViewModes)))
+            {
+                EditorSettings->ViewMode = static_cast<EViewMode>(ViewMode);
+            }
+
+            ImGui::Separator();
+            ImGui::Text("Show Flags");
+
+            ImGui::Checkbox("Static Meshes", &EditorSettings->ShowFlags.StaticMeshes);
+            ImGui::Checkbox("Grid", &EditorSettings->ShowFlags.Grid);
+            ImGui::Checkbox("Axes", &EditorSettings->ShowFlags.Axes);
+            ImGui::Checkbox("Bounds", &EditorSettings->ShowFlags.Bounds);
+            ImGui::Checkbox("Billboards", &EditorSettings->ShowFlags.Billboards);
+            ImGui::Checkbox("Actor Names", &EditorSettings->ShowFlags.ActorNames);
+
+            ImGui::Separator();
+            ImGui::Text("Grid Settings");
+
+            ImGui::DragFloat("Grid Extent", &EditorSettings->GridExtent, 1.0f, 1.0f, 10000.0f);
+            ImGui::DragFloat("Grid Spacing", &EditorSettings->GridSpacing, 0.1f, 0.1f, 1000.0f);
+            ImGui::DragInt("Major Interval", &EditorSettings->MajorGridInterval, 1.0f, 1, 100);
+        }
+
+        ImGui::EndPopup();
+    }
+    
     const ETransformGizmoMode CurrentMode = TransformGizmo.GetMode();
 
     if (ImGui::RadioButton("Translate (W)", CurrentMode == ETransformGizmoMode::Translate))
@@ -229,8 +190,6 @@ void FViewportPanel::OnRender()
             const bool bImageHovered = ImGui::IsItemHovered();
             bViewportHovered = bImageHovered;
 
-            DrawWorldGridAndAxes(ImGui::GetWindowDrawList(), ImageMin, ImageMax, ImageSize, ViewMatrix, ProjectionMatrix);
-            
             bool bGizmoConsumed = false;
 
             if (ObjectContext != nullptr)
@@ -256,6 +215,14 @@ void FViewportPanel::OnRender()
         }
     }
 
+    if (EditorSettings != nullptr)
+    {
+        EditorSettings->bSnapEnabled = TransformGizmo.IsSnapEnabled();
+        EditorSettings->TranslationSnap = TransformGizmo.GetTranslationSnap();
+        EditorSettings->RotationSnap = TransformGizmo.GetRotationSnap();
+        EditorSettings->ScaleSnap = TransformGizmo.GetScaleSnap();
+    }
+    
     ImGui::End();
 }
 

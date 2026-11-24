@@ -35,7 +35,9 @@ public:
     void Prepare();
     void PrepareShader();
     void RenderPrimitive(ID3D11Buffer* VertexBuffer, ID3D11Buffer* IndexBuffer, UINT IndexCount, bool bRenderOutline = false, ID3D11ShaderResourceView* TextureSRV = nullptr);
-
+    bool DrawDynamicVertices(const FVertexSimple* Vertices, UINT VertexCount, D3D11_PRIMITIVE_TOPOLOGY Topology, const FMatrix& World, const FMatrix& View, const FMatrix& Projection, ID3D11ShaderResourceView* TextureSRV = nullptr, bool bIsTextured = false, bool bAlphaBlend = false);
+    void SetWireframeEnabled(bool bEnabled);
+    
     ID3D11Buffer* CreateVertexBuffer(FVertexSimple* vertices, UINT byteWidth);
     void ReleaseVertexBuffer(ID3D11Buffer* VertexBuffer);
     
@@ -68,6 +70,8 @@ public:
     
     void Shutdown();
 private:
+    void ReleaseDynamicVertexBuffer();
+    
     // Direct3D 11 장치(Device)와 장치 컨텍스트(Device Context) 및 스왑 체인(Swap Chain)을 관리하기 위한 포인터들
     ID3D11Device* mDevice = nullptr; // GPU와 통신하기 위한 Direct3D 장치
     ID3D11DeviceContext* mDeviceContext = nullptr; // GPU 명령 실행을 담당하는 컨텍스트
@@ -99,4 +103,13 @@ private:
     ID3D11DepthStencilState* ViewportDepthState = nullptr;
     uint32 ViewportWidth = 0;
     uint32 ViewportHeight = 0;
+    
+    ID3D11Buffer* mDynamicVertexBuffer = nullptr;
+    UINT mDynamicVertexCapacity = 0;
+
+    ID3D11RasterizerState* mWireframeRasterizerState = nullptr;
+    ID3D11BlendState* mAlphaBlendState = nullptr;
+    ID3D11DepthStencilState* ViewportOverlayDepthState = nullptr;
+
+    bool bWireframeEnabled = false;
 };

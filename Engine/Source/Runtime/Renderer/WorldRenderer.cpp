@@ -15,9 +15,9 @@
 #include "Resources/Material.h"
 #include "Resources/Texture2D.h"
 
-void FWorldRenderer::Render(UWorld* World, URenderer& Renderer, const FMatrix& View, const FMatrix& Projection, UObject* SelectedObject) const
+void FWorldRenderer::Render(UWorld* World, URenderer& Renderer, const FMatrix& View, const FMatrix& Projection, UObject* SelectedObject, const FEngineShowFlags& ShowFlags) const
 {
-    if (World == nullptr || !Renderer.IsReady())
+    if (World == nullptr || !Renderer.IsReady() || !ShowFlags.StaticMeshes)
     {
         return;
     }

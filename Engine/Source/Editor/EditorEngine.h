@@ -2,7 +2,11 @@
 #include "EditorCameraController.h"
 #include "EditorObjectContext.h"
 #include "Core/Stats/FrameStats.h"
+#include "EditorSettings.h"
 #include "Renderer/Renderer.h"
+#include "Renderer/BatchLineRenderer.h"
+#include "Renderer/BillboardRenderer.h"
+#include "Renderer/TextRenderer.h"
 #include "Resources/AssetManager.h"
 #include "UI/ImGuiRenderer.h"
 #include "UI/Panels/ConsolePanel.h"
@@ -33,8 +37,13 @@ private:
     FDetailsPanel* DetailsPanel = nullptr;
     
     FEditorCameraController CameraController;
+    FEditorSettings EditorSettings;
+    
     
     URenderer* Renderer = nullptr;
+    FBatchLineRenderer LineRenderer;
+    FBillboardRenderer BillboardRenderer;
+    FTextRenderer TextRenderer;
     FImGuiRenderer* ImGuiRenderer = nullptr;
     FWindowsWindow* WindowsWindow = nullptr;
     

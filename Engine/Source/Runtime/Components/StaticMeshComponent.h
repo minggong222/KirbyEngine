@@ -14,6 +14,7 @@ class UStaticMeshComponent : public UPrimitiveComponent
 public:
     void SetStaticMesh(UStaticMesh* InStaticMesh) { StaticMesh = InStaticMesh; }
     UStaticMesh* GetStaticMesh() const { return StaticMesh; }
+    FBox CalcBounds() const override;
 
     void SetMaterial(UMaterial* InMaterial) { Material = InMaterial; }
     UMaterial* GetMaterial() const { return Material; }

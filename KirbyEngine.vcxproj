@@ -218,6 +218,7 @@
     <ClCompile Include="Engine\Source\Editor\EditorEngine.cpp" />
     <ClCompile Include="Engine\Source\Editor\EditorObjectPicker.cpp" />
     <ClCompile Include="Engine\Source\Editor\EditorSceneSerializer.cpp" />
+    <ClCompile Include="Engine\Source\Editor\EditorSettings.cpp" />
     <ClCompile Include="Engine\Source\Editor\EditorTransformGizmo.cpp" />
     <ClCompile Include="Engine\Source\Editor\UI\ImGuiRenderer.cpp" />
     <ClCompile Include="Engine\Source\Editor\UI\PanelManager.cpp" />
@@ -254,7 +255,10 @@
     <ClCompile Include="Engine\Source\Runtime\Json\Serialization\JsonReader.cpp" />
     <ClCompile Include="Engine\Source\Runtime\Json\Serialization\JsonSerializer.cpp" />
     <ClCompile Include="Engine\Source\Runtime\Json\Serialization\JsonWriter.cpp" />
+    <ClCompile Include="Engine\Source\Runtime\Renderer\BatchLineRenderer.cpp" />
+    <ClCompile Include="Engine\Source\Runtime\Renderer\BillboardRenderer.cpp" />
     <ClCompile Include="Engine\Source\Runtime\Renderer\Renderer.cpp" />
+    <ClCompile Include="Engine\Source\Runtime\Renderer\TextRenderer.cpp" />
     <ClCompile Include="Engine\Source\Runtime\Resources\Asset.cpp" />
     <ClCompile Include="Engine\Source\Runtime\Resources\AssetManager.cpp" />
     <ClCompile Include="Engine\Source\Runtime\Resources\Material.cpp" />
@@ -266,6 +270,7 @@
     <ClCompile Include="Engine\Source\Runtime\Windows\WindowsWindow.cpp" />
     <ClCompile Include="Engine\Source\Runtime\World\Level.cpp" />
     <ClCompile Include="Engine\Source\Runtime\World\World.cpp" />
+    <ClCompile Include="Engine\Source\Runtime\Renderer\WorldRenderer.cpp" />
     <ClCompile Include="Engine\Source\ThirdParty\ImGui\imgui.cpp">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <ForcedIncludeFiles></ForcedIncludeFiles>
@@ -301,6 +306,7 @@
     <ClInclude Include="Engine\Source\Editor\EditorObjectContext.h" />
     <ClInclude Include="Engine\Source\Editor\EditorObjectPicker.h" />
     <ClInclude Include="Engine\Source\Editor\EditorSceneSerializer.h" />
+    <ClInclude Include="Engine\Source\Editor\EditorSettings.h" />
     <ClInclude Include="Engine\Source\Editor\EditorTransformGizmo.h" />
     <ClInclude Include="Engine\Source\Editor\EditorUndoManager.h" />
     <ClInclude Include="Engine\Source\Editor\OBJStaticMeshImporter.h" />
@@ -338,6 +344,9 @@
     <ClInclude Include="Engine\Source\Runtime\Json\Serialization\JsonUTF8.h" />
     <ClInclude Include="Engine\Source\Runtime\Json\Serialization\JsonWriter.h" />
     <ClInclude Include="Engine\Source\Runtime\Renderer\Renderer.h" />
+    <ClInclude Include="Engine\Source\Runtime\Renderer\BatchLineRenderer.h" />
+    <ClInclude Include="Engine\Source\Runtime\Renderer\BillboardRenderer.h" />
+    <ClInclude Include="Engine\Source\Runtime\Renderer\TextRenderer.h" />
     <ClInclude Include="Engine\Source\Runtime\Resources\Asset.h" />
     <ClInclude Include="Engine\Source\Runtime\Resources\AssetManager.h" />
     <ClInclude Include="Engine\Source\Runtime\Resources\PrimitiveMeshAssets.h" />
@@ -349,6 +358,8 @@
     <ClInclude Include="Engine\Source\Runtime\UObject\Class.h" />
     <ClInclude Include="Engine\Source\Runtime\UObject\Object.h" />
     <ClInclude Include="Engine\Source\Runtime\UObject\ObjectMacros.h" />
+    <ClInclude Include="Engine\Source\Runtime\Renderer\WorldRenderer.h" />
+    <ClInclude Include="Engine\Source\Runtime\Renderer\RenderSettings.h" />
     <ClInclude Include="Engine\Source\Runtime\Windows\WindowsWindow.h" />
     <ClInclude Include="Engine\Source\ThirdParty\ImGui\imconfig.h" />
     <ClInclude Include="Engine\Source\ThirdParty\ImGui\imgui.h" />

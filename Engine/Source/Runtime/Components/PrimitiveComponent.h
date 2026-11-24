@@ -9,4 +9,7 @@ UCLASS()
 class UPrimitiveComponent : public USceneComponent
 {
     GENERATED_BODY()
+
+public:
+    virtual FBox CalcBounds() const { return FBox(); }
 };

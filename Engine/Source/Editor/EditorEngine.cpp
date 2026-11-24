@@ -48,6 +48,13 @@ bool FEditorEngine::Init(HINSTANCE hInstance)
             return false;
         }
         
+        EditorSettings.Load("Config/EditorSettings.ini");
+
+        if (!TextRenderer.Initialize(L"Malgun Gothic", 32))
+        {
+            UE_LOG(Warning, "TextRenderer initialization failed");
+        }
+        
         if (!RegisterBuiltinStaticMeshes(AssetManager, *Renderer))
         {
             UE_LOG(Error, "Failed to register builtin static meshes");
@@ -70,6 +77,7 @@ bool FEditorEngine::Init(HINSTANCE hInstance)
     
     ViewportPanel = new FViewportPanel();
     ViewportPanel->SetViewportTexture(Renderer->GetViewportSRV());
+    ViewportPanel->SetEditorSettings(&EditorSettings);
     if (!ImGuiRenderer->GetPanelManager()->AddPanel(ViewportPanel))
     {
         ViewportPanel = nullptr;
@@ -195,69 +203,181 @@ void FEditorEngine::Run()
         
         {
             // 준비 작업
+            Renderer->SetWireframeEnabled(EditorSettings.ViewMode == EViewMode::Wireframe);
+
+            LineRenderer.BeginFrame();
+            TextRenderer.BeginFrame();
+
             Renderer->Prepare();
             Renderer->BeginViewportRender();
             Renderer->PrepareShader();
             
-            for (UObject* Object : ObjectContext.Objects)
+            if (EditorSettings.ShowFlags.StaticMeshes)
             {
-                if (Object == nullptr)
+                for (UObject* Object : ObjectContext.Objects)
                 {
-                    continue;
-                }
-                
-                UStaticMeshComponent* Component = Cast<UStaticMeshComponent>(Object);
-                
-                if (Component == nullptr)
-                {
-                    continue;
-                }
-                
-                const UStaticMesh* Mesh  = Component->GetStaticMesh();
-                
-                if (Mesh  == nullptr)
-                {
-                    continue;
-                }
-                
-                const FStaticMeshRenderData& RenderData = Mesh->GetRenderData();
-                
-                if (RenderData.VertexBuffer == nullptr || RenderData.IndexBuffer == nullptr || RenderData.IndexCount == 0)
-                {
-                    continue;
-                }
-
-                const FMatrix World = Component->GetWorldMatrix();
-
-                UMaterial* Material = Component->GetMaterial();
-                UTexture2D* Texture = Material != nullptr ? Material->GetBaseColorTexture() : nullptr;
-
-                ID3D11ShaderResourceView* TextureSRV = Texture != nullptr && Texture->IsValid() ? Texture->GetResource().ShaderResourceView : nullptr;
-
-                Renderer->UpdateConstant(World, View, Projection, false, TextureSRV != nullptr);
-                Renderer->RenderPrimitive(RenderData.VertexBuffer, RenderData.IndexBuffer, RenderData.IndexCount, false, TextureSRV);
-            }
-            
-            UStaticMeshComponent* SelectedComponent = Cast<UStaticMeshComponent>(ObjectContext.SelectedObject);
-
-            if (SelectedComponent != nullptr)
-            {
-                const UStaticMesh* SelectedMesh = SelectedComponent->GetStaticMesh();
-
-                if (SelectedMesh != nullptr)
-                {
-                    const FStaticMeshRenderData& SelectedRenderData = SelectedMesh->GetRenderData();
-
-                    if (SelectedRenderData.VertexBuffer != nullptr && SelectedRenderData.IndexBuffer != nullptr && SelectedRenderData.IndexCount > 0)
+                    if (Object == nullptr)
                     {
-                        const FMatrix OutlineScale = FMatrix::CreateScale(FVector(1.03f, 1.03f, 1.03f));
-                        const FMatrix OutlineWorld = OutlineScale * SelectedComponent->GetWorldMatrix();
+                        continue;
+                    }
+                
+                    UStaticMeshComponent* Component = Cast<UStaticMeshComponent>(Object);
+                
+                    if (Component == nullptr)
+                    {
+                        continue;
+                    }
+                
+                    const UStaticMesh* Mesh  = Component->GetStaticMesh();
+                
+                    if (Mesh  == nullptr)
+                    {
+                        continue;
+                    }
+                
+                    const FStaticMeshRenderData& RenderData = Mesh->GetRenderData();
+                
+                    if (RenderData.VertexBuffer == nullptr || RenderData.IndexBuffer == nullptr || RenderData.IndexCount == 0)
+                    {
+                        continue;
+                    }
 
-                        Renderer->UpdateConstant(OutlineWorld, View, Projection, true);
-                        Renderer->RenderPrimitive(SelectedRenderData.VertexBuffer, SelectedRenderData.IndexBuffer, SelectedRenderData.IndexCount, true);
+                    const FMatrix World = Component->GetWorldMatrix();
+
+                    UMaterial* Material = Component->GetMaterial();
+                    UTexture2D* Texture = Material != nullptr ? Material->GetBaseColorTexture() : nullptr;
+
+                    ID3D11ShaderResourceView* TextureSRV = Texture != nullptr && Texture->IsValid() ? Texture->GetResource().ShaderResourceView : nullptr;
+
+                    Renderer->UpdateConstant(World, View, Projection, false, TextureSRV != nullptr);
+                    Renderer->RenderPrimitive(RenderData.VertexBuffer, RenderData.IndexBuffer, RenderData.IndexCount, false, TextureSRV);
+                }
+            
+                UStaticMeshComponent* SelectedComponent = Cast<UStaticMeshComponent>(ObjectContext.SelectedObject);
+
+                if (SelectedComponent != nullptr)
+                {
+                    const UStaticMesh* SelectedMesh = SelectedComponent->GetStaticMesh();
+
+                    if (SelectedMesh != nullptr)
+                    {
+                        const FStaticMeshRenderData& SelectedRenderData = SelectedMesh->GetRenderData();
+
+                        if (SelectedRenderData.VertexBuffer != nullptr && SelectedRenderData.IndexBuffer != nullptr && SelectedRenderData.IndexCount > 0)
+                        {
+                            const FMatrix OutlineScale = FMatrix::CreateScale(FVector(1.03f, 1.03f, 1.03f));
+                            const FMatrix OutlineWorld = OutlineScale * SelectedComponent->GetWorldMatrix();
+
+                            Renderer->UpdateConstant(OutlineWorld, View, Projection, true);
+                            Renderer->RenderPrimitive(SelectedRenderData.VertexBuffer, SelectedRenderData.IndexBuffer, SelectedRenderData.IndexCount, true);
+                        }
                     }
                 }
             }
+            
+            if (EditorSettings.ShowFlags.Bounds)
+            {
+                for (UObject* Object : ObjectContext.Objects)
+                {
+                    UStaticMeshComponent* Component = Cast<UStaticMeshComponent>(Object);
+
+                    if (Component == nullptr)
+                    {
+                        continue;
+                    }
+
+                    const FBox Bounds = Component->CalcBounds();
+
+                    const FVector4 Color = ObjectContext.SelectedObject == Object
+                        ? FVector4(1.0f, 0.75f, 0.1f, 1.0f)
+                        : FVector4(0.1f, 0.85f, 1.0f, 0.8f);
+
+                    LineRenderer.AddBox(Bounds, Color);
+                }
+            }
+            
+            if (EditorSettings.ShowFlags.Grid || EditorSettings.ShowFlags.Axes)
+            {
+                LineRenderer.AddGrid(EditorSettings.GridExtent, EditorSettings.GridSpacing, EditorSettings.MajorGridInterval, EditorSettings.ShowFlags.Grid, EditorSettings.ShowFlags.Axes);
+            }
+
+            if (EditorSettings.ShowFlags.Bounds)
+            {
+                for (UObject* Object : ObjectContext.Objects)
+                {
+                    UStaticMeshComponent* Component = Cast<UStaticMeshComponent>(Object);
+
+                    if (Component == nullptr)
+                    {
+                        continue;
+                    }
+
+                    const FBox Bounds = Component->CalcBounds();
+
+                    const FVector4 Color = ObjectContext.SelectedObject == Object
+                        ? FVector4(1.0f, 0.75f, 0.1f, 1.0f)
+                        : FVector4(0.1f, 0.85f, 1.0f, 0.8f);
+
+                    LineRenderer.AddBox(Bounds, Color);
+                }
+            }
+
+            LineRenderer.Flush(*Renderer, View, Projection);
+            
+            if (EditorSettings.ShowFlags.ActorNames)
+            {
+                const FTransform CameraTransform = MainCamera->GetTransform();
+
+                const FVector CameraPosition = CameraTransform.Location;
+                const FVector CameraRight = CameraTransform.GetRight();
+                const FVector CameraUp = CameraTransform.GetUp();
+
+                for (UObject* Object : ObjectContext.Objects)
+                {
+                    UStaticMeshComponent* Component = Cast<UStaticMeshComponent>(Object);
+
+                    if (Component == nullptr)
+                    {
+                        continue;
+                    }
+
+                    const FBox Bounds = Component->CalcBounds();
+
+                    if (!Bounds.IsValid())
+                    {
+                        continue;
+                    }
+
+                    const FVector& Min = Bounds.GetMin();
+                    const FVector& Max = Bounds.GetMax();
+
+                    const FVector LabelAnchor((Min.x + Max.x) * 0.5f, (Min.y + Max.y) * 0.5f, Max.z + 0.1f);
+
+                    FString Label = Object->GetClass()->GetName();
+                    Label.Append("_");
+                    Label.Append(std::to_string(Object->GetUUID()));
+
+                    const FVector2D TextSize = TextRenderer.MeasureText(Label);
+                    const float WorldUnitsPerPixel = FBillboardRenderer::GetWorldUnitsPerPixel(LabelAnchor, CameraPosition, Projection, Renderer->GetViewportHeight());
+
+                    if (TextSize.x <= 0.0f || WorldUnitsPerPixel <= 0.0f)
+                    {
+                        continue;
+                    }
+
+                    const FVector TextPosition = LabelAnchor - CameraRight * (TextSize.x * 0.5f * WorldUnitsPerPixel) + CameraUp * (2.0f * WorldUnitsPerPixel);
+                    const FVector BillboardCenter = TextPosition + CameraRight * (TextSize.x * 0.5f * WorldUnitsPerPixel) + CameraUp * (TextSize.y * 0.5f * WorldUnitsPerPixel);
+
+                    if (EditorSettings.ShowFlags.Billboards)
+                    {
+                        BillboardRenderer.DrawScreenAlignedQuad(*Renderer, BillboardCenter, CameraPosition, CameraRight, CameraUp, FVector2D(TextSize.x + 8.0f, TextSize.y + 6.0f), Renderer->GetViewportHeight(), FVector4(0.025f, 0.025f, 0.025f, 0.75f), View, Projection);
+                    }
+
+                    TextRenderer.AddText(Label, TextPosition, CameraRight, CameraUp, WorldUnitsPerPixel, FVector4(1.0f, 1.0f, 1.0f, 1.0f));
+                }
+            }
+
+            TextRenderer.Flush(*Renderer, View, Projection);
             
             Renderer->EndViewportRender();            
         }
@@ -342,6 +462,9 @@ void FEditorEngine::Shutdown()
     }
 
     UndoManager.Clear();
+    
+    EditorSettings.Save("Config/EditorSettings.ini");
+    TextRenderer.Shutdown();
     
     AssetManager.Shutdown();
 
