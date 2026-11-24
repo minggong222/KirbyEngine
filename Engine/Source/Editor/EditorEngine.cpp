@@ -21,6 +21,7 @@
 #include "UI/Panels/MainMenuPanel.h"
 #include "UI/Panels/ObjectListPanel.h"
 #include "UI/Panels/StatsPanel.h"
+#include "UI/Panels/ContentBrowserPanel.h"
 #include "UObject/Object.h"
 #include "World/World.h"
 
@@ -131,8 +132,16 @@ bool FEditorEngine::Init(HINSTANCE hInstance)
         return false;
     }
     
+    ContentBrowserPanel = new FContentBrowserPanel(&ObjectContext, &AssetManager);
+    if (!ImGuiRenderer->GetPanelManager()->AddPanel(ContentBrowserPanel))
+    {
+        ContentBrowserPanel = nullptr;
+        Shutdown();
+        return false;
+    }
+    
     ConsolePanel->SetStatsPanel(StatsPanel);
-    MainMenuPanel = new FMainMenuPanel(&ObjectContext, &AssetManager, WindowsWindow->GetHWND(), MainCamera, Renderer);
+    MainMenuPanel = new FMainMenuPanel(&ObjectContext, &AssetManager, WindowsWindow->GetHWND(), MainCamera, Renderer, ImGuiRenderer->GetPanelManager());
     if (!ImGuiRenderer->GetPanelManager()->AddPanel(MainMenuPanel))
     {
         MainMenuPanel = nullptr;
@@ -265,7 +274,7 @@ void FEditorEngine::Run()
 
             LineRenderer.Flush(*Renderer, View, Projection);
             
-            if (EditorSettings.ShowFlags.ActorNames)
+            if (EditorSettings.ShowFlags.ActorNames && Level != nullptr)
             {
                 const FTransform CameraTransform = MainCamera->GetTransform();
 
@@ -273,72 +282,61 @@ void FEditorEngine::Run()
                 const FVector CameraRight = CameraTransform.GetRight();
                 const FVector CameraUp = CameraTransform.GetUp();
 
-                if (EditorSettings.ShowFlags.ActorNames && Level != nullptr)
+                for (AActor* Actor : Level->GetActors())
                 {
-                    const FTransform CameraTransform = MainCamera->GetTransform();
-
-                    const FVector CameraPosition = CameraTransform.Location;
-                    const FVector CameraRight = CameraTransform.GetRight();
-                    const FVector CameraUp = CameraTransform.GetUp();
-
-                    for (AActor* Actor : Level->GetActors())
+                    if (Actor == nullptr)
                     {
-                        if (Actor == nullptr)
+                        continue;
+                    }
+
+                    UStaticMeshComponent* Component = nullptr;
+
+                    for (UActorComponent* ActorComponent : Actor->GetComponents())
+                    {
+                        Component = Cast<UStaticMeshComponent>(ActorComponent);
+
+                        if (Component != nullptr)
                         {
-                            continue;
+                            break;
                         }
+                    }
 
-                        UStaticMeshComponent* Component = nullptr;
+                    FVector LabelAnchor = Actor->GetActorTransform().Location;
 
-                        for (UActorComponent* ActorComponent : Actor->GetComponents())
-                        {
-                            Component = Cast<UStaticMeshComponent>(ActorComponent);
-
-                            if (Component != nullptr)
-                            {
-                                break;
-                            }
-                        }
-
-                        if (Component == nullptr)
-                        {
-                            continue;
-                        }
-
+                    if (Component != nullptr)
+                    {
                         const FBox Bounds = Component->CalcBounds();
 
-                        if (!Bounds.IsValid())
+                        if (Bounds.IsValid())
                         {
-                            continue;
+                            const FVector& Min = Bounds.GetMin();
+                            const FVector& Max = Bounds.GetMax();
+
+                            LabelAnchor = FVector((Min.x + Max.x) * 0.5f, (Min.y + Max.y) * 0.5f, Max.z + 0.1f);
                         }
-
-                        const FVector& Min = Bounds.GetMin();
-                        const FVector& Max = Bounds.GetMax();
-
-                        const FVector LabelAnchor((Min.x + Max.x) * 0.5f, (Min.y + Max.y) * 0.5f, Max.z + 0.1f);
-
-                        FString Label = Actor->GetName();
-                        Label.Append("_");
-                        Label.Append(std::to_string(Actor->GetUUID()));
-
-                        const FVector2D TextSize = TextRenderer.MeasureText(Label);
-                        const float WorldUnitsPerPixel = FBillboardRenderer::GetWorldUnitsPerPixel(LabelAnchor, CameraPosition, Projection, Renderer->GetViewportHeight());
-
-                        if (TextSize.x <= 0.0f || WorldUnitsPerPixel <= 0.0f)
-                        {
-                            continue;
-                        }
-
-                        const FVector TextPosition = LabelAnchor - CameraRight * (TextSize.x * 0.5f * WorldUnitsPerPixel) + CameraUp * (2.0f * WorldUnitsPerPixel);
-                        const FVector BillboardCenter = TextPosition + CameraRight * (TextSize.x * 0.5f * WorldUnitsPerPixel) + CameraUp * (TextSize.y * 0.5f * WorldUnitsPerPixel);
-
-                        if (EditorSettings.ShowFlags.Billboards)
-                        {
-                            BillboardRenderer.DrawScreenAlignedQuad(*Renderer, BillboardCenter, CameraPosition, CameraRight, CameraUp, FVector2D(TextSize.x + 8.0f, TextSize.y + 6.0f), Renderer->GetViewportHeight(), FVector4(0.025f, 0.025f, 0.025f, 0.75f), View, Projection);
-                        }
-
-                        TextRenderer.AddText(Label, TextPosition, CameraRight, CameraUp, WorldUnitsPerPixel, FVector4(1.0f, 1.0f, 1.0f, 1.0f));
                     }
+
+                    FString Label = Actor->GetName();
+                    Label.Append("_");
+                    Label.Append(std::to_string(Actor->GetUUID()));
+
+                    const FVector2D TextSize = TextRenderer.MeasureText(Label);
+                    const float WorldUnitsPerPixel = FBillboardRenderer::GetWorldUnitsPerPixel(LabelAnchor, CameraPosition, Projection, Renderer->GetViewportHeight());
+
+                    if (TextSize.x <= 0.0f || WorldUnitsPerPixel <= 0.0f)
+                    {
+                        continue;
+                    }
+
+                    const FVector TextPosition = LabelAnchor - CameraRight * (TextSize.x * 0.5f * WorldUnitsPerPixel) + CameraUp * (2.0f * WorldUnitsPerPixel);
+                    const FVector BillboardCenter = TextPosition + CameraRight * (TextSize.x * 0.5f * WorldUnitsPerPixel) + CameraUp * (TextSize.y * 0.5f * WorldUnitsPerPixel);
+
+                    if (EditorSettings.ShowFlags.Billboards)
+                    {
+                        BillboardRenderer.DrawScreenAlignedQuad(*Renderer, BillboardCenter, CameraPosition, CameraRight, CameraUp, FVector2D(TextSize.x + 8.0f, TextSize.y + 6.0f), Renderer->GetViewportHeight(), FVector4(0.025f, 0.025f, 0.025f, 0.75f), View, Projection);
+                    }
+
+                    TextRenderer.AddText(Label, TextPosition, CameraRight, CameraUp, WorldUnitsPerPixel, FVector4(1.0f, 1.0f, 1.0f, 1.0f));
                 }
             }
 
@@ -411,6 +409,7 @@ void FEditorEngine::Shutdown()
     DetailsPanel = nullptr;
     MainMenuPanel = nullptr;
     StatsPanel = nullptr;
+    ContentBrowserPanel = nullptr;
 
     UndoManager.Clear();
     ObjectContext.ClearSelection();
@@ -426,8 +425,6 @@ void FEditorEngine::Shutdown()
         delete MainCamera;
         MainCamera = nullptr;
     }
-
-    UndoManager.Clear();
     
     EditorSettings.Save("Config/EditorSettings.ini");
     TextRenderer.Shutdown();

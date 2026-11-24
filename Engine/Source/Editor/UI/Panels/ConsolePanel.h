@@ -17,6 +17,7 @@ class FConsolePanel : public IEditorPanel
 public:
     bool Init() override;
     void Tick(float DeltaTime) override;
+    const char* GetPanelName() const override { return "Console"; }
     void OnRender() override;
     
     void ClearLog();

@@ -10,6 +10,7 @@ class FViewportPanel : public IEditorPanel
 public:
     bool Init() override;
     void Tick(float DeltaTime) override;
+    const char* GetPanelName() const override { return "Viewport"; }
     void OnRender() override;
     void SetViewportTexture(ID3D11ShaderResourceView* InSRV) { SRV = InSRV; }
     void SetGizmoContext(FEditorObjectContext* InContext, const FMatrix& InView, const FMatrix& InProjection)

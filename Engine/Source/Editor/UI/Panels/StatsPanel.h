@@ -14,6 +14,7 @@ public:
 
     bool Init() override;
     void Tick(float DeltaTime) override;
+    const char* GetPanelName() const override { return "Stats"; }
     void OnRender() override;
 
 private:

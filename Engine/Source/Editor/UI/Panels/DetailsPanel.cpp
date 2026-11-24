@@ -297,15 +297,25 @@ void FDetailsPanel::Tick(float DeltaTime)
 
 void FDetailsPanel::OnRender()
 {
-    if (!ImGui::Begin("Details"))
+    if (!IsOpen())
     {
+        return;
+    }
+
+    bool bIsOpen = IsOpen();
+
+    if (!ImGui::Begin("Details", &bIsOpen))
+    {
+        SetOpen(bIsOpen);
         ImGui::End();
         return;
     }
+    
     if (Context == nullptr || Context->SelectedActor == nullptr)
     {
         ImGui::TextDisabled("No Actor selected.");
         ImGui::End();
+        SetOpen(bIsOpen);
         return;
     }
 
@@ -375,4 +385,5 @@ void FDetailsPanel::OnRender()
         }
     }
     ImGui::End();
+    SetOpen(bIsOpen);
 }

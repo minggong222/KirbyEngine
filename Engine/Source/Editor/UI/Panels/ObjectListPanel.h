@@ -13,6 +13,7 @@ public:
     explicit FObjectListPanel(FEditorObjectContext* InContext, FAssetManager* InAssetManager, FViewportPanel* InViewportPanel, URenderer* InRenderer) : Context(InContext), AssetManager(InAssetManager), ViewportPanel(InViewportPanel), Renderer(InRenderer) {};
     bool Init() override;
     void Tick(float DeltaTime) override;
+    const char* GetPanelName() const override { return "World Outliner"; }
     void OnRender() override;
     
     void DeleteSelectedObject();

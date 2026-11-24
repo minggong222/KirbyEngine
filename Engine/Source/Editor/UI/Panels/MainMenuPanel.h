@@ -9,12 +9,13 @@ struct FEditorObjectContext;
 class FAssetManager;
 class UCameraComponent;
 class URenderer;
+class FPanelManager;
 
 class FMainMenuPanel : public IEditorPanel
 {
 public:
-    FMainMenuPanel(FEditorObjectContext* InContext, FAssetManager* InAssetManager, HWND InOwnerWindow, UCameraComponent* InViewportCamera, URenderer* InRenderer)
-: Context(InContext), AssetManager(InAssetManager), OwnerWindow(InOwnerWindow), ViewportCamera(InViewportCamera), Renderer(InRenderer) {}
+    FMainMenuPanel(FEditorObjectContext* InContext, FAssetManager* InAssetManager, HWND InOwnerWindow, UCameraComponent* InViewportCamera, URenderer* InRenderer, FPanelManager* InPanelManager)
+: Context(InContext), AssetManager(InAssetManager), OwnerWindow(InOwnerWindow), ViewportCamera(InViewportCamera), Renderer(InRenderer), PanelManager(InPanelManager) {}
 
     bool Init() override;
     void Tick(float DeltaTime) override;
@@ -26,6 +27,8 @@ private:
     void LoadScene();
 
     URenderer* Renderer = nullptr;
+    
+    FPanelManager* PanelManager = nullptr;
     
     FEditorObjectContext* Context = nullptr;
     FAssetManager* AssetManager = nullptr;

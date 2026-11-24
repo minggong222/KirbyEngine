@@ -6,6 +6,7 @@
 #include "Core/Logging/Log.h"
 #include "Components/CameraComponent.h"
 #include "EditorUndoManager.h"
+#include "UI/PanelManager.h"
 
 #include "imgui.h"
 
@@ -130,7 +131,7 @@ void FMainMenuPanel::OnRender()
             ImGui::EndMenu();
         }
         
-        if (ImGui::BeginMenu("Window"))
+        if (PanelManager != nullptr && ImGui::BeginMenu("Window"))
         {
             const char* PanelNames[] =
             {

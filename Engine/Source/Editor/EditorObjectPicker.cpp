@@ -1,7 +1,4 @@
 #include "EditorObjectPicker.h"
-
-#include "EditorObjectContext.h"
-
 #include "Components/PrimitiveComponent.h"
 #include "Core/Math/MathUtility.h"
 #include "World/World.h"
@@ -44,9 +41,10 @@ namespace EditorPicking
             OutRay = FRay(NearPoint, Direction);
             return true;
         }
-        UObject* FindNearestObject(const FEditorObjectContext& Context, const FRay& WorldRay)
+        
+        UStaticMeshComponent* FindNearestComponent(UWorld* World, const FRay& WorldRay)
         {
-            UObject* ClosestObject = nullptr;
+            UStaticMeshComponent* ClosestComponent = nullptr;
 
             float ClosestT = (std::numeric_limits<float>::max)();
 
@@ -172,22 +170,23 @@ namespace EditorPicking
                     if (bHasTriangleHit && ObjectHitT < ClosestT)
                     {
                         ClosestT = ObjectHitT;
-                        ClosestObject = Object;
+                        ClosestComponent = Component;
                     }
                 }
             }
 
-            return ClosestObject;
+            return ClosestComponent;
         }
     }
-    UObject* PickObject(const FEditorObjectContext& Context, float U, float V, uint32 ViewportWidth,
-        uint32 ViewportHeight, const FMatrix& View, const FMatrix& Projection)
+    UStaticMeshComponent* PickComponent(UWorld* World, float U, float V, uint32 ViewportWidth, uint32 ViewportHeight, const FMatrix& View, const FMatrix& Projection)
     {
         FRay WorldRay;
+
         if (!CreateWorldRay(U, V, ViewportWidth, ViewportHeight, View, Projection, WorldRay))
         {
             return nullptr;
         }
-        return FindNearestObject(Context, WorldRay);
+
+        return FindNearestComponent(World, WorldRay);
     }
 }

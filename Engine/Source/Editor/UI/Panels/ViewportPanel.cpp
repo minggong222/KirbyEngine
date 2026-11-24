@@ -32,8 +32,16 @@ void FViewportPanel::OnRender()
 {
     bViewportHovered = false;
 
-    if (!ImGui::Begin("Viewport"))
+    if (!IsOpen())
     {
+        return;
+    }
+
+    bool bIsOpen = IsOpen();
+
+    if (!ImGui::Begin("Viewport", &bIsOpen))
+    {
+        SetOpen(bIsOpen);
         ImGui::End();
         return;
     }
@@ -224,6 +232,7 @@ void FViewportPanel::OnRender()
     }
     
     ImGui::End();
+    SetOpen(bIsOpen);
 }
 
 void FViewportPanel::SetDesiredSize(uint32 Width, uint32 Height)

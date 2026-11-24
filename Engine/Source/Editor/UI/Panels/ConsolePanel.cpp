@@ -76,9 +76,18 @@ void FConsolePanel::Tick(float DeltaTime)
 
 void FConsolePanel::OnRender()
 {
-    ImGui::SetNextWindowSize(ImVec2(520, 600), ImGuiCond_FirstUseEver);
-    if (!ImGui::Begin("Console"))
+    if (!IsOpen())
     {
+        return;
+    }
+
+    bool bIsOpen = IsOpen();
+
+    ImGui::SetNextWindowSize(ImVec2(520, 600), ImGuiCond_FirstUseEver);
+
+    if (!ImGui::Begin("Console", &bIsOpen))
+    {
+        SetOpen(bIsOpen);
         ImGui::End();
         return;
     }
@@ -181,6 +190,7 @@ void FConsolePanel::OnRender()
         ImGui::SetKeyboardFocusHere(-1); // Auto focus previous widget
     
     ImGui::End();
+    SetOpen(bIsOpen);
 }
 
 void FConsolePanel::ClearLog()

@@ -180,19 +180,6 @@ public:
         RecordCreate(Context, NewActor, PreviousSelectedUUID);
 
         return NewActor;
-
-        if (NewObjectInstance == nullptr)
-        {
-            --ClipboardPasteCount;
-            return nullptr;
-        }
-
-        Context.Objects.Add(NewObjectInstance);
-        Context.SelectedObject = NewObjectInstance;
-
-        RecordCreate(Context, NewObjectInstance, PreviousSelectedUUID);
-
-        return NewObjectInstance;
     }
     
     bool BeginPropertyEdit(const FEditorObjectContext& Context, UObject* Object, const FProperty* Property)
@@ -931,15 +918,6 @@ private:
                 {
                     return false;
                 }
-
-                if (InsertIndex == INDEX_NONE)
-                {
-                    InsertIndex = Context.Objects.Num();
-                }
-
-                InsertIndex = std::clamp(InsertIndex, 0, Context.Objects.Num());
-
-                Context.Objects.Insert(RestoredObject, InsertIndex);
             }
             else if (!bShouldExist && ExistingObject != nullptr)
             {

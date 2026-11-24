@@ -232,13 +232,21 @@ void FObjectListPanel::OnRender()
         return;
     }
 
-    if (!ImGui::Begin("Object List"))
+    if (!IsOpen())
     {
+        return;
+    }
+
+    bool bIsOpen = IsOpen();
+
+    if (!ImGui::Begin("World Outliner", &bIsOpen))
+    {
+        SetOpen(bIsOpen);
         ImGui::End();
         return;
     }
 
-    UObject* PendingDeleteObject = nullptr;
+    AActor* PendingDeleteActor = nullptr;
     
     TArray<UStaticMesh*> StaticMeshes;
     AssetManager->GetAssets(StaticMeshes);
@@ -281,7 +289,7 @@ void FObjectListPanel::OnRender()
 
     if (ImGui::Button("Add Static Mesh"))
     {
-        SpawnStaticMeshObject(*Context, MeshToSpawn);
+        SpawnStaticMeshActor(*Context, MeshToSpawn);
     }
 
     ImGui::EndDisabled();
@@ -290,7 +298,7 @@ void FObjectListPanel::OnRender()
 
     if (ImGui::Button("Camera"))
     {
-        SpawnCameraObject(*Context);
+        SpawnCameraActor(*Context);
     }
 
     ImGui::SameLine();
@@ -380,9 +388,17 @@ void FObjectListPanel::OnRender()
                         continue;
                     }
 
-                    const FString ComponentName = Component->GetName();
+                    FString ComponentLabel = Component->GetClass()->GetName();
 
-                    if (ImGui::Selectable(ComponentName.c_str(), Context->SelectedComponent == Component))
+                    if (Component == Actor->GetRootComponent())
+                    {
+                        ComponentLabel.Append(" (Root)");
+                    }
+
+                    ComponentLabel.Append("_");
+                    ComponentLabel.Append(std::to_string(Component->GetUUID()));
+
+                    if (ImGui::Selectable(ComponentLabel.c_str(), Context->SelectedComponent == Component))
                     {
                         Context->SelectComponent(Component);
                     }
@@ -418,14 +434,15 @@ void FObjectListPanel::OnRender()
     }
 
     ImGui::End();
+    SetOpen(bIsOpen);
 
-    if (PendingDeleteObject != nullptr)
+    if (PendingDeleteActor != nullptr)
     {
-        DeleteObject(*Context, ViewportPanel, PendingDeleteObject);
+        DeleteActor(*Context, ViewportPanel, PendingDeleteActor);
     }
-    else if (bPendingDeleteSelected)
+    else if (bPendingDeleteSelected && Context->SelectedActor != nullptr)
     {
-        DeleteObject(*Context, ViewportPanel, Context->SelectedObject);
+        DeleteActor(*Context, ViewportPanel, Context->SelectedActor);
     }
     else if (bPendingCopy)
     {
@@ -443,26 +460,26 @@ void FObjectListPanel::OnRender()
     }
     else if (bPendingDuplicate)
     {
-        DuplicateObject(*Context, ViewportPanel);
+        DuplicateActor(*Context, ViewportPanel);
     }
 }
 
 void FObjectListPanel::DeleteSelectedObject()
 {
-    if (Context == nullptr || Context->SelectedObject == nullptr)
+    if (Context == nullptr || Context->SelectedActor == nullptr)
     {
         return;
     }
 
-    DeleteObject(*Context, ViewportPanel, Context->SelectedObject);
+    DeleteActor(*Context, ViewportPanel, Context->SelectedActor);
 }
 
 void FObjectListPanel::DuplicateSelectedObject()
 {
-    if (Context == nullptr || Context->SelectedObject == nullptr)
+    if (Context == nullptr || Context->SelectedActor == nullptr)
     {
         return;
     }
 
-    DuplicateObject(*Context, ViewportPanel);
+    DuplicateActor(*Context, ViewportPanel);
 }

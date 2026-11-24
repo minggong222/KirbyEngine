@@ -6,7 +6,7 @@
 #include "Resources/StaticMesh.h"
 #include "Resources/Material.h"
 #include "Resources/Texture2D.h"
-
+#include "EditorUndoManager.h"
 #include "Actors/StaticMeshActor.h"
 #include "Components/StaticMeshComponent.h"
 #include "World/World.h"
@@ -54,18 +54,41 @@ void FContentBrowserPanel::OnRender()
 
                 if (ImGui::Selectable(AssetPath.c_str()) && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left))
                 {
-                    if (AStaticMeshActor* Actor = Cast<AStaticMeshActor>(Context->SelectedActor))
+                    UStaticMeshComponent* TargetComponent = Cast<UStaticMeshComponent>(Context->SelectedComponent);
+
+                    if (TargetComponent == nullptr)
                     {
-                        Actor->GetStaticMeshComponent()->SetStaticMesh(Asset);
+                        if (AStaticMeshActor* Actor = Cast<AStaticMeshActor>(Context->SelectedActor))
+                        {
+                            TargetComponent = Actor->GetStaticMeshComponent();
+                        }
+                    }
+
+                    if (TargetComponent != nullptr)
+                    {
+                        UStaticMesh* PreviousMesh = TargetComponent->GetStaticMesh();
+                        TargetComponent->SetStaticMesh(Asset);
+
+                        if (Context->UndoManager != nullptr)
+                        {
+                            Context->UndoManager->RecordStaticMeshChange(*Context, TargetComponent, PreviousMesh, Asset);
+                        }
                     }
                     else if (Context->World != nullptr)
                     {
-                        AStaticMeshActor* NewActor = Context->World->SpawnActor<AStaticMeshActor>();
+                        const uint32 PreviousSelectedUUID = Context->GetSelectedObject() != nullptr ? Context->GetSelectedObject()->GetUUID() : 0;
 
-                        if (NewActor != nullptr)
+                        AStaticMeshActor* NewActor = Context->World->SpawnActor<AStaticMeshActor>(FName("StaticMeshActor"));
+
+                        if (NewActor != nullptr && NewActor->GetStaticMeshComponent() != nullptr)
                         {
                             NewActor->GetStaticMeshComponent()->SetStaticMesh(Asset);
                             Context->SelectActor(NewActor);
+
+                            if (Context->UndoManager != nullptr)
+                            {
+                                Context->UndoManager->RecordCreate(*Context, NewActor, PreviousSelectedUUID);
+                            }
                         }
                     }
                 }
@@ -94,7 +117,15 @@ void FContentBrowserPanel::OnRender()
 
                     if (Actor != nullptr && Actor->GetStaticMeshComponent() != nullptr)
                     {
-                        Actor->GetStaticMeshComponent()->SetMaterial(Asset);
+                        UStaticMeshComponent* Component = Actor->GetStaticMeshComponent();
+                        UMaterial* PreviousMaterial = Component->GetMaterial();
+
+                        Component->SetMaterial(Asset);
+
+                        if (Context->UndoManager != nullptr)
+                        {
+                            Context->UndoManager->RecordMaterialChange(*Context, Component, PreviousMaterial, Asset);
+                        }
                     }
                 }
             }

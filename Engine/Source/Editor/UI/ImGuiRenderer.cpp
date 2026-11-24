@@ -148,6 +148,7 @@ void FImGuiRenderer::DrawDockHost()
         ImGui::DockBuilderDockWindow("Viewport", DockMain);
         ImGui::DockBuilderDockWindow("Content Browser", DockBottom);
         ImGui::DockBuilderDockWindow("Console", DockBottom);
+        ImGui::DockBuilderDockWindow("Stats", DockRight);
 
         ImGui::DockBuilderFinish(dockspace_id);
     }

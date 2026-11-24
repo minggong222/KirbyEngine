@@ -399,28 +399,89 @@ namespace
         return false;
     }
 
-    bool ReadObjectMap(const FJsonObject& ObjectMap, bool bIsCamera, FAssetManager& AssetManager, URenderer& Renderer, TArray<FSceneObjectRecord>& OutRecords, TSet<uint32>& SeenUUIDs, uint32& OutMaxUUID)
+    bool ReadActorMap(const FJsonObject& ActorMap, FAssetManager& AssetManager, URenderer& Renderer, TArray<FSceneActorRecord>& OutRecords, TSet<uint32>& SeenUUIDs, uint32& OutMaxUUID)
+{
+    for (const auto& Pair : ActorMap.GetValues())
     {
-        for (const auto& Pair : ObjectMap.GetValues())
+        FSceneActorRecord Record;
+
+        if (!TryParseUUID(Pair.first, Record.UUID) || !SeenUUIDs.Add(Record.UUID))
         {
-            FSceneObjectRecord Record;
-            Record.bIsCamera = bIsCamera;
+            return false;
+        }
 
-            if (!TryParseUUID(Pair.first, Record.UUID) || !SeenUUIDs.Add(Record.UUID))
+        const FJsonObject* ActorData = nullptr;
+
+        if (!TryGetJsonObject(Pair.second, ActorData) || !ReadTransform(*ActorData, Record.Transform))
+        {
+            return false;
+        }
+
+        FString ClassName;
+        FString ActorName;
+        double RootComponentUUIDNumber = 0.0;
+
+        if (!ActorData->TryGetStringField("Class", ClassName) || !ActorData->TryGetStringField("Name", ActorName) || ActorName.IsEmpty())
+        {
+            return false;
+        }
+
+        if (!ActorData->TryGetNumberField("RootComponentUUID", RootComponentUUIDNumber) || !std::isfinite(RootComponentUUIDNumber) || RootComponentUUIDNumber < 1.0 || RootComponentUUIDNumber > (std::numeric_limits<uint32>::max)() || std::floor(RootComponentUUIDNumber) != RootComponentUUIDNumber)
+        {
+            return false;
+        }
+
+        Record.RootComponentUUID = static_cast<uint32>(RootComponentUUIDNumber);
+
+        if (!SeenUUIDs.Add(Record.RootComponentUUID))
+        {
+            return false;
+        }
+
+        Record.Name = FName(ActorName);
+
+        if (ClassName == "StaticMeshActor")
+        {
+            Record.Type = ESceneActorType::StaticMeshActor;
+
+            FString AssetPath;
+
+            if (!ActorData->TryGetStringField("AssetPath", AssetPath) || AssetPath.IsEmpty())
             {
                 return false;
             }
 
-            const FJsonObject* ObjectData = nullptr;
+            Record.StaticMesh = OBJImporter::LoadOBJAsset(AssetPath, AssetManager, Renderer);
 
-            if (!TryGetJsonObject(Pair.second, ObjectData) || !ReadTransform(*ObjectData, Record.Transform))
+            if (Record.StaticMesh == nullptr)
             {
                 return false;
             }
 
-            if (bIsCamera && ObjectData->HasField("Settings"))
+            if (ActorData->HasField("TexturePath"))
             {
-                const TSharedPtr<FJsonValue> SettingsValue = ObjectData->GetField("Settings");
+                FString TexturePath;
+
+                if (!ActorData->TryGetStringField("TexturePath", TexturePath) || TexturePath.IsEmpty())
+                {
+                    return false;
+                }
+
+                Record.Material = TextureImporter::LoadTextureMaterial(TexturePath, AssetManager, Renderer);
+
+                if (Record.Material == nullptr)
+                {
+                    return false;
+                }
+            }
+        }
+        else if (ClassName == "CameraActor")
+        {
+            Record.Type = ESceneActorType::CameraActor;
+
+            if (ActorData->HasField("Settings"))
+            {
+                const TSharedPtr<FJsonValue> SettingsValue = ActorData->GetField("Settings");
                 const FJsonObject* SettingsObject = nullptr;
 
                 if (!TryGetJsonObject(SettingsValue, SettingsObject))
@@ -430,47 +491,20 @@ namespace
 
                 Record.CameraSettings = SettingsValue->AsObject();
             }
-
-            if (!bIsCamera)
-            {
-                FString AssetPath;
-
-                if (!ObjectData->TryGetStringField("AssetPath", AssetPath))
-                {
-                    return false;
-                }
-
-                Record.StaticMesh = OBJImporter::LoadOBJAsset(AssetPath, AssetManager, Renderer);
-
-                if (Record.StaticMesh == nullptr)
-                {
-                    return false;
-                }
-
-                if (ObjectData->HasField("TexturePath"))
-                {
-                    FString TexturePath;
-
-                    if (!ObjectData->TryGetStringField("TexturePath", TexturePath) || TexturePath.IsEmpty())
-                    {
-                        return false;
-                    }
-
-                    Record.Material = TextureImporter::LoadTextureMaterial(TexturePath, AssetManager, Renderer);
-
-                    if (Record.Material == nullptr)
-                    {
-                        return false;
-                    }
-                }
-            }
-
-            OutMaxUUID = (std::max)(OutMaxUUID, Record.UUID);
-            OutRecords.Add(std::move(Record));
+        }
+        else
+        {
+            return false;
         }
 
-        return true;
+        OutMaxUUID = (std::max)(OutMaxUUID, Record.UUID);
+        OutMaxUUID = (std::max)(OutMaxUUID, Record.RootComponentUUID);
+
+        OutRecords.Add(std::move(Record));
     }
+
+    return true;
+}
     
     bool CopyCameraSettings(const UCameraComponent& Source, UCameraComponent& Destination)
     {
@@ -504,10 +538,8 @@ bool FSceneSerializer::Save(const std::filesystem::path& FilePath, const FEditor
     }
 
     TSharedPtr<FJsonObject> Root = MakeShared<FJsonObject>();
-    TSharedPtr<FJsonObject> Primitives = MakeShared<FJsonObject>();
-    TSharedPtr<FJsonObject> Cameras = MakeShared<FJsonObject>();
 
-    Root->SetNumberField("Version", 1);
+    Root->SetNumberField("Version", 2);
     Root->SetNumberField("NextUUID", FEngineStatics::NextUUID);
 
     ULevel* Level = Context.World != nullptr ? Context.World->GetPersistentLevel() : nullptr;
@@ -601,9 +633,6 @@ bool FSceneSerializer::Save(const std::filesystem::path& FilePath, const FEditor
     }
 
     Root->SetObjectField("Actors", std::move(*Actors));
-
-    Root->SetObjectField("Primitives", std::move(*Primitives));
-    Root->SetObjectField("Cameras", std::move(*Cameras));
 
     FJsonObject ViewportCameraData;
     WriteTransform(ViewportCameraData, ViewportCamera.GetTransform());
@@ -732,7 +761,7 @@ bool FSceneSerializer::Load(const std::filesystem::path& FilePath, FEditorObject
     double Version = 0.0;
     double NextUUIDNumber = 0.0;
 
-    if (!Root->TryGetNumberField("Version", Version) || Version != 1.0 || !Root->TryGetNumberField("NextUUID", NextUUIDNumber))
+    if (!Root->TryGetNumberField("Version", Version) || Version != 2.0 || !Root->TryGetNumberField("NextUUID", NextUUIDNumber))
     {
         UE_LOG(Error, "Scene Load failed: Invalid scene header");
         return false;
@@ -783,37 +812,22 @@ bool FSceneSerializer::Load(const std::filesystem::path& FilePath, FEditorObject
         bHasViewportCameraData = true;
     }
 
-    const TSharedPtr<FJsonValue> PrimitiveValue = Root->GetField("Primitives", EJson::Object);
-    const FJsonObject* PrimitiveObject = nullptr;
+    const TSharedPtr<FJsonValue> ActorsValue = Root->GetField("Actors", EJson::Object);
+    const FJsonObject* ActorsObject = nullptr;
 
-    if (!TryGetJsonObject(PrimitiveValue, PrimitiveObject))
+    if (!TryGetJsonObject(ActorsValue, ActorsObject))
     {
-        UE_LOG(Error, "Scene Load failed: Primitives must be an object");
+        UE_LOG(Error, "Scene Load failed: Actors must be an object");
         return false;
     }
 
-    const TSharedPtr<FJsonValue> CameraValue = Root->GetField("Cameras");
-    const FJsonObject* CameraObject = nullptr;
-
-    if (CameraValue.IsValid() && !TryGetJsonObject(CameraValue, CameraObject))
-    {
-        UE_LOG(Error, "Scene Load failed: Cameras must be an object");
-        return false;
-    }
-
-    TArray<FSceneObjectRecord> Records;
+    TArray<FSceneActorRecord> Records;
     TSet<uint32> SeenUUIDs;
     uint32 MaxUUID = 0;
 
-    if (!ReadObjectMap(*PrimitiveObject, false, AssetManager, Renderer, Records, SeenUUIDs, MaxUUID))
+    if (!ReadActorMap(*ActorsObject, AssetManager, Renderer, Records, SeenUUIDs, MaxUUID))
     {
-        UE_LOG(Error, "Scene Load failed: Invalid primitive data");
-        return false;
-    }
-
-    if (CameraObject != nullptr && !ReadObjectMap(*CameraObject, true, AssetManager, Renderer, Records, SeenUUIDs, MaxUUID))
-    {
-        UE_LOG(Error, "Scene Load failed: Invalid camera data");
+        UE_LOG(Error, "Scene Load failed: Invalid actor data");
         return false;
     }
 
@@ -830,11 +844,11 @@ bool FSceneSerializer::Load(const std::filesystem::path& FilePath, FEditorObject
         SavedNextUUID = MaxUUID + 1;
     }
 
-    for (const FSceneObjectRecord& Record : Records)
+    for (const FSceneActorRecord& Record : Records)
     {
-        if (HasUUIDCollision(Record.UUID, Context))
+        if (HasUUIDCollision(Record.UUID, Context) || HasUUIDCollision(Record.RootComponentUUID, Context))
         {
-            UE_LOG(Error, "Scene Load failed: UUID collision (%u)", Record.UUID);
+            UE_LOG(Error, "Scene Load failed: UUID collision (Actor=%u, RootComponent=%u)", Record.UUID, Record.RootComponentUUID);
             return false;
         }
     }
@@ -856,61 +870,60 @@ bool FSceneSerializer::Load(const std::filesystem::path& FilePath, FEditorObject
         return false;
     }
 
-    auto DestroyStagedObjects = [&StagedObjects]()
+    for (const FSceneActorRecord& Record : Records)
     {
-        for (UObject* Object : StagedObjects)
+        AActor* NewActor = nullptr;
+
+        if (Record.Type == ESceneActorType::StaticMeshActor)
         {
-            delete Object;
-        }
+            AStaticMeshActor* StaticMeshActor = StagedWorld->SpawnActor<AStaticMeshActor>(Record.Name, Record.Transform);
 
-        StagedObjects.Reset();
-    };
-
-    for (const FSceneObjectRecord& Record : Records)
-    {
-        UObject* NewObjectInstance = nullptr;
-
-        if (Record.bIsCamera)
-        {
-            UCameraComponent* Camera = NewObject<UCameraComponent>();
-
-            if (Camera != nullptr)
+            if (StaticMeshActor == nullptr || StaticMeshActor->GetStaticMeshComponent() == nullptr)
             {
-                Camera->SetTransform(Record.Transform);
-
-                if (!ApplyCameraSettings(*Camera, Record.CameraSettings.Get()))
-                {
-                    delete Camera;
-                    DestroyStagedObjects();
-                    UE_LOG(Error, "Scene Load failed: Invalid camera settings");
-                    return false;
-                }
+                UE_LOG(Error, "Scene Load failed: StaticMeshActor construction failed");
+                return false;
             }
 
-            NewObjectInstance = Camera;
-        }
-        else
-        {
-            UStaticMeshComponent* Component = NewObject<UStaticMeshComponent>();
+            StaticMeshActor->GetStaticMeshComponent()->SetStaticMesh(Record.StaticMesh);
+            StaticMeshActor->GetStaticMeshComponent()->SetMaterial(Record.Material);
 
-            if (Component != nullptr)
+            NewActor = StaticMeshActor;
+        }
+        else if (Record.Type == ESceneActorType::CameraActor)
+        {
+            ACameraActor* CameraActor = StagedWorld->SpawnActor<ACameraActor>(Record.Name, Record.Transform);
+
+            if (CameraActor == nullptr || CameraActor->GetCameraComponent() == nullptr)
             {
-                Component->SetStaticMesh(Record.StaticMesh);
-                Component->SetMaterial(Record.Material);
-                Component->SetTransform(Record.Transform);
+                UE_LOG(Error, "Scene Load failed: CameraActor construction failed");
+                return false;
             }
 
-            NewObjectInstance = Component;
+            if (!ApplyCameraSettings(*CameraActor->GetCameraComponent(), Record.CameraSettings.Get()))
+            {
+                UE_LOG(Error, "Scene Load failed: Invalid CameraActor settings");
+                return false;
+            }
+
+            NewActor = CameraActor;
         }
 
-        if (NewObjectInstance == nullptr)
+        if (NewActor == nullptr)
         {
-            DestroyStagedObjects();
-            UE_LOG(Error, "Scene Load failed: Object construction failed");
+            UE_LOG(Error, "Scene Load failed: Unsupported Actor type");
             return false;
         }
 
-        StagedObjects.Add(NewObjectInstance);
+        USceneComponent* RootComponent = NewActor->GetRootComponent();
+
+        if (RootComponent == nullptr)
+        {
+            UE_LOG(Error, "Scene Load failed: Actor has no Root Component");
+            return false;
+        }
+
+        NewActor->SetUUID(Record.UUID);
+        RootComponent->SetUUID(Record.RootComponentUUID);
     }
     
     std::unique_ptr<UCameraComponent> StagedViewportCamera;
@@ -921,14 +934,12 @@ bool FSceneSerializer::Load(const std::filesystem::path& FilePath, FEditorObject
 
         if (StagedViewportCamera == nullptr)
         {
-            DestroyStagedObjects();
             UE_LOG(Error, "Scene Load failed: Cannot create staged viewport camera");
             return false;
         }
 
         if (!CopyCameraSettings(ViewportCamera, *StagedViewportCamera))
         {
-            DestroyStagedObjects();
             UE_LOG(Error, "Scene Load failed: Cannot copy viewport camera settings");
             return false;
         }
@@ -937,7 +948,6 @@ bool FSceneSerializer::Load(const std::filesystem::path& FilePath, FEditorObject
 
         if (!ApplyCameraSettings(*StagedViewportCamera, ViewportCameraSettings.Get()))
         {
-            DestroyStagedObjects();
             UE_LOG(Error, "Scene Load failed: Cannot apply viewport camera settings");
             return false;
         }
@@ -949,7 +959,6 @@ bool FSceneSerializer::Load(const std::filesystem::path& FilePath, FEditorObject
 
         if (!CopyCameraSettings(*StagedViewportCamera, ViewportCamera))
         {
-            DestroyStagedObjects();
             UE_LOG(Error, "Scene Load failed: Cannot commit viewport camera settings");
             return false;
         }
