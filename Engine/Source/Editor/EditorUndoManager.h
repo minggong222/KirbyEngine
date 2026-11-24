@@ -11,7 +11,7 @@
 #include "UObject/Object.h"
 #include "EditorTransformGizmo.h"
 #include "Core/Math/MathUtility.h"
-
+#include "Resources/Material.h"
 
 #include <algorithm>
 #include <cmath>
@@ -30,7 +30,8 @@ private:
     {
         Transform,
         ObjectPresence,
-        Property
+        Property,
+        Material
     };
 
     enum class EObjectType
@@ -52,6 +53,7 @@ private:
         EObjectType Type = EObjectType::StaticMesh;
         FTransform Transform;
         UStaticMesh* StaticMesh = nullptr;
+        UMaterial* Material = nullptr;
         std::vector<FPropertySnapshot> CameraProperties;
     };
 
@@ -62,7 +64,10 @@ private:
 
         FTransform BeforeTransform;
         FTransform AfterTransform;
-
+        
+        UMaterial* BeforeMaterial = nullptr;
+        UMaterial* AfterMaterial = nullptr;
+        
         FString PropertyName;
         EPropertyType PropertyType = EPropertyType::Unknown;
         FPropertyValue BeforePropertyValue;
@@ -285,6 +290,26 @@ public:
         PushEntry(std::move(Entry));
     }
 
+    void RecordMaterialChange(const FEditorObjectContext& Context, UStaticMeshComponent* Component, UMaterial* Before, UMaterial* After)
+    {
+        CommitPendingPropertyEdit(Context);
+
+        if (Component == nullptr || Before == After || !Context.Objects.Contains(Component))
+        {
+            return;
+        }
+
+        FHistoryEntry Entry;
+        Entry.Type = EHistoryType::Material;
+        Entry.Object.UUID = Component->GetUUID();
+        Entry.BeforeMaterial = Before;
+        Entry.AfterMaterial = After;
+        Entry.BeforeSelectedUUID = Component->GetUUID();
+        Entry.AfterSelectedUUID = Component->GetUUID();
+
+        PushEntry(std::move(Entry));
+    }
+    
     void Undo(FEditorObjectContext& Context)
     {
         CommitPendingPropertyEdit(Context);
@@ -540,6 +565,7 @@ private:
 
             OutSnapshot.Type = EObjectType::StaticMesh;
             OutSnapshot.StaticMesh = Component->GetStaticMesh();
+            OutSnapshot.Material = Component->GetMaterial();
             OutSnapshot.Transform = Component->GetWorldTransform();
             return true;
         }
@@ -636,6 +662,7 @@ private:
             }
 
             Component->SetStaticMesh(Snapshot.StaticMesh);
+            Component->SetMaterial(Snapshot.Material);
             Component->SetTransform(Snapshot.Transform);
             NewObjectInstance = Component;
         }
@@ -764,6 +791,17 @@ private:
             {
                 return false;
             }
+        }
+        else if (Entry.Type == EHistoryType::Material)
+        {
+            UStaticMeshComponent* Component = Cast<UStaticMeshComponent>(FindObject(Context, Entry.Object.UUID));
+
+            if (Component == nullptr)
+            {
+                return false;
+            }
+
+            Component->SetMaterial(bUndo ? Entry.BeforeMaterial : Entry.AfterMaterial);
         }
         else
         {

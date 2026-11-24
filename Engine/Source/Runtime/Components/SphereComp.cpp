@@ -14,7 +14,7 @@ FStaticMeshBuildData USphereComp::CreateMeshData()
     Data.Vertices.Reserve((NumStacks + 1) * (NumSlices + 1));
     Data.Indices.Reserve(2280);
 
-    const auto MakeVertex = [](float Phi, float Theta)
+    const auto MakeVertex = [](float Phi, float Theta, float U, float V)
     {
         const float SinPhi = std::sin(Phi);
 
@@ -22,7 +22,7 @@ FStaticMeshBuildData USphereComp::CreateMeshData()
         const float Y = std::cos(Phi);
         const float Z = SinPhi * std::sin(Theta);
 
-        return FVertexSimple{X, Y, Z, X * 0.5f + 0.5f, Y * 0.5f + 0.5f, Z * 0.5f + 0.5f, 1.0f};
+        return FVertexSimple{X, Y, Z, X * 0.5f + 0.5f, Y * 0.5f + 0.5f, Z * 0.5f + 0.5f, 1.0f, U, V};
     };
 
     for (int32 Stack = 0; Stack <= NumStacks; ++Stack)
@@ -33,7 +33,10 @@ FStaticMeshBuildData USphereComp::CreateMeshData()
         {
             const float Theta = 2.0f * PI * static_cast<float>(Slice) / static_cast<float>(NumSlices);
 
-            Data.Vertices.Add(MakeVertex(Phi, Theta));
+            const float U = static_cast<float>(Slice) / static_cast<float>(NumSlices);
+            const float V = static_cast<float>(Stack) / static_cast<float>(NumStacks);
+
+            Data.Vertices.Add(MakeVertex(Phi, Theta, U, V));
         }
     }
 

@@ -16,6 +16,8 @@
 #include "UI/Panels/StatsPanel.h"
 #include "UObject/Object.h"
 #include "Resources/StaticMesh.h"
+#include "Resources/Material.h"
+#include "Resources/Texture2D.h"
 
 bool FEditorEngine::Init(HINSTANCE hInstance)
 {
@@ -223,8 +225,14 @@ void FEditorEngine::Run()
                 }
 
                 const FMatrix World = Component->GetWorldMatrix();
-                Renderer->UpdateConstant(World, View, Projection, false);
-                Renderer->RenderPrimitive(RenderData.VertexBuffer, RenderData.IndexBuffer, RenderData.IndexCount);
+
+                UMaterial* Material = Component->GetMaterial();
+                UTexture2D* Texture = Material != nullptr ? Material->GetBaseColorTexture() : nullptr;
+
+                ID3D11ShaderResourceView* TextureSRV = Texture != nullptr && Texture->IsValid() ? Texture->GetResource().ShaderResourceView : nullptr;
+
+                Renderer->UpdateConstant(World, View, Projection, false, TextureSRV != nullptr);
+                Renderer->RenderPrimitive(RenderData.VertexBuffer, RenderData.IndexBuffer, RenderData.IndexCount, false, TextureSRV);
             }
             
             UStaticMeshComponent* SelectedComponent = Cast<UStaticMeshComponent>(ObjectContext.SelectedObject);

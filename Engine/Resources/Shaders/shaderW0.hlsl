@@ -8,19 +8,25 @@ cbuffer constants : register(b0)
     row_major float4x4 Projection;
 
     uint IsOutline;
-    float3 ConstantsPadding;
+    uint IsTextured;
+    float2 ConstantsPadding;
 }
+
+Texture2D BaseColorTexture : register(t0);
+SamplerState BaseColorSampler : register(s0);
 
 struct VS_INPUT
 {
-    float4 position : POSITION; // Input position from vertex buffer
-    float4 color : COLOR; // Input color from vertex buffer
+    float4 position : POSITION;
+    float4 color : COLOR;
+    float2 uv : TEXCOORD0;
 };
 
 struct PS_INPUT
 {
-    float4 position : SV_POSITION; // Transformed position to pass to the pixel shader
-    float4 color : COLOR; // Color to pass to the pixel shader
+    float4 position : SV_POSITION;
+    float4 color : COLOR;
+    float2 uv : TEXCOORD0;
 };
 
 PS_INPUT mainVS(VS_INPUT input)
@@ -37,12 +43,18 @@ PS_INPUT mainVS(VS_INPUT input)
     
     // Pass the color to the pixel shader
     output.color = IsOutline != 0 ? float4(1.0f, 0.45f, 0.05f, 1.0f) : input.color;
+    output.uv = input.uv;
     
     return output;
 }
 
 float4 mainPS(PS_INPUT input) : SV_TARGET
 {
-    // Output the color directly
+    if (IsTextured != 0)
+    {
+        const float4 TextureColor = BaseColorTexture.Sample(BaseColorSampler, input.uv);
+        return TextureColor * input.color;
+    }
+
     return input.color;
 }

@@ -3,6 +3,7 @@
 #include <d3dcompiler.h>
 
 #include "Engine/Source/Runtime/Renderer/Renderer.h"
+#include "Resources/TextureResource.h"
 
 #include "Core/Math/Math.h"
 
@@ -336,7 +337,8 @@ void URenderer::CreateShader()
     D3D11_INPUT_ELEMENT_DESC Layout[] =
     {
         {"POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0},
-        {"COLOR", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 12, D3D11_INPUT_PER_VERTEX_DATA, 0}
+        {"COLOR", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 12, D3D11_INPUT_PER_VERTEX_DATA, 0},
+        {"TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 28, D3D11_INPUT_PER_VERTEX_DATA, 0}
     };
 
     hr = mDevice->CreateInputLayout(Layout, ARRAYSIZE(Layout), VertexShaderBlob->GetBufferPointer(), VertexShaderBlob->GetBufferSize(), &mSimpleInputLayout);
@@ -352,6 +354,25 @@ void URenderer::CreateShader()
         return;
     }
 
+    D3D11_SAMPLER_DESC SamplerDesc = {};
+    SamplerDesc.Filter = D3D11_FILTER_MIN_MAG_MIP_LINEAR;
+    SamplerDesc.AddressU = D3D11_TEXTURE_ADDRESS_WRAP;
+    SamplerDesc.AddressV = D3D11_TEXTURE_ADDRESS_WRAP;
+    SamplerDesc.AddressW = D3D11_TEXTURE_ADDRESS_WRAP;
+    SamplerDesc.ComparisonFunc = D3D11_COMPARISON_NEVER;
+    SamplerDesc.MinLOD = 0.0f;
+    SamplerDesc.MaxLOD = D3D11_FLOAT32_MAX;
+
+    hr = mDevice->CreateSamplerState(&SamplerDesc, &mTextureSamplerState);
+
+    if (FAILED(hr))
+    {
+        ReleaseShader();
+        bInitializationFailed = true;
+        OutputDebugStringA("[Renderer] CreateSamplerState failed.\n");
+        return;
+    }
+    
     mStride = sizeof(FVertexSimple);
 }
 
@@ -373,6 +394,12 @@ void URenderer::ReleaseShader()
     {
         mSimpleVertexShader->Release();
         mSimpleVertexShader = nullptr;
+    }
+    
+    if (mTextureSamplerState != nullptr)
+    {
+        mTextureSamplerState->Release();
+        mTextureSamplerState = nullptr;
     }
 }
 
@@ -411,24 +438,27 @@ void URenderer::PrepareShader()
     }
 }
 
-void URenderer::RenderPrimitive(ID3D11Buffer* VertexBuffer, ID3D11Buffer* IndexBuffer, UINT IndexCount, bool bRenderOutline)
+void URenderer::RenderPrimitive(ID3D11Buffer* VertexBuffer, ID3D11Buffer* IndexBuffer, UINT IndexCount, bool bRenderOutline, ID3D11ShaderResourceView* TextureSRV)
 {
     if (mDeviceContext == nullptr || VertexBuffer == nullptr || IndexBuffer == nullptr || IndexCount == 0 || mRasterizerState == nullptr || (bRenderOutline && mOutlineRasterizerState == nullptr))
     {
         return;
     }
-    
+
     if (bRenderOutline)
     {
         mDeviceContext->RSSetState(mOutlineRasterizerState);
     }
 
-    UINT Offset  = 0;
-    
+    UINT Offset = 0;
+
     mDeviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
     mDeviceContext->IASetVertexBuffers(0, 1, &VertexBuffer, &mStride, &Offset);
     mDeviceContext->IASetIndexBuffer(IndexBuffer, DXGI_FORMAT_R32_UINT, 0);
-    
+
+    mDeviceContext->PSSetShaderResources(0, 1, &TextureSRV);
+    mDeviceContext->PSSetSamplers(0, 1, &mTextureSamplerState);
+
     mDeviceContext->DrawIndexed(IndexCount, 0, 0);
 
     if (bRenderOutline)
@@ -514,6 +544,67 @@ void URenderer::ReleaseIndexBuffer(ID3D11Buffer* IndexBuffer)
     }
 }
 
+bool URenderer::CreateTexture2D(const uint8* Pixels, uint32 Width, uint32 Height, FTexture2DResource& OutResource)
+{
+    if (mDevice == nullptr || Pixels == nullptr || Width == 0 || Height == 0 || OutResource.Texture != nullptr || OutResource.ShaderResourceView != nullptr)
+    {
+        return false;
+    }
+
+    if (Width > D3D11_REQ_TEXTURE2D_U_OR_V_DIMENSION || Height > D3D11_REQ_TEXTURE2D_U_OR_V_DIMENSION)
+    {
+        return false;
+    }
+
+    const uint64 RowPitch = static_cast<uint64>(Width) * 4;
+    const uint64 PixelByteWidth = RowPitch * Height;
+
+    if (RowPitch > (std::numeric_limits<UINT>::max)() || PixelByteWidth > (std::numeric_limits<UINT>::max)())
+    {
+        return false;
+    }
+
+    D3D11_TEXTURE2D_DESC TextureDesc = {};
+    TextureDesc.Width = Width;
+    TextureDesc.Height = Height;
+    TextureDesc.MipLevels = 1;
+    TextureDesc.ArraySize = 1;
+    TextureDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+    TextureDesc.SampleDesc.Count = 1;
+    TextureDesc.Usage = D3D11_USAGE_IMMUTABLE;
+    TextureDesc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
+
+    D3D11_SUBRESOURCE_DATA InitialData = {};
+    InitialData.pSysMem = Pixels;
+    InitialData.SysMemPitch = static_cast<UINT>(RowPitch);
+
+    ID3D11Texture2D* NewTexture = nullptr;
+
+    HRESULT hr = mDevice->CreateTexture2D(&TextureDesc, &InitialData, &NewTexture);
+
+    if (FAILED(hr) || NewTexture == nullptr)
+    {
+        return false;
+    }
+
+    ID3D11ShaderResourceView* NewShaderResourceView = nullptr;
+
+    hr = mDevice->CreateShaderResourceView(NewTexture, nullptr, &NewShaderResourceView);
+
+    if (FAILED(hr) || NewShaderResourceView == nullptr)
+    {
+        NewTexture->Release();
+        return false;
+    }
+
+    OutResource.Texture = NewTexture;
+    OutResource.ShaderResourceView = NewShaderResourceView;
+    OutResource.Width = Width;
+    OutResource.Height = Height;
+
+    return true;
+}
+
 void URenderer::CreateConstantBuffer()
 {
     if (mDevice == nullptr)
@@ -546,7 +637,7 @@ void URenderer::ReleaseConstantBuffer()
     }
 }
 
-void URenderer::UpdateConstant(FMatrix World, FMatrix View, FMatrix Projection, bool bIsOutline)
+void URenderer::UpdateConstant(FMatrix World, FMatrix View, FMatrix Projection, bool bIsOutline, bool bIsTextured)
 {
     if (mConstantBuffer == nullptr || mDeviceContext == nullptr)
     {
@@ -568,6 +659,7 @@ void URenderer::UpdateConstant(FMatrix World, FMatrix View, FMatrix Projection, 
     Constants->View = View;
     Constants->Projection = Projection;
     Constants->IsOutline = bIsOutline ? 1u : 0u;
+    Constants->IsTextured = bIsTextured ? 1u : 0u;
 
     mDeviceContext->Unmap(mConstantBuffer, 0);
 }
@@ -823,6 +915,7 @@ bool URenderer::IsReady() const
         mSimpleVertexShader != nullptr &&
         mSimplePixelShader != nullptr &&
         mSimpleInputLayout != nullptr &&
+        mTextureSamplerState != nullptr &&
         mConstantBuffer != nullptr &&
         ViewportTexture != nullptr &&
         ViewportRTV != nullptr &&

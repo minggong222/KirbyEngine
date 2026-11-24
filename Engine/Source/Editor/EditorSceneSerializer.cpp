@@ -16,6 +16,9 @@
 #include "Resources/AssetManager.h"
 #include "Resources/PrimitiveMeshAssets.h"
 #include "Resources/StaticMesh.h"
+#include "Resources/Material.h"
+#include "Resources/Texture2D.h"
+#include "TextureAssetImporter.h"
 
 #include "UObject/Object.h"
 #include "UObject/Class.h"
@@ -48,6 +51,7 @@ namespace
         uint32 UUID = 0;
         FTransform Transform;
         UStaticMesh* StaticMesh = nullptr;
+        UMaterial* Material = nullptr;
         TSharedPtr<FJsonObject> CameraSettings;
         bool bIsCamera = false;
     };
@@ -405,42 +409,35 @@ namespace
 
             if (!bIsCamera)
             {
-                if (Version == 1)
+                FString AssetPath;
+
+                if (!ObjectData->TryGetStringField("AssetPath", AssetPath))
                 {
-                    FString Type;
-
-                    if (!ObjectData->TryGetStringField("Type", Type))
-                    {
-                        return false;
-                    }
-
-                    if (Type == "Cube")
-                    {
-                        Record.StaticMesh = AssetManager.Find<UStaticMesh>(BuiltinAssetPaths::Cube);
-                    }
-                    else if (Type == "Sphere")
-                    {
-                        Record.StaticMesh = AssetManager.Find<UStaticMesh>(BuiltinAssetPaths::Sphere);
-                    }
-                    else if (Type == "Plane")
-                    {
-                        Record.StaticMesh = AssetManager.Find<UStaticMesh>(BuiltinAssetPaths::Plane);
-                    }
-                    else
-                    {
-                        return false;
-                    }
+                    return false;
                 }
-                else if (Version == 2)
-                {
-                    FString AssetPath;
 
-                    if (!ObjectData->TryGetStringField("AssetPath", AssetPath))
+                Record.StaticMesh = OBJImporter::LoadOBJAsset(AssetPath, AssetManager, Renderer);
+
+                if (Record.StaticMesh == nullptr)
+                {
+                    return false;
+                }
+
+                if (ObjectData->HasField("TexturePath"))
+                {
+                    FString TexturePath;
+
+                    if (!ObjectData->TryGetStringField("TexturePath", TexturePath) || TexturePath.IsEmpty())
                     {
                         return false;
                     }
 
-                    Record.StaticMesh = OBJImporter::LoadOBJAsset(AssetPath, AssetManager, Renderer);
+                    Record.Material = TextureImporter::LoadTextureMaterial(TexturePath, AssetManager, Renderer);
+
+                    if (Record.Material == nullptr)
+                    {
+                        return false;
+                    }
                 }
 
                 if (Record.StaticMesh == nullptr)
@@ -491,7 +488,7 @@ bool FSceneSerializer::Save(const std::filesystem::path& FilePath, const FEditor
     TSharedPtr<FJsonObject> Primitives = MakeShared<FJsonObject>();
     TSharedPtr<FJsonObject> Cameras = MakeShared<FJsonObject>();
 
-    Root->SetNumberField("Version", 2);
+    Root->SetNumberField("Version", 1);
     Root->SetNumberField("NextUUID", FEngineStatics::NextUUID);
 
     for (UObject* Object : Context.Objects)
@@ -522,6 +519,21 @@ bool FSceneSerializer::Save(const std::filesystem::path& FilePath, const FEditor
             FJsonObject PrimitiveData;
             WriteTransform(PrimitiveData, Component->GetWorldTransform());
             PrimitiveData.SetStringField("AssetPath", AssetPath);
+
+            UMaterial* Material = Component->GetMaterial();
+
+            if (Material != nullptr && Material->GetBaseColorTexture() != nullptr)
+            {
+                const FString& TexturePath = Material->GetBaseColorTexture()->GetAssetPath();
+
+                if (TexturePath.IsEmpty())
+                {
+                    UE_LOG(Error, "Scene Save failed: Texture AssetPath is empty");
+                    return false;
+                }
+
+                PrimitiveData.SetStringField("TexturePath", TexturePath);
+            }
 
             Primitives->SetObjectField(std::to_string(Object->GetUUID()).c_str(), std::move(PrimitiveData));
         }
@@ -675,7 +687,7 @@ bool FSceneSerializer::Load(const std::filesystem::path& FilePath, FEditorObject
     double Version = 0.0;
     double NextUUIDNumber = 0.0;
 
-    if (!Root->TryGetNumberField("Version", Version) || (Version != 1.0 && Version != 2.0) || !Root->TryGetNumberField("NextUUID", NextUUIDNumber))
+    if (!Root->TryGetNumberField("Version", Version) || Version != 1.0 || !Root->TryGetNumberField("NextUUID", NextUUIDNumber))
     {
         UE_LOG(Error, "Scene Load failed: Invalid scene header");
         return false;
@@ -834,6 +846,7 @@ bool FSceneSerializer::Load(const std::filesystem::path& FilePath, FEditorObject
             if (Component != nullptr)
             {
                 Component->SetStaticMesh(Record.StaticMesh);
+                Component->SetMaterial(Record.Material);
                 Component->SetTransform(Record.Transform);
             }
 

@@ -37,15 +37,20 @@ namespace OBJImporter
         return Extension == ".obj";
     }
     
-    inline bool ResolveVertexIndex(std::string_view Token, int32 VertexCount, int32& OutIndex)
+    struct FOBJTexCoord
     {
-        const std::size_t SlashPosition = Token.find('/');
+        float U = 0.0f;
+        float V = 0.0f;
+    };
 
-        if (SlashPosition != std::string_view::npos)
-        {
-            Token = Token.substr(0, SlashPosition);
-        }
+    struct FOBJFaceVertex
+    {
+        int32 PositionIndex = INDEX_NONE;
+        int32 TexCoordIndex = INDEX_NONE;
+    };
 
+    inline bool ResolveOBJIndex(std::string_view Token, int32 ElementCount, int32& OutIndex)
+    {
         if (Token.empty())
         {
             return false;
@@ -60,11 +65,44 @@ namespace OBJImporter
             return false;
         }
 
-        OutIndex = RawIndex > 0 ? RawIndex - 1 : VertexCount + RawIndex;
+        OutIndex = RawIndex > 0 ? RawIndex - 1 : ElementCount + RawIndex;
 
-        return OutIndex >= 0 && OutIndex < VertexCount;
+        return OutIndex >= 0 && OutIndex < ElementCount;
     }
 
+    inline bool ResolveOBJFaceVertex(std::string_view Token, int32 PositionCount, int32 TexCoordCount, FOBJFaceVertex& OutVertex)
+    {
+        const std::size_t FirstSlash = Token.find('/');
+
+        const std::string_view PositionToken = FirstSlash == std::string_view::npos ? Token : Token.substr(0, FirstSlash);
+
+        if (!ResolveOBJIndex(PositionToken, PositionCount, OutVertex.PositionIndex))
+        {
+            return false;
+        }
+
+        OutVertex.TexCoordIndex = INDEX_NONE;
+
+        if (FirstSlash == std::string_view::npos)
+        {
+            return true;
+        }
+
+        const std::size_t SecondSlash = Token.find('/', FirstSlash + 1);
+
+        const std::size_t TexCoordStart = FirstSlash + 1;
+        const std::size_t TexCoordLength = SecondSlash == std::string_view::npos ? Token.size() - TexCoordStart : SecondSlash - TexCoordStart;
+
+        const std::string_view TexCoordToken = Token.substr(TexCoordStart, TexCoordLength);
+
+        if (TexCoordToken.empty())
+        {
+            return true;
+        }
+
+        return ResolveOBJIndex(TexCoordToken, TexCoordCount, OutVertex.TexCoordIndex);
+    }
+    
     inline bool ParseOBJ(const std::filesystem::path& FilePath, FStaticMeshBuildData& OutMeshData)
     {
         OutMeshData.Vertices.Reset();
@@ -86,7 +124,9 @@ namespace OBJImporter
         }
 
         std::vector<FVector> Positions;
-        TMap<int32, uint32> PositionToVertexIndex;
+        std::vector<FOBJTexCoord> TexCoords;
+
+        TMap<uint64, uint32> VertexMap;
 
         FStaticMeshBuildData ParsedData;
 
@@ -113,17 +153,38 @@ namespace OBJImporter
                 float Y = 0.0f;
                 float Z = 0.0f;
 
-                if (!(LineStream >> X >> Y >> Z))
-                {
-                    return false;
-                }
-
-                if (!std::isfinite(X) || !std::isfinite(Y) || !std::isfinite(Z))
+                if (!(LineStream >> X >> Y >> Z) || !std::isfinite(X) || !std::isfinite(Y) || !std::isfinite(Z))
                 {
                     return false;
                 }
 
                 Positions.emplace_back(X, Y, Z);
+            }
+            else if (Command == "vt")
+            {
+                if (TexCoords.size() >= MaxOBJPositionCount)
+                {
+                    return false;
+                }
+
+                FOBJTexCoord TexCoord;
+
+                if (!(LineStream >> TexCoord.U))
+                {
+                    return false;
+                }
+
+                if (!(LineStream >> TexCoord.V))
+                {
+                    TexCoord.V = 0.0f;
+                }
+
+                if (!std::isfinite(TexCoord.U) || !std::isfinite(TexCoord.V))
+                {
+                    return false;
+                }
+
+                TexCoords.push_back(TexCoord);
             }
             else if (Command == "f")
             {
@@ -142,14 +203,17 @@ namespace OBJImporter
                         return false;
                     }
 
-                    int32 PositionIndex = INDEX_NONE;
+                    FOBJFaceVertex FaceVertex;
 
-                    if (!ResolveVertexIndex(Token, static_cast<int32>(Positions.size()), PositionIndex))
+                    if (!ResolveOBJFaceVertex(Token, static_cast<int32>(Positions.size()), static_cast<int32>(TexCoords.size()), FaceVertex))
                     {
                         return false;
                     }
 
-                    uint32* ExistingVertexIndex = PositionToVertexIndex.Find(PositionIndex);
+                    const uint32 TexCoordKey = FaceVertex.TexCoordIndex == INDEX_NONE ? 0u : static_cast<uint32>(FaceVertex.TexCoordIndex) + 1u;
+                    const uint64 VertexKey = (static_cast<uint64>(static_cast<uint32>(FaceVertex.PositionIndex)) << 32) | TexCoordKey;
+
+                    uint32* ExistingVertexIndex = VertexMap.Find(VertexKey);
 
                     if (ExistingVertexIndex != nullptr)
                     {
@@ -157,11 +221,22 @@ namespace OBJImporter
                     }
                     else
                     {
-                        const FVector& Position = Positions[PositionIndex];
+                        if (ParsedData.Vertices.Num() >= MaxOBJOutputIndexCount)
+                        {
+                            return false;
+                        }
 
-                        const uint32 NewVertexIndex = static_cast<uint32>(ParsedData.Vertices.Add({Position.x, Position.y, Position.z, 1.0f, 1.0f, 1.0f, 1.0f}));
+                        const FVector& Position = Positions[FaceVertex.PositionIndex];
 
-                        PositionToVertexIndex.Add(PositionIndex, NewVertexIndex);
+                        const FOBJTexCoord TexCoord = FaceVertex.TexCoordIndex != INDEX_NONE ? TexCoords[FaceVertex.TexCoordIndex] : FOBJTexCoord{};
+
+                        const uint32 NewVertexIndex = static_cast<uint32>(ParsedData.Vertices.Add({
+                            Position.x, Position.y, Position.z,
+                            1.0f, 1.0f, 1.0f, 1.0f,
+                            TexCoord.U, 1.0f - TexCoord.V
+                        }));
+
+                        VertexMap.Add(VertexKey, NewVertexIndex);
                         FaceIndices.push_back(NewVertexIndex);
                     }
                 }

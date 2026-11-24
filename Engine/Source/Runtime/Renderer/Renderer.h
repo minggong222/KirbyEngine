@@ -4,6 +4,7 @@
 #include "Core/STL.h"
 #include "Core/Math/Math.h"
 
+struct FTexture2DResource;
 struct FConstants
 {
     FMatrix World;
@@ -11,7 +12,8 @@ struct FConstants
     FMatrix Projection;
 
     uint32 IsOutline = 0;
-    float Padding[3] = {};
+    uint32 IsTextured = 0;
+    float Padding[2] = {};
 };
 
 class URenderer
@@ -32,7 +34,7 @@ public:
 
     void Prepare();
     void PrepareShader();
-    void RenderPrimitive(ID3D11Buffer* VertexBuffer, ID3D11Buffer* IndexBuffer, UINT IndexCount, bool bRenderOutline = false);
+    void RenderPrimitive(ID3D11Buffer* VertexBuffer, ID3D11Buffer* IndexBuffer, UINT IndexCount, bool bRenderOutline = false, ID3D11ShaderResourceView* TextureSRV = nullptr);
 
     ID3D11Buffer* CreateVertexBuffer(FVertexSimple* vertices, UINT byteWidth);
     void ReleaseVertexBuffer(ID3D11Buffer* VertexBuffer);
@@ -40,9 +42,11 @@ public:
     ID3D11Buffer* CreateIndexBuffer(const uint32* Indices, UINT IndexCount);
     void ReleaseIndexBuffer(ID3D11Buffer* IndexBuffer);
 
+    bool CreateTexture2D(const uint8* Pixels, uint32 Width, uint32 Height, FTexture2DResource& OutResource);
+    
     void CreateConstantBuffer();
     void ReleaseConstantBuffer();
-    void UpdateConstant(FMatrix World, FMatrix View, FMatrix Projection, bool bIsOutline);
+    void UpdateConstant(FMatrix World, FMatrix View, FMatrix Projection, bool bIsOutline, bool bIsTextured = false);
 
     ID3D11Device* GetDevice();
     ID3D11DeviceContext* GetDeviceContext();
@@ -82,6 +86,7 @@ private:
     ID3D11VertexShader* mSimpleVertexShader = nullptr;
     ID3D11PixelShader* mSimplePixelShader = nullptr;
     ID3D11InputLayout* mSimpleInputLayout = nullptr;
+    ID3D11SamplerState* mTextureSamplerState = nullptr;
     unsigned int mStride = 0;
     bool bInitializationFailed = false;
     

@@ -255,8 +255,10 @@
     <ClCompile Include="Engine\Source\Runtime\Renderer\Renderer.cpp" />
     <ClCompile Include="Engine\Source\Runtime\Resources\Asset.cpp" />
     <ClCompile Include="Engine\Source\Runtime\Resources\AssetManager.cpp" />
+    <ClCompile Include="Engine\Source\Runtime\Resources\Material.cpp" />
     <ClCompile Include="Engine\Source\Runtime\Resources\PrimitiveMeshAssets.cpp" />
     <ClCompile Include="Engine\Source\Runtime\Resources\StaticMesh.cpp" />
+    <ClCompile Include="Engine\Source\Runtime\Resources\Texture2D.cpp" />
     <ClCompile Include="Engine\Source\Runtime\UObject\Class.cpp" />
     <ClCompile Include="Engine\Source\Runtime\UObject\Object.cpp" />
     <ClCompile Include="Engine\Source\Runtime\Windows\WindowsWindow.cpp" />
@@ -298,6 +300,7 @@
     <ClInclude Include="Engine\Source\Editor\EditorTransformGizmo.h" />
     <ClInclude Include="Engine\Source\Editor\EditorUndoManager.h" />
     <ClInclude Include="Engine\Source\Editor\OBJStaticMeshImporter.h" />
+    <ClInclude Include="Engine\Source\Editor\TextureAssetImporter.h" />
     <ClInclude Include="Engine\Source\Editor\UI\ImGuiRenderer.h" />
     <ClInclude Include="Engine\Source\Editor\UI\PanelManager.h" />
     <ClInclude Include="Engine\Source\Editor\UI\Panels\ConsolePanel.h" />
@@ -339,6 +342,9 @@
     <ClInclude Include="Engine\Source\Runtime\Resources\PrimitiveMeshAssets.h" />
     <ClInclude Include="Engine\Source\Runtime\Resources\StaticMesh.h" />
     <ClInclude Include="Engine\Source\Runtime\Resources\StaticMeshData.h" />
+    <ClInclude Include="Engine\Source\Runtime\Resources\Material.h" />
+    <ClInclude Include="Engine\Source\Runtime\Resources\Texture2D.h" />
+    <ClInclude Include="Engine\Source\Runtime\Resources\TextureResource.h" />
     <ClInclude Include="Engine\Source\Runtime\UObject\Class.h" />
     <ClInclude Include="Engine\Source\Runtime\UObject\Object.h" />
     <ClInclude Include="Engine\Source\Runtime\UObject\ObjectMacros.h" />

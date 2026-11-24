@@ -8,6 +8,8 @@
 #include "Components/StaticMeshComponent.h"
 #include "Components/CameraComponent.h"
 #include "Resources/AssetManager.h"
+#include "TextureAssetImporter.h"
+#include "Resources/Material.h"
 
 #include "UObject/Class.h"
 #include "ViewportPanel.h"
@@ -162,6 +164,7 @@ namespace
             }
 
             NewComponent->SetStaticMesh(SourceComponent->GetStaticMesh());
+            NewComponent->SetMaterial(SourceComponent->GetMaterial());
 
             FTransform NewTransform = SourceComponent->GetWorldTransform();
             NewTransform.Location.y += 1.5f;
@@ -230,6 +233,28 @@ namespace
 
         return OBJImporter::ImportExternalOBJ(std::filesystem::path(FileName), AssetManager, Renderer);
     }
+    
+    UMaterial* SelectAndImportTexture(FAssetManager& AssetManager, URenderer& Renderer)
+    {
+        wchar_t FileName[32768] = {};
+
+        static constexpr wchar_t Filter[] = L"Image Files (*.png;*.jpg;*.jpeg;*.bmp;*.tif;*.tiff;*.gif)\0*.png;*.jpg;*.jpeg;*.bmp;*.tif;*.tiff;*.gif\0All Files (*.*)\0*.*\0";
+
+        OPENFILENAMEW Dialog = {};
+        Dialog.lStructSize = sizeof(Dialog);
+        Dialog.lpstrFilter = Filter;
+        Dialog.lpstrFile = FileName;
+        Dialog.nMaxFile = static_cast<DWORD>(std::size(FileName));
+        Dialog.lpstrTitle = L"Import Texture";
+        Dialog.Flags = OFN_EXPLORER | OFN_FILEMUSTEXIST | OFN_PATHMUSTEXIST | OFN_NOCHANGEDIR;
+
+        if (!GetOpenFileNameW(&Dialog))
+        {
+            return nullptr;
+        }
+
+        return TextureImporter::ImportExternalTexture(std::filesystem::path(FileName), AssetManager, Renderer);
+    }
 }
 
 bool FObjectListPanel::Init()
@@ -296,6 +321,30 @@ void FObjectListPanel::OnRender()
         UStaticMesh* ImportedMesh = SelectAndImportOBJ(*AssetManager, *Renderer);
         SpawnStaticMeshObject(*Context, ImportedMesh);
     }
+    
+    UStaticMeshComponent* SelectedMeshComponent = Cast<UStaticMeshComponent>(Context->SelectedObject);
+
+    ImGui::SameLine();
+
+    ImGui::BeginDisabled(SelectedMeshComponent == nullptr || Renderer == nullptr);
+
+    if (ImGui::Button("Import Texture"))
+    {
+        UMaterial* ImportedMaterial = SelectAndImportTexture(*AssetManager, *Renderer);
+
+        if (ImportedMaterial != nullptr)
+        {
+            UMaterial* PreviousMaterial = SelectedMeshComponent->GetMaterial();
+            SelectedMeshComponent->SetMaterial(ImportedMaterial);
+
+            if (Context->UndoManager != nullptr)
+            {
+                Context->UndoManager->RecordMaterialChange(*Context, SelectedMeshComponent, PreviousMaterial, ImportedMaterial);
+            }
+        }
+    }
+
+    ImGui::EndDisabled();
     
     if (ImGui::Button("Copy Selected"))
     {
