@@ -89,8 +89,6 @@ private:
         FPropertyValue BeforePropertyValue;
         FPropertyValue AfterPropertyValue;
 
-        int32 ObjectIndex = INDEX_NONE;
-
         bool bBeforePresent = true;
         bool bAfterPresent = true;
 
@@ -163,14 +161,25 @@ public:
             Context.TransformGizmo->CancelDrag();
         }
 
-        const uint32 PreviousSelectedUUID = Context.SelectedObject != nullptr ? Context.SelectedObject->GetUUID() : 0;
+        const uint32 PreviousSelectedUUID = GetSelectedUUID(Context);
 
         FObjectSnapshot PasteSnapshot = *ClipboardSnapshot;
 
         ++ClipboardPasteCount;
         PasteSnapshot.Transform.Location.y += 1.5f * static_cast<float>(ClipboardPasteCount);
 
-        UObject* NewObjectInstance = RestoreObject(PasteSnapshot, false);
+        AActor* NewActor = RestoreObject(Context, PasteSnapshot, false);
+
+        if (NewActor == nullptr)
+        {
+            --ClipboardPasteCount;
+            return nullptr;
+        }
+
+        Context.SelectActor(NewActor);
+        RecordCreate(Context, NewActor, PreviousSelectedUUID);
+
+        return NewActor;
 
         if (NewObjectInstance == nullptr)
         {
@@ -239,25 +248,26 @@ public:
     void RecordCreate(const FEditorObjectContext& Context, AActor* Actor, uint32 PreviousSelectedUUID)
     {
         CommitPendingPropertyEdit(Context);
+
         FHistoryEntry Entry;
 
-        if (Object == nullptr || !CaptureObject(Object, Entry.Object))
+        if (Actor == nullptr || !CaptureObject(Actor, Entry.Object))
         {
             return;
         }
-        Entry.ObjectIndex = Context.Objects.Find(Object);
+
         Entry.Type = EHistoryType::ObjectPresence;
         Entry.bBeforePresent = false;
         Entry.bAfterPresent = true;
         Entry.BeforeSelectedUUID = PreviousSelectedUUID;
-        Entry.AfterSelectedUUID = Object->GetUUID();
+        Entry.AfterSelectedUUID = Actor->GetUUID();
 
         PushEntry(std::move(Entry));
     }
 
     void RecordDelete(const FEditorObjectContext& Context, AActor* Actor)
     {
-        if (Object == nullptr)
+        if (Actor == nullptr)
         {
             return;
         }
@@ -266,22 +276,15 @@ public:
 
         FHistoryEntry Entry;
 
-        if (!CaptureObject(Object, Entry.Object))
+        if (!CaptureObject(Actor, Entry.Object))
         {
             return;
         }
 
-        Entry.ObjectIndex = Context.Objects.Find(Object);
-
-        if (Entry.ObjectIndex == INDEX_NONE)
-        {
-            return;
-        }
-        CommitPendingPropertyEdit(Context);
         Entry.Type = EHistoryType::ObjectPresence;
         Entry.bBeforePresent = true;
         Entry.bAfterPresent = false;
-        Entry.BeforeSelectedUUID = Object->GetUUID();
+        Entry.BeforeSelectedUUID = GetSelectedUUID(Context);
         Entry.AfterSelectedUUID = 0;
 
         PushEntry(std::move(Entry));
@@ -310,7 +313,7 @@ public:
     {
         CommitPendingPropertyEdit(Context);
 
-        if (Component == nullptr || Before == After || !Context.Objects.Contains(Component))
+        if (Component == nullptr || Before == After || !IsComponentInWorld(Context, Component))
         {
             return;
         }
@@ -330,7 +333,7 @@ public:
     {
         CommitPendingPropertyEdit(Context);
 
-        if (Component == nullptr || Before == After || !Context.Objects.Contains(Component))
+        if (Component == nullptr || Before == After || !IsComponentInWorld(Context, Component))
         {
             return;
         }
@@ -607,34 +610,65 @@ private:
     {
         return Cast<AActor>(FindObject(Context, UUID));
     }
+    
+    static bool IsComponentInWorld(const FEditorObjectContext& Context, const UActorComponent* Component)
+    {
+        if (Context.World == nullptr || Component == nullptr || Component->GetOwner() == nullptr)
+        {
+            return false;
+        }
+
+        ULevel* Level = Context.World->GetPersistentLevel();
+
+        return Level != nullptr && Level->GetActors().Contains(Component->GetOwner());
+    }
 
     static uint32 GetSelectedUUID(const FEditorObjectContext& Context)
     {
-        return Context.SelectedObject != nullptr ? Context.SelectedObject->GetUUID() : 0;
+        UObject* SelectedObject = Context.GetSelectedObject();
+        return SelectedObject != nullptr ? SelectedObject->GetUUID() : 0;
     }
 
-    static bool CaptureObject(UObject* Object, FObjectSnapshot& OutSnapshot)
+    static bool CaptureObject(AActor* Actor, FObjectSnapshot& OutSnapshot)
     {
-        OutSnapshot.UUID = Object->GetUUID();
-
-        if (UStaticMeshComponent* Component = Cast<UStaticMeshComponent>(Object))
+        if (Actor == nullptr)
         {
-            if (Component->GetStaticMesh() == nullptr)
+            return false;
+        }
+
+        OutSnapshot.UUID = Actor->GetUUID();
+        OutSnapshot.Name = Actor->GetFName();
+        OutSnapshot.Transform = Actor->GetActorTransform();
+
+        USceneComponent* RootComponent = Actor->GetRootComponent();
+        OutSnapshot.RootComponentUUID = RootComponent != nullptr ? RootComponent->GetUUID() : 0;
+
+        if (AStaticMeshActor* StaticMeshActor = Cast<AStaticMeshActor>(Actor))
+        {
+            UStaticMeshComponent* Component = StaticMeshActor->GetStaticMeshComponent();
+
+            if (Component == nullptr || Component->GetStaticMesh() == nullptr)
             {
                 return false;
             }
 
-            OutSnapshot.Type = EObjectType::StaticMesh;
+            OutSnapshot.Type = EObjectType::StaticMeshActor;
             OutSnapshot.StaticMesh = Component->GetStaticMesh();
             OutSnapshot.Material = Component->GetMaterial();
-            OutSnapshot.Transform = Component->GetWorldTransform();
+
             return true;
         }
 
-        if (UCameraComponent* Camera = Cast<UCameraComponent>(Object))
+        if (ACameraActor* CameraActor = Cast<ACameraActor>(Actor))
         {
-            OutSnapshot.Type = EObjectType::Camera;
-            OutSnapshot.Transform = Camera->GetWorldTransform();
+            UCameraComponent* Camera = CameraActor->GetCameraComponent();
+
+            if (Camera == nullptr)
+            {
+                return false;
+            }
+
+            OutSnapshot.Type = EObjectType::CameraActor;
 
             TArray<const FProperty*> Properties;
             Camera->GetClass()->GetProperties(Properties, true);
@@ -782,9 +816,18 @@ private:
         {
             Actor->SetUUID(Snapshot.UUID);
 
-            if (Snapshot.UUID < (std::numeric_limits<uint32>::max)() && FEngineStatics::NextUUID <= Snapshot.UUID)
+            USceneComponent* RootComponent = Actor->GetRootComponent();
+
+            if (RootComponent != nullptr && Snapshot.RootComponentUUID != 0)
             {
-                FEngineStatics::NextUUID = Snapshot.UUID + 1;
+                RootComponent->SetUUID(Snapshot.RootComponentUUID);
+            }
+
+            const uint32 MaxUUID = (std::max)(Snapshot.UUID, Snapshot.RootComponentUUID);
+
+            if (MaxUUID < (std::numeric_limits<uint32>::max)() && FEngineStatics::NextUUID <= MaxUUID)
+            {
+                FEngineStatics::NextUUID = MaxUUID + 1;
             }
         }
 
@@ -793,29 +836,19 @@ private:
 
     static bool RemoveObject(FEditorObjectContext& Context, uint32 UUID)
     {
-        UObject* Object = FindObject(Context, UUID);
+        AActor* Actor = FindActor(Context, UUID);
 
-        if (Object == nullptr)
+        if (Actor == nullptr)
         {
             return true;
         }
 
-        const int32 ObjectIndex = Context.Objects.Find(Object);
-
-        if (ObjectIndex == INDEX_NONE)
+        if (Context.SelectedActor == Actor)
         {
-            return false;
+            Context.ClearSelection();
         }
 
-        if (Context.SelectedObject == Object)
-        {
-            Context.SelectedObject = nullptr;
-        }
-
-        Context.Objects.RemoveAt(ObjectIndex);
-        delete Object;
-
-        return true;
+        return Context.World != nullptr && Context.World->DestroyActor(Actor);
     }
 
     static bool ApplyEntry(FEditorObjectContext& Context, const FHistoryEntry& Entry, bool bUndo)
@@ -892,14 +925,12 @@ private:
 
             if (bShouldExist && ExistingObject == nullptr)
             {
-                UObject* RestoredObject = RestoreObject(Entry.Object);
+                AActor* RestoredActor = RestoreObject(Context, Entry.Object);
 
-                if (RestoredObject == nullptr)
+                if (RestoredActor == nullptr)
                 {
                     return false;
                 }
-
-                int32 InsertIndex = Entry.ObjectIndex;
 
                 if (InsertIndex == INDEX_NONE)
                 {
@@ -920,7 +951,20 @@ private:
         }
 
         const uint32 SelectedUUID = bUndo ? Entry.BeforeSelectedUUID : Entry.AfterSelectedUUID;
-        Context.SelectedObject = FindObject(Context, SelectedUUID);
+        UObject* SelectedObject = FindObject(Context, SelectedUUID);
+
+        if (AActor* Actor = Cast<AActor>(SelectedObject))
+        {
+            Context.SelectActor(Actor);
+        }
+        else if (UActorComponent* Component = Cast<UActorComponent>(SelectedObject))
+        {
+            Context.SelectComponent(Component);
+        }
+        else
+        {
+            Context.ClearSelection();
+        }
 
         return true;
     }

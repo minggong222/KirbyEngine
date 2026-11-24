@@ -1,4 +1,5 @@
 ﻿#include "PanelManager.h"
+#include <cstring>
 
 void FPanelManager::Init()
 {
@@ -40,4 +41,32 @@ bool FPanelManager::AddPanel(IEditorPanel* Panel)
 
     Panels.Add(Panel);
     return true;
+}
+
+IEditorPanel* FPanelManager::FindPanel(const char* PanelName) const
+{
+    if (PanelName == nullptr)
+    {
+        return nullptr;
+    }
+
+    for (IEditorPanel* Panel : Panels)
+    {
+        if (Panel != nullptr && std::strcmp(Panel->GetPanelName(), PanelName) == 0)
+        {
+            return Panel;
+        }
+    }
+
+    return nullptr;
+}
+
+void FPanelManager::SetPanelOpen(const char* PanelName, bool bOpen)
+{
+    IEditorPanel* Panel = FindPanel(PanelName);
+
+    if (Panel != nullptr)
+    {
+        Panel->SetOpen(bOpen);
+    }
 }

@@ -226,87 +226,35 @@ void FEditorEngine::Run()
             Renderer->BeginViewportRender();
             Renderer->PrepareShader();
             
-            if (EditorSettings.ShowFlags.StaticMeshes)
-            {
-                for (UObject* Object : ObjectContext.Objects)
-                {
-                    if (Object == nullptr)
-                    {
-                        continue;
-                    }
-                
-                    UStaticMeshComponent* Component = Cast<UStaticMeshComponent>(Object);
-                
-                    if (Component == nullptr)
-                    {
-                        continue;
-                    }
-                
-                    const UStaticMesh* Mesh  = Component->GetStaticMesh();
-                
-                    if (Mesh  == nullptr)
-                    {
-                        continue;
-                    }
-                
-                    const FStaticMeshRenderData& RenderData = Mesh->GetRenderData();
-                
-                    if (RenderData.VertexBuffer == nullptr || RenderData.IndexBuffer == nullptr || RenderData.IndexCount == 0)
-                    {
-                        continue;
-                    }
-
-                    const FMatrix World = Component->GetWorldMatrix();
-
-                    UMaterial* Material = Component->GetMaterial();
-                    UTexture2D* Texture = Material != nullptr ? Material->GetBaseColorTexture() : nullptr;
-
-                    ID3D11ShaderResourceView* TextureSRV = Texture != nullptr && Texture->IsValid() ? Texture->GetResource().ShaderResourceView : nullptr;
-
-                    Renderer->UpdateConstant(World, View, Projection, false, TextureSRV != nullptr);
-                    Renderer->RenderPrimitive(RenderData.VertexBuffer, RenderData.IndexBuffer, RenderData.IndexCount, false, TextureSRV);
-                }
+            WorldRenderer.Render(ObjectContext.World, *Renderer, View, Projection, ObjectContext.GetSelectedObject(), EditorSettings.ShowFlags);
             
-                UStaticMeshComponent* SelectedComponent = Cast<UStaticMeshComponent>(ObjectContext.SelectedObject);
+            ULevel* Level = ObjectContext.World != nullptr ? ObjectContext.World->GetPersistentLevel() : nullptr;
 
-                if (SelectedComponent != nullptr)
+            if (EditorSettings.ShowFlags.Bounds && Level != nullptr)
+            {
+                for (AActor* Actor : Level->GetActors())
                 {
-                    const UStaticMesh* SelectedMesh = SelectedComponent->GetStaticMesh();
-
-                    if (SelectedMesh != nullptr)
+                    if (Actor == nullptr)
                     {
-                        const FStaticMeshRenderData& SelectedRenderData = SelectedMesh->GetRenderData();
+                        continue;
+                    }
 
-                        if (SelectedRenderData.VertexBuffer != nullptr && SelectedRenderData.IndexBuffer != nullptr && SelectedRenderData.IndexCount > 0)
+                    for (UActorComponent* ActorComponent : Actor->GetComponents())
+                    {
+                        UStaticMeshComponent* Component = Cast<UStaticMeshComponent>(ActorComponent);
+
+                        if (Component == nullptr)
                         {
-                            const FMatrix OutlineScale = FMatrix::CreateScale(FVector(1.03f, 1.03f, 1.03f));
-                            const FMatrix OutlineWorld = OutlineScale * SelectedComponent->GetWorldMatrix();
-
-                            Renderer->UpdateConstant(OutlineWorld, View, Projection, true);
-                            Renderer->RenderPrimitive(SelectedRenderData.VertexBuffer, SelectedRenderData.IndexBuffer, SelectedRenderData.IndexCount, true);
+                            continue;
                         }
+
+                        const FBox Bounds = Component->CalcBounds();
+
+                        const bool bSelected = ObjectContext.SelectedActor == Actor || ObjectContext.SelectedComponent == Component;
+                        const FVector4 Color = bSelected ? FVector4(1.0f, 0.75f, 0.1f, 1.0f) : FVector4(0.1f, 0.85f, 1.0f, 0.8f);
+
+                        LineRenderer.AddBox(Bounds, Color);
                     }
-                }
-            }
-            
-            if (EditorSettings.ShowFlags.Bounds)
-            {
-                for (UObject* Object : ObjectContext.Objects)
-                {
-                    UStaticMeshComponent* Component = Cast<UStaticMeshComponent>(Object);
-
-                    if (Component == nullptr)
-                    {
-                        continue;
-                    }
-
-                    const FBox Bounds = Component->CalcBounds();
-
-                    const FVector4 Color = ObjectContext.SelectedObject == Object
-                        ? FVector4(1.0f, 0.75f, 0.1f, 1.0f)
-                        : FVector4(0.1f, 0.85f, 1.0f, 0.8f);
-
-                    LineRenderer.AddBox(Bounds, Color);
                 }
             }
             
@@ -325,48 +273,72 @@ void FEditorEngine::Run()
                 const FVector CameraRight = CameraTransform.GetRight();
                 const FVector CameraUp = CameraTransform.GetUp();
 
-                for (UObject* Object : ObjectContext.Objects)
+                if (EditorSettings.ShowFlags.ActorNames && Level != nullptr)
                 {
-                    UStaticMeshComponent* Component = Cast<UStaticMeshComponent>(Object);
+                    const FTransform CameraTransform = MainCamera->GetTransform();
 
-                    if (Component == nullptr)
+                    const FVector CameraPosition = CameraTransform.Location;
+                    const FVector CameraRight = CameraTransform.GetRight();
+                    const FVector CameraUp = CameraTransform.GetUp();
+
+                    for (AActor* Actor : Level->GetActors())
                     {
-                        continue;
+                        if (Actor == nullptr)
+                        {
+                            continue;
+                        }
+
+                        UStaticMeshComponent* Component = nullptr;
+
+                        for (UActorComponent* ActorComponent : Actor->GetComponents())
+                        {
+                            Component = Cast<UStaticMeshComponent>(ActorComponent);
+
+                            if (Component != nullptr)
+                            {
+                                break;
+                            }
+                        }
+
+                        if (Component == nullptr)
+                        {
+                            continue;
+                        }
+
+                        const FBox Bounds = Component->CalcBounds();
+
+                        if (!Bounds.IsValid())
+                        {
+                            continue;
+                        }
+
+                        const FVector& Min = Bounds.GetMin();
+                        const FVector& Max = Bounds.GetMax();
+
+                        const FVector LabelAnchor((Min.x + Max.x) * 0.5f, (Min.y + Max.y) * 0.5f, Max.z + 0.1f);
+
+                        FString Label = Actor->GetName();
+                        Label.Append("_");
+                        Label.Append(std::to_string(Actor->GetUUID()));
+
+                        const FVector2D TextSize = TextRenderer.MeasureText(Label);
+                        const float WorldUnitsPerPixel = FBillboardRenderer::GetWorldUnitsPerPixel(LabelAnchor, CameraPosition, Projection, Renderer->GetViewportHeight());
+
+                        if (TextSize.x <= 0.0f || WorldUnitsPerPixel <= 0.0f)
+                        {
+                            continue;
+                        }
+
+                        const FVector TextPosition = LabelAnchor - CameraRight * (TextSize.x * 0.5f * WorldUnitsPerPixel) + CameraUp * (2.0f * WorldUnitsPerPixel);
+                        const FVector BillboardCenter = TextPosition + CameraRight * (TextSize.x * 0.5f * WorldUnitsPerPixel) + CameraUp * (TextSize.y * 0.5f * WorldUnitsPerPixel);
+
+                        if (EditorSettings.ShowFlags.Billboards)
+                        {
+                            BillboardRenderer.DrawScreenAlignedQuad(*Renderer, BillboardCenter, CameraPosition, CameraRight, CameraUp, FVector2D(TextSize.x + 8.0f, TextSize.y + 6.0f), Renderer->GetViewportHeight(), FVector4(0.025f, 0.025f, 0.025f, 0.75f), View, Projection);
+                        }
+
+                        TextRenderer.AddText(Label, TextPosition, CameraRight, CameraUp, WorldUnitsPerPixel, FVector4(1.0f, 1.0f, 1.0f, 1.0f));
                     }
-
-                    const FBox Bounds = Component->CalcBounds();
-
-                    if (!Bounds.IsValid())
-                    {
-                        continue;
-                    }
-
-                    const FVector& Min = Bounds.GetMin();
-                    const FVector& Max = Bounds.GetMax();
-
-                    const FVector LabelAnchor((Min.x + Max.x) * 0.5f, (Min.y + Max.y) * 0.5f, Max.z + 0.1f);
-
-                    FString Label = Object->GetClass()->GetName();
-                    Label.Append("_");
-                    Label.Append(std::to_string(Object->GetUUID()));
-
-                    const FVector2D TextSize = TextRenderer.MeasureText(Label);
-                    const float WorldUnitsPerPixel = FBillboardRenderer::GetWorldUnitsPerPixel(LabelAnchor, CameraPosition, Projection, Renderer->GetViewportHeight());
-
-                    if (TextSize.x <= 0.0f || WorldUnitsPerPixel <= 0.0f)
-                    {
-                        continue;
-                    }
-
-                    const FVector TextPosition = LabelAnchor - CameraRight * (TextSize.x * 0.5f * WorldUnitsPerPixel) + CameraUp * (2.0f * WorldUnitsPerPixel);
-                    const FVector BillboardCenter = TextPosition + CameraRight * (TextSize.x * 0.5f * WorldUnitsPerPixel) + CameraUp * (TextSize.y * 0.5f * WorldUnitsPerPixel);
-
-                    if (EditorSettings.ShowFlags.Billboards)
-                    {
-                        BillboardRenderer.DrawScreenAlignedQuad(*Renderer, BillboardCenter, CameraPosition, CameraRight, CameraUp, FVector2D(TextSize.x + 8.0f, TextSize.y + 6.0f), Renderer->GetViewportHeight(), FVector4(0.025f, 0.025f, 0.025f, 0.75f), View, Projection);
-                    }
-
-                    TextRenderer.AddText(Label, TextPosition, CameraRight, CameraUp, WorldUnitsPerPixel, FVector4(1.0f, 1.0f, 1.0f, 1.0f));
                 }
             }
 
@@ -440,13 +412,14 @@ void FEditorEngine::Shutdown()
     MainMenuPanel = nullptr;
     StatsPanel = nullptr;
 
-    for (UObject* Object : ObjectContext.Objects)
-    {
-        delete Object;
-    }
+    UndoManager.Clear();
+    ObjectContext.ClearSelection();
 
-    ObjectContext.Objects.Reset();
-    ObjectContext.SelectedObject = nullptr;
+    if (ObjectContext.World != nullptr)
+    {
+        delete ObjectContext.World;
+        ObjectContext.World = nullptr;
+    }
 
     if (MainCamera != nullptr)
     {

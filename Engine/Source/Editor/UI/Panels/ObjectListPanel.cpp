@@ -17,7 +17,11 @@
 #include "UObject/Object.h"
 #include "EditorUndoManager.h"
 #include "OBJStaticMeshImporter.h"
-
+#include "Actors/Actor.h"
+#include "Actors/StaticMeshActor.h"
+#include "Actors/CameraActor.h"
+#include "World/World.h"
+#include "World/Level.h"
 #include <Windows.h>
 #include <commdlg.h>
 #include <filesystem>
@@ -26,54 +30,70 @@
 
 namespace
 {
-    void SpawnStaticMeshObject(FEditorObjectContext& Context, UStaticMesh* InMesh)
+    AStaticMeshActor* SpawnStaticMeshActor(FEditorObjectContext& Context, UStaticMesh* InMesh)
     {
-        if (InMesh == nullptr)
+        if (Context.World == nullptr || InMesh == nullptr)
         {
-            return;
+            return nullptr;
         }
 
-        const uint32 PreviousSelectedUUID = Context.SelectedObject != nullptr ? Context.SelectedObject->GetUUID() : 0;
-        UStaticMeshComponent* NewInstance = NewObject<UStaticMeshComponent>();
+        ULevel* Level = Context.World->GetPersistentLevel();
+        const uint32 PreviousSelectedUUID = Context.GetSelectedObject() != nullptr ? Context.GetSelectedObject()->GetUUID() : 0;
 
-        if (NewInstance == nullptr)
+        FTransform Transform;
+        Transform.Location.y = Level != nullptr ? static_cast<float>(Level->GetActors().Num()) * 1.5f : 0.0f;
+
+        AStaticMeshActor* NewActor = Context.World->SpawnActor<AStaticMeshActor>(FName("StaticMeshActor"), Transform);
+
+        if (NewActor == nullptr || NewActor->GetStaticMeshComponent() == nullptr)
         {
-            return;
+            if (NewActor != nullptr)
+            {
+                Context.World->DestroyActor(NewActor);
+            }
+
+            return nullptr;
         }
 
-        NewInstance->SetStaticMesh(InMesh);
-        FTransform Transform = NewInstance->GetTransform();
-        Transform.Location.y += static_cast<float>(Context.Objects.Num()) * 1.5f;
-        NewInstance->SetTransform(Transform);
-        Context.Objects.Add(NewInstance);
-        Context.SelectedObject = NewInstance;
+        NewActor->GetStaticMeshComponent()->SetStaticMesh(InMesh);
+        Context.SelectActor(NewActor);
 
         if (Context.UndoManager != nullptr)
         {
-            Context.UndoManager->RecordCreate(Context, NewInstance, PreviousSelectedUUID);
+            Context.UndoManager->RecordCreate(Context, NewActor, PreviousSelectedUUID);
         }
+
+        return NewActor;
     }
 
-    void SpawnCameraObject(FEditorObjectContext& Context)
+    ACameraActor* SpawnCameraActor(FEditorObjectContext& Context)
     {
-        const uint32 PreviousSelectedUUID = Context.SelectedObject != nullptr ? Context.SelectedObject->GetUUID() : 0;
-        UCameraComponent* NewInstance = NewObject<UCameraComponent>();
-
-        if (NewInstance == nullptr)
+        if (Context.World == nullptr)
         {
-            return;
+            return nullptr;
         }
 
-        FTransform Transform = NewInstance->GetTransform();
-        Transform.Location.y += static_cast<float>(Context.Objects.Num()) * 1.5f;
-        NewInstance->SetTransform(Transform);
-        Context.Objects.Add(NewInstance);
-        Context.SelectedObject = NewInstance;
-        
+        ULevel* Level = Context.World->GetPersistentLevel();
+        const uint32 PreviousSelectedUUID = Context.GetSelectedObject() != nullptr ? Context.GetSelectedObject()->GetUUID() : 0;
+
+        FTransform Transform;
+        Transform.Location.y = Level != nullptr ? static_cast<float>(Level->GetActors().Num()) * 1.5f : 0.0f;
+
+        ACameraActor* NewActor = Context.World->SpawnActor<ACameraActor>(FName("CameraActor"), Transform);
+
+        if (NewActor == nullptr)
+        {
+            return nullptr;
+        }
+
+        Context.SelectActor(NewActor);
+
         if (Context.UndoManager != nullptr)
         {
-            Context.UndoManager->RecordCreate(Context, NewInstance, PreviousSelectedUUID);
+            Context.UndoManager->RecordCreate(Context, NewActor, PreviousSelectedUUID);
         }
+
+        return NewActor;
     }
     
     bool CopyCameraProperties(const UCameraComponent& Source, UCameraComponent& Destination)
@@ -99,16 +119,9 @@ namespace
         return true;
     }
     
-    bool DeleteObject(FEditorObjectContext& Context, FViewportPanel* ViewportPanel, UObject* TargetObject)
+    bool DeleteActor(FEditorObjectContext& Context, FViewportPanel* ViewportPanel, AActor* TargetActor)
     {
-        if (TargetObject == nullptr)
-        {
-            return false;
-        }
-
-        const int32 ObjectIndex = Context.Objects.Find(TargetObject);
-
-        if (ObjectIndex == INDEX_NONE)
+        if (Context.World == nullptr || TargetActor == nullptr || TargetActor->GetLevel() != Context.World->GetPersistentLevel())
         {
             return false;
         }
@@ -117,99 +130,38 @@ namespace
         {
             ViewportPanel->CancelGizmoDrag();
         }
-        
+
         if (Context.UndoManager != nullptr)
         {
-            Context.UndoManager->RecordDelete(Context, TargetObject);
+            Context.UndoManager->RecordDelete(Context, TargetActor);
         }
 
-        if (Context.SelectedObject == TargetObject)
+        if (Context.SelectedActor == TargetActor)
         {
-            Context.SelectedObject = nullptr;
+            Context.ClearSelection();
         }
 
-
-        Context.Objects.RemoveAt(ObjectIndex);
-
-        delete TargetObject;
-
-        return true;
+        return Context.World->DestroyActor(TargetActor);
     }
     
-    UObject* DuplicateObject(FEditorObjectContext& Context, FViewportPanel* ViewportPanel)
+    AActor* DuplicateActor(FEditorObjectContext& Context, FViewportPanel* ViewportPanel)
     {
-        UObject* SourceObject = Context.SelectedObject;
-
-        if (SourceObject == nullptr)
+        if (Context.SelectedActor == nullptr || Context.UndoManager == nullptr)
         {
             return nullptr;
         }
-
-        const uint32 PreviousSelectedUUID = SourceObject->GetUUID();
 
         if (ViewportPanel != nullptr)
         {
             ViewportPanel->CancelGizmoDrag();
         }
-        
-        UObject* NewObjectInstance = nullptr;
 
-        if (UStaticMeshComponent* SourceComponent = Cast<UStaticMeshComponent>(SourceObject))
-        {
-            UStaticMeshComponent* NewComponent = NewObject<UStaticMeshComponent>();
-
-            if (NewComponent == nullptr)
-            {
-                return nullptr;
-            }
-
-            NewComponent->SetStaticMesh(SourceComponent->GetStaticMesh());
-            NewComponent->SetMaterial(SourceComponent->GetMaterial());
-
-            FTransform NewTransform = SourceComponent->GetWorldTransform();
-            NewTransform.Location.y += 1.5f;
-
-            NewComponent->SetTransform(NewTransform);
-            NewObjectInstance = NewComponent;
-        }
-        else if (UCameraComponent* SourceCamera = Cast<UCameraComponent>(SourceObject))
-        {
-            UCameraComponent* NewCamera = NewObject<UCameraComponent>();
-
-            if (NewCamera == nullptr)
-            {
-                return nullptr;
-            }
-
-            NewCamera->SetTransform(SourceCamera->GetWorldTransform());
-
-            if (!CopyCameraProperties(*SourceCamera, *NewCamera))
-            {
-                delete NewCamera;
-                return nullptr;
-            }
-
-            FTransform NewTransform = NewCamera->GetTransform();
-            NewTransform.Location.y += 1.5f;
-
-            NewCamera->SetTransform(NewTransform);
-            NewObjectInstance = NewCamera;
-        }
-
-        if (NewObjectInstance == nullptr)
+        if (!Context.UndoManager->CopySelected(Context))
         {
             return nullptr;
         }
 
-        Context.Objects.Add(NewObjectInstance);
-        Context.SelectedObject = NewObjectInstance;
-
-        if (Context.UndoManager != nullptr)
-        {
-            Context.UndoManager->RecordCreate(Context, NewObjectInstance, PreviousSelectedUUID);
-        }
-        
-        return NewObjectInstance;
+        return Cast<AActor>(Context.UndoManager->PasteCopied(Context));
     }
     
     UStaticMesh* SelectAndImportOBJ(FAssetManager& AssetManager, URenderer& Renderer)
@@ -399,53 +351,70 @@ void FObjectListPanel::OnRender()
 
     ImGui::Separator();
     
-    for (UObject* Object : Context->Objects)
+    ULevel* Level = Context->World != nullptr ? Context->World->GetPersistentLevel() : nullptr;
+
+    if (Level != nullptr)
     {
-        if (Object == nullptr)
+        for (AActor* Actor : Level->GetActors())
         {
-            continue;
-        }
-
-        UClass* ObjectClass = Object->GetClass();
-
-        if (ObjectClass == nullptr)
-        {
-            continue;
-        }
-
-        char ObjectLabel[128] = {};
-        std::snprintf(ObjectLabel, sizeof(ObjectLabel), "%s_%u", ObjectClass->GetName().c_str(), Object->GetUUID());
-
-        ImGui::PushID(Object);
-
-        if (ImGui::Selectable(ObjectLabel, Context->SelectedObject == Object))
-        {
-            Context->SelectedObject = Object;
-        }
-
-        if (ImGui::BeginPopupContextItem("ObjectContextMenu"))
-        {
-            Context->SelectedObject = Object;
-
-            if (ImGui::MenuItem("Copy", "Ctrl+C"))
+            if (Actor == nullptr)
             {
-                bPendingCopy = true;
+                continue;
             }
 
-            if (ImGui::MenuItem("Duplicate", "Ctrl+W"))
+            ImGui::PushID(Actor);
+
+            const FString ActorName = Actor->GetName();
+
+            if (ImGui::Selectable(ActorName.c_str(), Context->SelectedActor == Actor))
             {
-                bPendingDuplicate = true;
+                Context->SelectActor(Actor);
             }
 
-            if (ImGui::MenuItem("Delete", "Delete"))
+            if (ImGui::TreeNode("Components"))
             {
-                PendingDeleteObject = Object;
+                for (UActorComponent* Component : Actor->GetComponents())
+                {
+                    if (Component == nullptr)
+                    {
+                        continue;
+                    }
+
+                    const FString ComponentName = Component->GetName();
+
+                    if (ImGui::Selectable(ComponentName.c_str(), Context->SelectedComponent == Component))
+                    {
+                        Context->SelectComponent(Component);
+                    }
+                }
+
+                ImGui::TreePop();
             }
 
-            ImGui::EndPopup();
+            if (ImGui::BeginPopupContextItem("ActorContextMenu"))
+            {
+                Context->SelectActor(Actor);
+
+                if (ImGui::MenuItem("Copy", "Ctrl+C"))
+                {
+                    bPendingCopy = true;
+                }
+
+                if (ImGui::MenuItem("Duplicate", "Ctrl+W"))
+                {
+                    bPendingDuplicate = true;
+                }
+
+                if (ImGui::MenuItem("Delete", "Delete"))
+                {
+                    PendingDeleteActor = Actor;
+                }
+
+                ImGui::EndPopup();
+            }
+
+            ImGui::PopID();
         }
-
-        ImGui::PopID();
     }
 
     ImGui::End();

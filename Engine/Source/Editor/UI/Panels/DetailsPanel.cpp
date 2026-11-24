@@ -7,6 +7,9 @@
 #include "Resources/AssetManager.h"
 #include "Resources/StaticMesh.h"
 #include "Resources/Material.h"
+#include "Actors/Actor.h"
+#include "Components/SceneComponent.h"
+#include "Components/ActorComponent.h"
 
 #include <algorithm>
 
@@ -299,13 +302,26 @@ void FDetailsPanel::OnRender()
         ImGui::End();
         return;
     }
-    if (Context == nullptr || Context->SelectedObject == nullptr)
+    if (Context == nullptr || Context->SelectedActor == nullptr)
     {
-        ImGui::TextDisabled("No object selected.");
+        ImGui::TextDisabled("No Actor selected.");
         ImGui::End();
         return;
     }
-    UObject* SelectedObject = Context->SelectedObject;
+
+    AActor* SelectedActor = Context->SelectedActor;
+    UObject* SelectedObject = Context->SelectedComponent != nullptr ? Context->SelectedComponent : SelectedActor->GetRootComponent();
+
+    ImGui::Text("Actor: %s", SelectedActor->GetName().c_str());
+    ImGui::Text("Actor UUID: %u", SelectedActor->GetUUID());
+
+    if (SelectedObject == nullptr)
+    {
+        ImGui::TextDisabled("No Component selected.");
+        ImGui::End();
+        return;
+    }
+
     UClass* ObjectClass = SelectedObject->GetClass();
     if (ObjectClass == nullptr)
     {

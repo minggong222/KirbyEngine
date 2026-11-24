@@ -21,6 +21,7 @@ class FObjectListPanel;
 class FDetailsPanel;
 class FMainMenuPanel;
 class FStatsPanel;
+class FContentBrowserPanel;
 
 class FEditorEngine
 {
@@ -53,6 +54,7 @@ private:
     FViewportPanel* ViewportPanel = nullptr;
     FMainMenuPanel* MainMenuPanel = nullptr;
     FStatsPanel* StatsPanel = nullptr;
+    FContentBrowserPanel* ContentBrowserPanel = nullptr;
     
     UCameraComponent* MainCamera = nullptr;
     

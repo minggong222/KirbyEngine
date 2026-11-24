@@ -129,6 +129,38 @@ void FMainMenuPanel::OnRender()
 
             ImGui::EndMenu();
         }
+        
+        if (ImGui::BeginMenu("Window"))
+        {
+            const char* PanelNames[] =
+            {
+                "Viewport",
+                "World Outliner",
+                "Details",
+                "Content Browser",
+                "Console",
+                "Stats"
+            };
+
+            for (const char* PanelName : PanelNames)
+            {
+                IEditorPanel* Panel = PanelManager->FindPanel(PanelName);
+
+                if (Panel == nullptr)
+                {
+                    continue;
+                }
+
+                bool bOpen = Panel->IsOpen();
+
+                if (ImGui::MenuItem(PanelName, nullptr, &bOpen))
+                {
+                    Panel->SetOpen(bOpen);
+                }
+            }
+
+            ImGui::EndMenu();
+        }
 
         ImGui::EndMainMenuBar();
     }

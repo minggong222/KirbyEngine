@@ -4,12 +4,16 @@ class IEditorPanel
 {
 public:
     virtual ~IEditorPanel() = default;
+
+    virtual const char* GetPanelName() const { return ""; }
+
     virtual bool Init() = 0;
     virtual void Tick(float DeltaTime) = 0;
     virtual void OnRender() = 0;
 
     bool IsOpen() const { return bIsOpen; }
     virtual void SetOpen(bool bOpen) { bIsOpen = bOpen; }
+
 private:
-    bool bIsOpen = false;
+    bool bIsOpen = true;
 };

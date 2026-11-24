@@ -1,4 +1,8 @@
-﻿#include "Core/Math/MathUtility.h"
+﻿#include "Actors/CameraActor.h"
+#include "Actors/StaticMeshActor.h"
+#include "Core/Math/MathUtility.h"
+#include "World/Level.h"
+#include "World/World.h"
 #ifndef NOMINMAX
 #define NOMINMAX
 #endif
@@ -46,14 +50,26 @@ namespace
 {
     constexpr std::uintmax_t MaxSceneFileBytes = 64ull * 1024ull * 1024ull;
     
-    struct FSceneObjectRecord
+    enum class ESceneActorType
+    {
+        StaticMeshActor,
+        CameraActor
+    };
+
+    struct FSceneActorRecord
     {
         uint32 UUID = 0;
+        uint32 RootComponentUUID = 0;
+
+        FName Name;
+        ESceneActorType Type = ESceneActorType::StaticMeshActor;
+
         FTransform Transform;
+
         UStaticMesh* StaticMesh = nullptr;
         UMaterial* Material = nullptr;
+
         TSharedPtr<FJsonObject> CameraSettings;
-        bool bIsCamera = false;
     };
     
     struct FScopedNextUUIDRollback
@@ -361,9 +377,17 @@ namespace
     {
         for (UObject* ExistingObject : GUObjectArray)
         {
-            if (ExistingObject == nullptr || Context.Objects.Contains(ExistingObject))
+            if (ExistingObject == nullptr)
             {
                 continue;
+            }
+
+            if (Context.World != nullptr)
+            {
+                if (ExistingObject == Context.World || ExistingObject->GetTypedOuter<UWorld>() == Context.World)
+                {
+                    continue;
+                }
             }
 
             if (ExistingObject->GetUUID() == UUID)
@@ -486,34 +510,56 @@ bool FSceneSerializer::Save(const std::filesystem::path& FilePath, const FEditor
     Root->SetNumberField("Version", 1);
     Root->SetNumberField("NextUUID", FEngineStatics::NextUUID);
 
-    for (UObject* Object : Context.Objects)
+    ULevel* Level = Context.World != nullptr ? Context.World->GetPersistentLevel() : nullptr;
+
+    if (Level == nullptr)
     {
-        if (Object == nullptr)
+        return false;
+    }
+
+    TSharedPtr<FJsonObject> Actors = MakeShared<FJsonObject>();
+
+    Root->SetNumberField("Version", 2);
+    Root->SetNumberField("NextUUID", FEngineStatics::NextUUID);
+
+    for (AActor* Actor : Level->GetActors())
+    {
+        if (Actor == nullptr)
         {
             continue;
         }
 
-        if (UStaticMeshComponent* Component = Cast<UStaticMeshComponent>(Object))
-        {
-            UStaticMesh* Mesh = Component->GetStaticMesh();
+        FJsonObject ActorData;
+        USceneComponent* RootComponent = Actor->GetRootComponent();
 
-            if (Mesh == nullptr)
+        if (RootComponent == nullptr)
+        {
+            UE_LOG(Error, "Scene Save failed: Actor has no root component");
+            return false;
+        }
+
+        WriteTransform(ActorData, Actor->GetActorTransform());
+        ActorData.SetStringField("Name", Actor->GetName());
+        ActorData.SetNumberField("RootComponentUUID", RootComponent->GetUUID());
+
+        if (AStaticMeshActor* StaticMeshActor = Cast<AStaticMeshActor>(Actor))
+        {
+            UStaticMeshComponent* Component = StaticMeshActor->GetStaticMeshComponent();
+
+            if (Component == nullptr || Component->GetStaticMesh() == nullptr)
             {
-                UE_LOG(Error, "Scene Save failed: StaticMeshComponent has no mesh");
                 return false;
             }
 
-            const FString& AssetPath = Mesh->GetAssetPath();
+            const FString& AssetPath = Component->GetStaticMesh()->GetAssetPath();
 
             if (AssetPath.IsEmpty())
             {
-                UE_LOG(Error, "Scene Save failed: StaticMesh AssetPath is empty");
                 return false;
             }
 
-            FJsonObject PrimitiveData;
-            WriteTransform(PrimitiveData, Component->GetWorldTransform());
-            PrimitiveData.SetStringField("AssetPath", AssetPath);
+            ActorData.SetStringField("Class", "StaticMeshActor");
+            ActorData.SetStringField("AssetPath", AssetPath);
 
             UMaterial* Material = Component->GetMaterial();
 
@@ -523,34 +569,38 @@ bool FSceneSerializer::Save(const std::filesystem::path& FilePath, const FEditor
 
                 if (TexturePath.IsEmpty())
                 {
-                    UE_LOG(Error, "Scene Save failed: Texture AssetPath is empty");
                     return false;
                 }
 
-                PrimitiveData.SetStringField("TexturePath", TexturePath);
+                ActorData.SetStringField("TexturePath", TexturePath);
             }
-
-            Primitives->SetObjectField(std::to_string(Object->GetUUID()).c_str(), std::move(PrimitiveData));
         }
-        else if (UCameraComponent* Camera = Cast<UCameraComponent>(Object))
+        else if (ACameraActor* CameraActor = Cast<ACameraActor>(Actor))
         {
-            FJsonObject CameraData;
-            WriteTransform(CameraData, Camera->GetWorldTransform());
+            UCameraComponent* Camera = CameraActor->GetCameraComponent();
 
-            if (!WriteCameraSettings(CameraData, *Camera))
+            if (Camera == nullptr)
             {
-                UE_LOG(Error, "Scene Save failed: Unsupported camera property type");
                 return false;
             }
 
-            Cameras->SetObjectField(std::to_string(Object->GetUUID()).c_str(), std::move(CameraData));
+            ActorData.SetStringField("Class", "CameraActor");
+
+            if (!WriteCameraSettings(ActorData, *Camera))
+            {
+                return false;
+            }
         }
         else
         {
-            UE_LOG(Error, "Scene Save failed: Unsupported UObject class");
+            UE_LOG(Error, "Scene Save failed: Unsupported Actor class");
             return false;
         }
+
+        Actors->SetObjectField(std::to_string(Actor->GetUUID()).c_str(), std::move(ActorData));
     }
+
+    Root->SetObjectField("Actors", std::move(*Actors));
 
     Root->SetObjectField("Primitives", std::move(*Primitives));
     Root->SetObjectField("Cameras", std::move(*Cameras));
@@ -799,7 +849,12 @@ bool FSceneSerializer::Load(const std::filesystem::path& FilePath, FEditorObject
 
     FEngineStatics::NextUUID = (std::max)(FEngineStatics::NextUUID, SavedNextUUID);
 
-    TArray<UObject*> StagedObjects;
+    std::unique_ptr<UWorld> StagedWorld(NewObject<UWorld>(nullptr, FName("StagedSceneWorld")));
+
+    if (StagedWorld == nullptr || StagedWorld->GetPersistentLevel() == nullptr)
+    {
+        return false;
+    }
 
     auto DestroyStagedObjects = [&StagedObjects]()
     {
@@ -900,22 +955,12 @@ bool FSceneSerializer::Load(const std::filesystem::path& FilePath, FEditorObject
         }
     }
 
-    for (UObject* ExistingObject : Context.Objects)
-    {
-        delete ExistingObject;
-    }
+    UWorld* OldWorld = Context.World;
 
-    Context.Objects.Reset();
+    Context.World = StagedWorld.release();
+    Context.ClearSelection();
 
-    for (int32 Index = 0; Index < StagedObjects.Num(); ++Index)
-    {
-        UObject* StagedObject = StagedObjects[Index];
-        StagedObject->SetUUID(Records[Index].UUID);
-        Context.Objects.Add(StagedObject);
-    }
-
-    StagedObjects.Reset();
-    Context.SelectedObject = nullptr;
+    delete OldWorld;
 
     FEngineStatics::NextUUID = (std::max)(FEngineStatics::NextUUID, SavedNextUUID);
 

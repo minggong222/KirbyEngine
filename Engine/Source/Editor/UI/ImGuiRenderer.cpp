@@ -123,8 +123,34 @@ void FImGuiRenderer::DrawDockHost()
     ImGui::PopStyleVar(3);
 
     if (dockspace_id == 0)
+    {
         dockspace_id = ImGui::GetID("DockSpace");
+    }
+
     ImGui::DockSpace(dockspace_id, ImVec2(0.0f, 0.0f));
+
+    if (ImGui::DockBuilderGetNode(dockspace_id) == nullptr)
+    {
+        ImGui::DockBuilderAddNode(dockspace_id, ImGuiDockNodeFlags_DockSpace);
+        ImGui::DockBuilderSetNodeSize(dockspace_id, viewport->WorkSize);
+
+        ImGuiID DockMain = dockspace_id;
+        ImGuiID DockLeft = 0;
+        ImGuiID DockRight = 0;
+        ImGuiID DockBottom = 0;
+
+        ImGui::DockBuilderSplitNode(DockMain, ImGuiDir_Left, 0.22f, &DockLeft, &DockMain);
+        ImGui::DockBuilderSplitNode(DockMain, ImGuiDir_Right, 0.25f, &DockRight, &DockMain);
+        ImGui::DockBuilderSplitNode(DockMain, ImGuiDir_Down, 0.25f, &DockBottom, &DockMain);
+
+        ImGui::DockBuilderDockWindow("World Outliner", DockLeft);
+        ImGui::DockBuilderDockWindow("Details", DockRight);
+        ImGui::DockBuilderDockWindow("Viewport", DockMain);
+        ImGui::DockBuilderDockWindow("Content Browser", DockBottom);
+        ImGui::DockBuilderDockWindow("Console", DockBottom);
+
+        ImGui::DockBuilderFinish(dockspace_id);
+    }
 
     ImGui::End();
 }

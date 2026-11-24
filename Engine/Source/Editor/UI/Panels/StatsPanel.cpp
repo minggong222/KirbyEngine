@@ -4,6 +4,8 @@
 
 #include "Core/EngineStatics.h"
 #include "UObject/Object.h"
+#include "World/Level.h"
+#include "World/World.h"
 
 bool FStatsPanel::Init()
 {
@@ -41,7 +43,24 @@ void FStatsPanel::OnRender()
 
     if (Context != nullptr)
     {
-        ImGui::Text("Scene Objects: %d", Context->Objects.Num());
+        ULevel* Level = Context->World != nullptr ? Context->World->GetPersistentLevel() : nullptr;
+
+        const int32 ActorCount = Level != nullptr ? Level->GetActors().Num() : 0;
+        int32 ComponentCount = 0;
+
+        if (Level != nullptr)
+        {
+            for (AActor* Actor : Level->GetActors())
+            {
+                if (Actor != nullptr)
+                {
+                    ComponentCount += Actor->GetComponents().Num();
+                }
+            }
+        }
+
+        ImGui::Text("Actors: %d", ActorCount);
+        ImGui::Text("Components: %d", ComponentCount);
     }
 
     ImGui::Text("Live UObjects: %d", GUObjectArray.Num());

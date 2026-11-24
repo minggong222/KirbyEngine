@@ -224,6 +224,7 @@
     <ClCompile Include="Engine\Source\Editor\UI\ImGuiRenderer.cpp" />
     <ClCompile Include="Engine\Source\Editor\UI\PanelManager.cpp" />
     <ClCompile Include="Engine\Source\Editor\UI\Panels\ConsolePanel.cpp" />
+    <ClCompile Include="Engine\Source\Editor\UI\Panels\ContentBrowserPanel.cpp" />
     <ClCompile Include="Engine\Source\Editor\UI\Panels\DetailsPanel.cpp" />
     <ClCompile Include="Engine\Source\Editor\UI\Panels\MainMenuPanel.cpp" />
     <ClCompile Include="Engine\Source\Editor\UI\Panels\ObjectListPanel.cpp" />
@@ -315,6 +316,7 @@
     <ClInclude Include="Engine\Source\Editor\UI\ImGuiRenderer.h" />
     <ClInclude Include="Engine\Source\Editor\UI\PanelManager.h" />
     <ClInclude Include="Engine\Source\Editor\UI\Panels\ConsolePanel.h" />
+    <ClInclude Include="Engine\Source\Editor\UI\Panels\ContentBrowserPanel.h" />
     <ClInclude Include="Engine\Source\Editor\UI\Panels\DetailsPanel.h" />
     <ClInclude Include="Engine\Source\Editor\UI\Panels\EditorPanel.h" />
     <ClInclude Include="Engine\Source\Editor\UI\Panels\MainMenuPanel.h" />
