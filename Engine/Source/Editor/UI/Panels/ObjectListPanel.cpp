@@ -391,6 +391,10 @@ void FObjectListPanel::OnRender()
     {
         DeleteActor(*Context, ViewportPanel, PendingDeleteActor);
     }
+    else if (bPendingDeleteSelected && Context->SelectedActor != nullptr)
+    {
+        DeleteActor(*Context, ViewportPanel, Context->SelectedActor);
+    }
     else if (bPendingCopy)
     {
         if (Context->UndoManager != nullptr)

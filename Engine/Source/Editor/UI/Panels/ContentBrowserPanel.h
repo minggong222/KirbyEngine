@@ -2,7 +2,9 @@
 
 #include "EditorPanel.h"
 #include "EditorObjectContext.h"
+#include <string>
 
+class UAsset;
 class FAssetManager;
 class URenderer;
 class UStaticMesh;
@@ -24,4 +26,7 @@ private:
     FEditorObjectContext* Context = nullptr;
     FAssetManager* AssetManager = nullptr;
     URenderer* Renderer = nullptr;
+
+    std::string CurrentFolder;
+    UAsset* SelectedAsset = nullptr;
 };

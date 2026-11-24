@@ -573,14 +573,6 @@ void FDetailsPanel::OnRender()
         return;
     }
 
-    if (SelectedObject == nullptr)
-    {
-        ImGui::TextDisabled("No Component selected.");
-        ImGui::End();
-        SetOpen(bIsOpen);
-        return;
-    }
-
     UClass* ObjectClass = SelectedObject->GetClass();
 
     if (ObjectClass == nullptr)

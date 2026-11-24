@@ -64,10 +64,17 @@ public:
     void EndViewportRender();
     void ReleaseViewportRenderTarget();
 
+    void CreateAssetPreviewRenderTarget(uint32 Width, uint32 Height);
+    void BeginAssetPreviewRender();
+    void EndAssetPreviewRender();
+    void ReleaseAssetPreviewRenderTarget();
+
     uint32 GetViewportWidth() const { return ViewportWidth; }
     uint32 GetViewportHeight() const { return ViewportHeight; }
 
     ID3D11ShaderResourceView* GetViewportSRV() const{ return ViewportSRV; }
+    
+    ID3D11ShaderResourceView* GetAssetPreviewSRV() const { return AssetPreviewSRV; }
     
     bool IsReady() const;
     
@@ -107,6 +114,15 @@ private:
     ID3D11DepthStencilState* ViewportDepthState = nullptr;
     uint32 ViewportWidth = 0;
     uint32 ViewportHeight = 0;
+    
+    ID3D11Texture2D* AssetPreviewTexture = nullptr;
+    ID3D11RenderTargetView* AssetPreviewRTV = nullptr;
+    ID3D11ShaderResourceView* AssetPreviewSRV = nullptr;
+    ID3D11Texture2D* AssetPreviewDepthTexture = nullptr;
+    ID3D11DepthStencilView* AssetPreviewDSV = nullptr;
+    D3D11_VIEWPORT AssetPreviewRenderInfo = {};
+    uint32 AssetPreviewWidth = 0;
+    uint32 AssetPreviewHeight = 0;
     
     ID3D11Buffer* mDynamicVertexBuffer = nullptr;
     UINT mDynamicVertexCapacity = 0;

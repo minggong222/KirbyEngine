@@ -894,6 +894,162 @@ void URenderer::ResizeViewportRenderTarget(uint32 Width, uint32 Height)
     CreateViewportRenderTarget(Width, Height);
 }
 
+void URenderer::CreateAssetPreviewRenderTarget(uint32 Width, uint32 Height)
+{
+    if (AssetPreviewTexture != nullptr || mDevice == nullptr || mDeviceContext == nullptr || Width == 0 || Height == 0)
+    {
+        return;
+    }
+
+    const auto Fail = [this]()
+    {
+        ReleaseAssetPreviewRenderTarget();
+        OutputDebugStringA("[Renderer] Asset preview render target creation failed.\n");
+    };
+
+    D3D11_TEXTURE2D_DESC ColorDesc = {};
+    ColorDesc.Width = Width;
+    ColorDesc.Height = Height;
+    ColorDesc.MipLevels = 1;
+    ColorDesc.ArraySize = 1;
+    ColorDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+    ColorDesc.SampleDesc.Count = 1;
+    ColorDesc.Usage = D3D11_USAGE_DEFAULT;
+    ColorDesc.BindFlags = D3D11_BIND_RENDER_TARGET | D3D11_BIND_SHADER_RESOURCE;
+
+    HRESULT hr = mDevice->CreateTexture2D(&ColorDesc, nullptr, &AssetPreviewTexture);
+
+    if (FAILED(hr))
+    {
+        Fail();
+        return;
+    }
+
+    hr = mDevice->CreateRenderTargetView(AssetPreviewTexture, nullptr, &AssetPreviewRTV);
+
+    if (FAILED(hr))
+    {
+        Fail();
+        return;
+    }
+
+    hr = mDevice->CreateShaderResourceView(AssetPreviewTexture, nullptr, &AssetPreviewSRV);
+
+    if (FAILED(hr))
+    {
+        Fail();
+        return;
+    }
+
+    D3D11_TEXTURE2D_DESC DepthDesc = {};
+    DepthDesc.Width = Width;
+    DepthDesc.Height = Height;
+    DepthDesc.MipLevels = 1;
+    DepthDesc.ArraySize = 1;
+    DepthDesc.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
+    DepthDesc.SampleDesc.Count = 1;
+    DepthDesc.Usage = D3D11_USAGE_DEFAULT;
+    DepthDesc.BindFlags = D3D11_BIND_DEPTH_STENCIL;
+
+    hr = mDevice->CreateTexture2D(&DepthDesc, nullptr, &AssetPreviewDepthTexture);
+
+    if (FAILED(hr))
+    {
+        Fail();
+        return;
+    }
+
+    hr = mDevice->CreateDepthStencilView(AssetPreviewDepthTexture, nullptr, &AssetPreviewDSV);
+
+    if (FAILED(hr))
+    {
+        Fail();
+        return;
+    }
+
+    AssetPreviewRenderInfo.TopLeftX = 0.0f;
+    AssetPreviewRenderInfo.TopLeftY = 0.0f;
+    AssetPreviewRenderInfo.Width = static_cast<float>(Width);
+    AssetPreviewRenderInfo.Height = static_cast<float>(Height);
+    AssetPreviewRenderInfo.MinDepth = 0.0f;
+    AssetPreviewRenderInfo.MaxDepth = 1.0f;
+
+    AssetPreviewWidth = Width;
+    AssetPreviewHeight = Height;
+}
+
+void URenderer::BeginAssetPreviewRender()
+{
+    if (mDeviceContext == nullptr || AssetPreviewRTV == nullptr || AssetPreviewDSV == nullptr || ViewportDepthState == nullptr || mRasterizerState == nullptr)
+    {
+        return;
+    }
+
+    const float ClearColor[4] = {0.05f, 0.05f, 0.07f, 1.0f};
+
+    ID3D11ShaderResourceView* NullSRV = nullptr;
+    mDeviceContext->PSSetShaderResources(0, 1, &NullSRV);
+
+    mDeviceContext->ClearRenderTargetView(AssetPreviewRTV, ClearColor);
+    mDeviceContext->ClearDepthStencilView(AssetPreviewDSV, D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
+
+    mDeviceContext->OMSetRenderTargets(1, &AssetPreviewRTV, AssetPreviewDSV);
+    mDeviceContext->RSSetViewports(1, &AssetPreviewRenderInfo);
+    mDeviceContext->RSSetState(mRasterizerState);
+    mDeviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+    mDeviceContext->OMSetDepthStencilState(ViewportDepthState, 0);
+}
+
+void URenderer::EndAssetPreviewRender()
+{
+    EndViewportRender();
+}
+
+void URenderer::ReleaseAssetPreviewRenderTarget()
+{
+    if (mDeviceContext != nullptr)
+    {
+        mDeviceContext->OMSetRenderTargets(0, nullptr, nullptr);
+
+        ID3D11ShaderResourceView* NullSRV = nullptr;
+        mDeviceContext->PSSetShaderResources(0, 1, &NullSRV);
+    }
+
+    if (AssetPreviewSRV != nullptr)
+    {
+        AssetPreviewSRV->Release();
+        AssetPreviewSRV = nullptr;
+    }
+
+    if (AssetPreviewRTV != nullptr)
+    {
+        AssetPreviewRTV->Release();
+        AssetPreviewRTV = nullptr;
+    }
+
+    if (AssetPreviewDSV != nullptr)
+    {
+        AssetPreviewDSV->Release();
+        AssetPreviewDSV = nullptr;
+    }
+
+    if (AssetPreviewTexture != nullptr)
+    {
+        AssetPreviewTexture->Release();
+        AssetPreviewTexture = nullptr;
+    }
+
+    if (AssetPreviewDepthTexture != nullptr)
+    {
+        AssetPreviewDepthTexture->Release();
+        AssetPreviewDepthTexture = nullptr;
+    }
+
+    AssetPreviewWidth = 0;
+    AssetPreviewHeight = 0;
+    AssetPreviewRenderInfo = {};
+}
+
 void URenderer::BeginViewportRender()
 {
     if (mDeviceContext == nullptr || ViewportRTV == nullptr || ViewportDSV == nullptr || ViewportDepthState == nullptr || mRasterizerState == nullptr)
@@ -1010,13 +1166,13 @@ bool URenderer::IsReady() const
 
 void URenderer::Shutdown()
 {
+    ReleaseAssetPreviewRenderTarget();
     ReleaseViewportRenderTarget();
     //ReleaseRasterizerState();
     ReleaseConstantBuffer();
     ReleaseShader();
     Release();
 }
-
 
 void URenderer::ReleaseDynamicVertexBuffer()
 {
