@@ -227,6 +227,10 @@
     <ClCompile Include="Engine\Source\Editor\UI\Panels\ObjectListPanel.cpp" />
     <ClCompile Include="Engine\Source\Editor\UI\Panels\StatsPanel.cpp" />
     <ClCompile Include="Engine\Source\Editor\UI\Panels\ViewportPanel.cpp" />
+    <ClCompile Include="Engine\Source\Runtime\Actors\Actor.cpp" />
+    <ClCompile Include="Engine\Source\Runtime\Actors\CameraActor.cpp" />
+    <ClCompile Include="Engine\Source\Runtime\Actors\StaticMeshActor.cpp" />
+    <ClCompile Include="Engine\Source\Runtime\Components\ActorComponent.cpp" />
     <ClCompile Include="Engine\Source\Runtime\Components\CameraComponent.cpp" />
     <ClCompile Include="Engine\Source\Runtime\Components\PrimitiveComponent.cpp" />
     <ClCompile Include="Engine\Source\Runtime\Components\SceneComponent.cpp" />
@@ -236,6 +240,7 @@
     <ClCompile Include="Engine\Source\Runtime\Core\Logging\Log.cpp" />
     <ClCompile Include="Engine\Source\Runtime\Core\Math\Rotator.cpp" />
     <ClCompile Include="Engine\Source\Runtime\Core\Math\Transform.cpp" />
+    <ClCompile Include="Engine\Source\Runtime\Core\Name.cpp" />
     <ClCompile Include="Engine\Source\Runtime\Core\Precompiled.cpp">
       <PrecompiledHeader>Create</PrecompiledHeader>
       <ForcedIncludeFiles></ForcedIncludeFiles>
@@ -259,6 +264,8 @@
     <ClCompile Include="Engine\Source\Runtime\UObject\Class.cpp" />
     <ClCompile Include="Engine\Source\Runtime\UObject\Object.cpp" />
     <ClCompile Include="Engine\Source\Runtime\Windows\WindowsWindow.cpp" />
+    <ClCompile Include="Engine\Source\Runtime\World\Level.cpp" />
+    <ClCompile Include="Engine\Source\Runtime\World\World.cpp" />
     <ClCompile Include="Engine\Source\ThirdParty\ImGui\imgui.cpp">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <ForcedIncludeFiles></ForcedIncludeFiles>

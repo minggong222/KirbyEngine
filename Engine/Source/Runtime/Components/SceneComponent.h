@@ -1,18 +1,17 @@
-﻿
-#pragma once
+﻿#pragma once
+
 #include "Core/Math/Transform.h"
-#include "UObject/Class.h"
-#include "UObject/Object.h"
+#include "Components/ActorComponent.h"
 #include "UObject/ObjectMacros.h"
 #include "Components/SceneComponent.generated.h"
 
 UCLASS()
-class USceneComponent : public UObject
+class USceneComponent : public UActorComponent
 {
     GENERATED_BODY()
 public:
     USceneComponent() = default;
-    ~USceneComponent();
+    ~USceneComponent() override;
     
     FTransform GetTransform() const { return Transform; }
     void SetTransform(FTransform InTransform){ Transform = InTransform; }

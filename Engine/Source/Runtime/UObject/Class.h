@@ -280,22 +280,24 @@ class UClass : public UObject, public FTypeInfo
 {
 public:
     UClass(const char* InName, const UClass* InSuperClass, SIZE_T InClassSize, FObjectConstructor InConstructor = nullptr);
-    
+
+    const FString& GetName() const { return FTypeInfo::GetName(); }
+
     static UClass* StaticClass();
     UClass* GetClass() const override;
 private:
-    friend UObject* NewObject(const UClass* InClass);
+    friend UObject* NewObject(const UClass* InClass, UObject* InOuter, FName InName);
     UObject* ConstructObject() const;
     FObjectConstructor Constructor = nullptr;
 };
 
-UObject* NewObject(const UClass* InClass);
+UObject* NewObject(const UClass* InClass, UObject* InOuter = nullptr, FName InName = FName());
 
 template<typename T>
-T* NewObject()
+T* NewObject(UObject* InOuter = nullptr, FName InName = FName())
 {
     static_assert(std::is_base_of_v<UObject, T>, "T must derive from UObject");
-    return static_cast<T*>(NewObject(T::StaticClass()));
+    return static_cast<T*>(NewObject(T::StaticClass(), InOuter, InName));
 }
 
 template<typename T>

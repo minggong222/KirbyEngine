@@ -146,7 +146,7 @@ const UFunction* FTypeInfo::FindFunction(const char* InName) const
 }
 
 UClass::UClass(const char* InName, const UClass* InSuperClass, SIZE_T InClassSize, FObjectConstructor InConstructor)
-    : UObject(), FTypeInfo(InName, InClassSize, InSuperClass), Constructor(InConstructor)
+    : UObject(nullptr, FName(InName)), FTypeInfo(InName, InClassSize, InSuperClass), Constructor(InConstructor)
 {
 }
 
@@ -170,11 +170,30 @@ UObject* UClass::ConstructObject() const
     return Constructor();
 }
 
-UObject* NewObject(const UClass* InClass)
+UObject* NewObject(const UClass* InClass, UObject* InOuter, FName InName)
 {
     if (InClass == nullptr)
     {
         return nullptr;
     }
-    return InClass->ConstructObject();
+
+    UObject* Object = InClass->ConstructObject();
+
+    if (Object == nullptr)
+    {
+        return nullptr;
+    }
+
+    if (InOuter != nullptr && !Object->SetOuter(InOuter))
+    {
+        delete Object;
+        return nullptr;
+    }
+
+    if (!InName.IsNone())
+    {
+        Object->SetName(InName);
+    }
+
+    return Object;
 }

@@ -5,8 +5,15 @@
 
 TArray<UObject*> GUObjectArray;
 
-UObject::UObject()
+UObject::UObject(UObject* InOuter, FName InName)
+    : ObjectName(InName)
 {
+    if (InOuter != nullptr)
+    {
+        const bool bOuterSet = SetOuter(InOuter);
+        assert(bOuterSet);
+    }
+
     UUID = FEngineStatics::GenUUID();
     InternalIndex = static_cast<uint32>(GUObjectArray.size());
     GUObjectArray.Add(this);
@@ -100,4 +107,72 @@ void UObject::ProcessEvent(const char* FunctionName, void* Parameters)
     {
         assert(false && "Failed to invoke reflected function");
     }
+}
+
+FString UObject::GetName() const
+{
+    if (!ObjectName.IsNone())
+    {
+        return ObjectName.ToString();
+    }
+
+    const UClass* ObjectClass = GetClass();
+
+    return ObjectClass != nullptr ? ObjectClass->GetName() : "UObject";
+}
+
+FString UObject::GetPathName() const
+{
+    TArray<FString> Names;
+
+    for (const UObject* Current = this; Current != nullptr; Current = Current->GetOuter())
+    {
+        Names.Add(Current->GetName());
+    }
+
+    FString Result;
+
+    for (int32 Index = Names.Num() - 1; Index >= 0; --Index)
+    {
+        if (!Result.empty())
+        {
+            Result.Append(".");
+        }
+
+        Result.Append(Names[Index].ToStd());
+    }
+
+    return Result;
+}
+
+bool UObject::SetOuter(UObject* InOuter)
+{
+    if (Outer == InOuter)
+    {
+        return true;
+    }
+
+    // 이미 소유자가 설정된 객체의 소유자를 임의로 바꾸지 않는다.
+    if (Outer != nullptr)
+    {
+        return false;
+    }
+
+    if (InOuter == this)
+    {
+        return false;
+    }
+
+    // Outer 순환 참조 방지
+    for (UObject* Current = InOuter; Current != nullptr; Current = Current->GetOuter())
+    {
+        if (Current == this)
+        {
+            return false;
+        }
+    }
+
+    Outer = InOuter;
+
+    return true;
 }
