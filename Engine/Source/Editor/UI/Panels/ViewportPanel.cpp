@@ -49,74 +49,119 @@ void FViewportPanel::OnRender()
         return;
     }
 
-    if (ImGui::Button("View Options"))
+    
+    if (EditorSettings != nullptr)
     {
-        ImGui::OpenPopup("ViewportOptions");
-    }
+        int32 ViewMode = static_cast<int32>(EditorSettings->ViewMode);
+        const char* ViewModes[] = {"Lit", "Unlit", "Wireframe"};
 
-    if (ImGui::BeginPopup("ViewportOptions"))
-    {
-        if (EditorSettings != nullptr)
+        if (ViewMode < 0 || ViewMode >= IM_ARRAYSIZE(ViewModes))
         {
-            int32 ViewMode = static_cast<int32>(EditorSettings->ViewMode);
-            const char* ViewModes[] = {"Lit", "Unlit", "Wireframe"};
+            ViewMode = 0;
+        }
 
-            if (ImGui::Combo("View Mode", &ViewMode, ViewModes, IM_ARRAYSIZE(ViewModes)))
+        if (ImGui::BeginCombo("##ViewMode", ViewModes[ViewMode]))
+        {
+            for (int32 Index = 0; Index < IM_ARRAYSIZE(ViewModes); ++Index)
             {
-                EditorSettings->ViewMode = static_cast<EViewMode>(ViewMode);
+                const bool bSelected = ViewMode == Index;
+
+                if (ImGui::Selectable(ViewModes[Index], bSelected))
+                {
+                    EditorSettings->ViewMode = static_cast<EViewMode>(Index);
+                }
+
+                if (bSelected)
+                {
+                    ImGui::SetItemDefaultFocus();
+                }
             }
 
-            ImGui::Separator();
-            ImGui::Text("Show Flags");
+            ImGui::EndCombo();
+        }
 
+        ImGui::SameLine();
+
+        if (ImGui::Button("Show"))
+        {
+            ImGui::OpenPopup("ViewportShowMenu");
+        }
+
+        if (ImGui::BeginPopup("ViewportShowMenu"))
+        {
             bool bPrimitives = EditorSettings->ShowFlags.IsEnabled(EEngineShowFlag::Primitives);
             if (ImGui::Checkbox("Primitives", &bPrimitives)) EditorSettings->ShowFlags.SetEnabled(EEngineShowFlag::Primitives, bPrimitives);
+
             bool bGrid = EditorSettings->ShowFlags.IsEnabled(EEngineShowFlag::Grid);
             if (ImGui::Checkbox("Grid", &bGrid)) EditorSettings->ShowFlags.SetEnabled(EEngineShowFlag::Grid, bGrid);
+
             bool bAxes = EditorSettings->ShowFlags.IsEnabled(EEngineShowFlag::Axes);
             if (ImGui::Checkbox("Axes", &bAxes)) EditorSettings->ShowFlags.SetEnabled(EEngineShowFlag::Axes, bAxes);
+
             bool bBounds = EditorSettings->ShowFlags.IsEnabled(EEngineShowFlag::Bounds);
             if (ImGui::Checkbox("Bounds", &bBounds)) EditorSettings->ShowFlags.SetEnabled(EEngineShowFlag::Bounds, bBounds);
+
             bool bBillboardText = EditorSettings->ShowFlags.IsEnabled(EEngineShowFlag::BillboardText);
             if (ImGui::Checkbox("UUID Labels", &bBillboardText)) EditorSettings->ShowFlags.SetEnabled(EEngineShowFlag::BillboardText, bBillboardText);
 
             ImGui::Separator();
-            ImGui::Text("Camera");
-            float CameraSensitivity = EditorSettings->CameraSensitivity;
-            if (ImGui::SliderFloat("Camera Sensitivity", &CameraSensitivity, 0.001f, 0.2f, "%.3f")) EditorSettings->CameraSensitivity = CameraSensitivity;
 
-            ImGui::Separator();
-            ImGui::Text("Grid Settings");
+            if (ImGui::BeginMenu("Grid Settings"))
+            {
+                ImGui::DragFloat("Grid Extent", &EditorSettings->GridExtent, 1.0f, 1.0f, 10000.0f);
+                ImGui::DragFloat("Grid Spacing", &EditorSettings->GridSpacing, 0.1f, 0.1f, 1000.0f);
+                ImGui::DragInt("Major Interval", &EditorSettings->MajorGridInterval, 1.0f, 1, 100);
+                ImGui::EndMenu();
+            }
 
-            ImGui::DragFloat("Grid Extent", &EditorSettings->GridExtent, 1.0f, 1.0f, 10000.0f);
-            ImGui::DragFloat("Grid Spacing", &EditorSettings->GridSpacing, 0.1f, 0.1f, 1000.0f);
-            ImGui::DragInt("Major Interval", &EditorSettings->MajorGridInterval, 1.0f, 1, 100);
+            ImGui::EndPopup();
         }
 
-        ImGui::EndPopup();
-    }
-    
-    const ETransformGizmoMode CurrentMode = TransformGizmo.GetMode();
+        ImGui::SameLine();
 
-    if (ImGui::RadioButton("Translate (W)", CurrentMode == ETransformGizmoMode::Translate))
+        if (ImGui::Button("Camera"))
+        {
+            ImGui::OpenPopup("ViewportCameraMenu");
+        }
+
+        if (ImGui::BeginPopup("ViewportCameraMenu"))
+        {
+            ImGui::Text("Camera Settings");
+            ImGui::Separator();
+            ImGui::SliderFloat("Mouse Sensitivity", &EditorSettings->CameraSensitivity, 0.001f, 0.2f, "%.3f");
+            ImGui::EndPopup();
+        }
+    }
+
+    ImGui::SameLine();
+    ImGui::TextDisabled("|");
+    ImGui::SameLine();
+
+    ETransformGizmoMode CurrentMode = TransformGizmo.GetMode();
+
+    if (ImGui::RadioButton("Move", CurrentMode == ETransformGizmoMode::Translate))
     {
         TransformGizmo.SetMode(ETransformGizmoMode::Translate);
     }
 
     ImGui::SameLine();
 
-    if (ImGui::RadioButton("Rotate (E)", CurrentMode == ETransformGizmoMode::Rotate))
+    if (ImGui::RadioButton("Rotate", CurrentMode == ETransformGizmoMode::Rotate))
     {
         TransformGizmo.SetMode(ETransformGizmoMode::Rotate);
     }
 
     ImGui::SameLine();
 
-    if (ImGui::RadioButton("Scale (R)", CurrentMode == ETransformGizmoMode::Scale))
+    if (ImGui::RadioButton("Scale", CurrentMode == ETransformGizmoMode::Scale))
     {
         TransformGizmo.SetMode(ETransformGizmoMode::Scale);
     }
 
+    CurrentMode = TransformGizmo.GetMode();
+
+    ImGui::SameLine();
+    ImGui::TextDisabled("|");
     ImGui::SameLine();
 
     if (CurrentMode != ETransformGizmoMode::Scale)
@@ -137,9 +182,13 @@ void FViewportPanel::OnRender()
     }
     else
     {
-        ImGui::TextDisabled("Scale: Local");
+        ImGui::TextDisabled("Local");
     }
-    
+
+    ImGui::SameLine();
+    ImGui::TextDisabled("|");
+    ImGui::SameLine();
+
     bool bSnapEnabled = TransformGizmo.IsSnapEnabled();
 
     if (ImGui::Checkbox("Snap", &bSnapEnabled))
@@ -149,11 +198,11 @@ void FViewportPanel::OnRender()
 
     if (bSnapEnabled)
     {
+        ImGui::SameLine();
+
         if (CurrentMode == ETransformGizmoMode::Translate)
         {
             float SnapValue = TransformGizmo.GetTranslationSnap();
-
-            ImGui::SameLine();
 
             if (ImGui::DragFloat("Move Step", &SnapValue, 0.1f, 0.1f, 100.0f, "%.1f"))
             {
@@ -164,8 +213,6 @@ void FViewportPanel::OnRender()
         {
             float SnapValue = TransformGizmo.GetRotationSnap();
 
-            ImGui::SameLine();
-
             if (ImGui::DragFloat("Rotation Step", &SnapValue, 1.0f, 1.0f, 90.0f, "%.0f"))
             {
                 TransformGizmo.SetRotationSnap(SnapValue);
@@ -174,8 +221,6 @@ void FViewportPanel::OnRender()
         else if (CurrentMode == ETransformGizmoMode::Scale)
         {
             float SnapValue = TransformGizmo.GetScaleSnap();
-
-            ImGui::SameLine();
 
             if (ImGui::DragFloat("Scale Step", &SnapValue, 0.01f, 0.01f, 10.0f, "%.2f"))
             {

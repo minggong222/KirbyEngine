@@ -21,5 +21,4 @@ private:
     FEditorObjectContext* Context = nullptr;
     FAssetManager* AssetManager = nullptr;
     FViewportPanel* ViewportPanel = nullptr;
-    UStaticMesh* MeshToSpawn = nullptr;
 };

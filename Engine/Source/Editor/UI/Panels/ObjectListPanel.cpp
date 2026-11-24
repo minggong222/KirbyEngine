@@ -194,9 +194,7 @@ bool FObjectListPanel::Init()
         return false;
     }
 
-    MeshToSpawn = AssetManager->Find<UStaticMesh>(BuiltinAssetPaths::Cube);
-
-    return MeshToSpawn != nullptr;
+    return Context != nullptr && AssetManager != nullptr;
 }
 
 void FObjectListPanel::Tick(float DeltaTime)
@@ -224,12 +222,19 @@ void FObjectListPanel::OnRender()
         return;
     }
 
+    
+    
     static char ActorSearchBuffer[128] = {};
 
-    ImGui::InputTextWithHint("##ActorSearch", "Search Actors...", ActorSearchBuffer, IM_ARRAYSIZE(ActorSearchBuffer));
-    
     AActor* PendingDeleteActor = nullptr;
-    
+
+    bool bPendingCopy = false;
+    bool bPendingPaste = false;
+    bool bPendingDuplicate = false;
+    bool bPendingDeleteSelected = false;
+
+    const bool bCanPaste = Context->UndoManager != nullptr && Context->UndoManager->CanPaste();
+
     TArray<UStaticMesh*> StaticMeshes;
     AssetManager->GetAssets(StaticMeshes);
 
@@ -238,83 +243,89 @@ void FObjectListPanel::OnRender()
         return A->GetAssetPath() < B->GetAssetPath();
     });
 
-    if (!StaticMeshes.Contains(MeshToSpawn))
+    if (ImGui::Button("+ Add"))
     {
-        MeshToSpawn = StaticMeshes.IsEmpty() ? nullptr : StaticMeshes[0];
+        ImGui::OpenPopup("AddActorMenu");
     }
 
-    const char* MeshPreview = MeshToSpawn != nullptr ? MeshToSpawn->GetAssetPath().c_str() : "No Static Mesh";
-
-    if (ImGui::BeginCombo("Static Mesh", MeshPreview))
+    if (ImGui::BeginPopup("AddActorMenu"))
     {
-        for (UStaticMesh* Mesh : StaticMeshes)
+        if (ImGui::BeginMenu("Static Mesh Actor"))
         {
-            const bool bSelected = MeshToSpawn == Mesh;
-
-            if (ImGui::Selectable(Mesh->GetAssetPath().c_str(), bSelected))
+            for (UStaticMesh* Mesh : StaticMeshes)
             {
-                MeshToSpawn = Mesh;
+                if (Mesh == nullptr)
+                {
+                    continue;
+                }
+
+                ImGui::PushID(Mesh);
+
+                if (ImGui::MenuItem(Mesh->GetAssetPath().c_str()))
+                {
+                    SpawnStaticMeshActor(*Context, Mesh);
+                }
+
+                ImGui::PopID();
             }
 
-            if (bSelected)
-            {
-                ImGui::SetItemDefaultFocus();
-            }
+            ImGui::EndMenu();
         }
 
-        ImGui::EndCombo();
+        if (ImGui::MenuItem("Camera Actor"))
+        {
+            SpawnCameraActor(*Context);
+        }
+
+        ImGui::EndPopup();
     }
 
     ImGui::SameLine();
 
-    ImGui::BeginDisabled(MeshToSpawn == nullptr);
-
-    if (ImGui::Button("Add Static Mesh"))
+    if (ImGui::Button("..."))
     {
-        SpawnStaticMeshActor(*Context, MeshToSpawn);
+        ImGui::OpenPopup("OutlinerActions");
     }
 
-    ImGui::EndDisabled();
-
-    ImGui::SameLine();
-
-    if (ImGui::Button("Camera"))
+    if (ImGui::BeginPopup("OutlinerActions"))
     {
-        SpawnCameraActor(*Context);
+        const bool bHasSelection = Context->SelectedActor != nullptr;
+        const bool bCanCopy = bHasSelection && Context->UndoManager != nullptr;
+        const bool bCanDuplicate = bCanCopy;
+
+        ImGui::BeginDisabled(!bCanCopy);
+        if (ImGui::MenuItem("Copy"))
+        {
+            bPendingCopy = true;
+        }
+        ImGui::EndDisabled();
+
+        ImGui::BeginDisabled(!bCanPaste);
+        if (ImGui::MenuItem("Paste"))
+        {
+            bPendingPaste = true;
+        }
+        ImGui::EndDisabled();
+
+        ImGui::BeginDisabled(!bCanDuplicate);
+        if (ImGui::MenuItem("Duplicate"))
+        {
+            bPendingDuplicate = true;
+        }
+        ImGui::EndDisabled();
+
+        ImGui::BeginDisabled(!bHasSelection);
+        if (ImGui::MenuItem("Delete"))
+        {
+            bPendingDeleteSelected = true;
+        }
+        ImGui::EndDisabled();
+
+        ImGui::EndPopup();
     }
 
-    ImGui::SameLine();
-    
-    bool bPendingCopy = false;
-    bool bPendingPaste = false;
-    bool bPendingDuplicate = false;
-    bool bPendingDeleteSelected = false;
-    
-    if (ImGui::Button("Copy Selected"))
-    {
-        bPendingCopy = true;
-    }
-
-    const bool bCanPaste = Context->UndoManager != nullptr && Context->UndoManager->CanPaste();
-
-    ImGui::BeginDisabled(!bCanPaste);
-
-    if (ImGui::Button("Paste"))
-    {
-        bPendingPaste = true;
-    }
-
-    ImGui::EndDisabled();
-
-    if (ImGui::Button("Duplicate Selected"))
-    {
-        bPendingDuplicate = true;
-    }
-
-    if (ImGui::Button("Delete Selected"))
-    {
-        bPendingDeleteSelected = true;
-    }
+    ImGui::SetNextItemWidth(-1.0f);
+    ImGui::InputTextWithHint("##ActorSearch", "Search Actors...", ActorSearchBuffer, IM_ARRAYSIZE(ActorSearchBuffer));
 
     ImGui::Separator();
     
@@ -349,10 +360,17 @@ void FObjectListPanel::OnRender()
                     bPendingCopy = true;
                 }
 
+                if (ImGui::MenuItem("Paste", "Ctrl+V", false, bCanPaste))
+                {
+                    bPendingPaste = true;
+                }
+
                 if (ImGui::MenuItem("Duplicate", "Ctrl+W"))
                 {
                     bPendingDuplicate = true;
                 }
+
+                ImGui::Separator();
 
                 if (ImGui::MenuItem("Delete", "Delete"))
                 {
@@ -360,47 +378,6 @@ void FObjectListPanel::OnRender()
                 }
 
                 ImGui::EndPopup();
-            }
-            
-            if (ImGui::TreeNode("Components"))
-            {
-                USceneComponent* RootComponent = Actor->GetRootComponent();
-
-                if (RootComponent != nullptr)
-                {
-                    DrawSceneComponentTree(RootComponent, *Context);
-                }
-                
-                for (UActorComponent* Component : Actor->GetComponents())
-                {
-                    if (Component == nullptr)
-                    {
-                        continue;
-                    }
-
-                    USceneComponent* SceneComponent = Cast<USceneComponent>(Component);
-
-                    if (SceneComponent != nullptr)
-                    {
-                        if (SceneComponent != RootComponent && SceneComponent->GetAttachParent() == nullptr)
-                        {
-                            DrawSceneComponentTree(SceneComponent, *Context);
-                        }
-
-                        continue;
-                    }
-
-                    FString ComponentLabel = Component->GetClass()->GetName();
-                    ComponentLabel.Append("_");
-                    ComponentLabel.Append(std::to_string(Component->GetUUID()));
-
-                    if (ImGui::Selectable(ComponentLabel.c_str(), Context->SelectedComponent == Component))
-                    {
-                        Context->SelectComponent(Component);
-                    }
-                }
-
-                ImGui::TreePop();
             }
 
             ImGui::PopID();
@@ -413,10 +390,6 @@ void FObjectListPanel::OnRender()
     if (PendingDeleteActor != nullptr)
     {
         DeleteActor(*Context, ViewportPanel, PendingDeleteActor);
-    }
-    else if (bPendingDeleteSelected && Context->SelectedActor != nullptr)
-    {
-        DeleteActor(*Context, ViewportPanel, Context->SelectedActor);
     }
     else if (bPendingCopy)
     {

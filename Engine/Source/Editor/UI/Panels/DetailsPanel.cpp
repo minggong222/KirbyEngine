@@ -15,6 +15,54 @@
 
 #include <algorithm>
 
+#include "imgui_internal.h"
+
+
+static void DrawComponentHierarchy(USceneComponent* Component, FEditorObjectContext& Context)
+{
+    if (Component == nullptr)
+    {
+        return;
+    }
+
+    const bool bSelected = Context.SelectedComponent == Component || (Context.SelectedComponent == nullptr && Context.SelectedActor != nullptr && Context.SelectedActor->GetRootComponent() == Component);
+    const bool bHasChildren = !Component->GetAttachChildren().IsEmpty();
+
+    ImGuiTreeNodeFlags Flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_SpanAvailWidth;
+
+    if (bSelected)
+    {
+        Flags |= ImGuiTreeNodeFlags_Selected;
+    }
+
+    if (!bHasChildren)
+    {
+        Flags |= ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_NoTreePushOnOpen;
+    }
+
+    if (Context.SelectedActor != nullptr && Component == Context.SelectedActor->GetRootComponent())
+    {
+        ImGui::SetNextItemOpen(true, ImGuiCond_Once);
+    }
+
+    const bool bExpanded = ImGui::TreeNodeEx(Component, Flags, "%s", Component->GetName().c_str());
+
+    if (ImGui::IsItemClicked())
+    {
+        Context.SelectComponent(Component);
+    }
+
+    if (bExpanded && bHasChildren)
+    {
+        for (USceneComponent* Child : Component->GetAttachChildren())
+        {
+            DrawComponentHierarchy(Child, Context);
+        }
+
+        ImGui::TreePop();
+    }
+}
+
 static void DrawStaticMeshSettings(FEditorObjectContext* Context, FAssetManager* AssetManager, UStaticMeshComponent* Component)
 {
     if (Context == nullptr || AssetManager == nullptr || Component == nullptr)
@@ -429,7 +477,6 @@ void FDetailsPanel::OnRender()
     }
 
     AActor* SelectedActor = Context->SelectedActor;
-    UObject* SelectedObject = Context->SelectedComponent != nullptr ? Context->SelectedComponent : SelectedActor->GetRootComponent();
 
     ImGui::Text("Actor: %s", SelectedActor->GetName().c_str());
     ImGui::Text("Actor UUID: %u", SelectedActor->GetUUID());
@@ -461,6 +508,7 @@ void FDetailsPanel::OnRender()
     ImGui::SameLine();
     const bool bCanRemoveSelectedComponent = Context->SelectedComponent != nullptr && Context->SelectedComponent != SelectedActor->GetRootComponent();
     ImGui::BeginDisabled(!bCanRemoveSelectedComponent);
+
     if (ImGui::Button("Remove Component") && Context->SelectedComponent != nullptr)
     {
         UActorComponent* ComponentToRemove = Context->SelectedComponent;
@@ -468,7 +516,62 @@ void FDetailsPanel::OnRender()
         Context->SelectActor(SelectedActor);
         SelectedActor->DestroyComponent(ComponentToRemove);
     }
+
     ImGui::EndDisabled();
+
+    ImGui::Separator();
+    ImGui::Text("Components");
+
+    USceneComponent* RootComponent = SelectedActor->GetRootComponent();
+
+    if (RootComponent != nullptr)
+    {
+        DrawComponentHierarchy(RootComponent, *Context);
+    }
+
+    for (UActorComponent* Component : SelectedActor->GetComponents())
+    {
+        if (Component == nullptr)
+        {
+            continue;
+        }
+
+        USceneComponent* SceneComponent = Cast<USceneComponent>(Component);
+
+        if (SceneComponent != nullptr)
+        {
+            if (SceneComponent != RootComponent && SceneComponent->GetAttachParent() == nullptr)
+            {
+                DrawComponentHierarchy(SceneComponent, *Context);
+            }
+
+            continue;
+        }
+
+        ImGui::PushID(Component);
+
+        const bool bSelected = Context->SelectedComponent == Component;
+        const FString ComponentName = Component->GetName();
+
+        if (ImGui::Selectable(ComponentName.c_str(), bSelected, ImGuiSelectableFlags_SpanAvailWidth))
+        {
+            Context->SelectComponent(Component);
+        }
+
+        ImGui::PopID();
+    }
+
+    ImGui::Separator();
+
+    UObject* SelectedObject = Context->SelectedComponent != nullptr ? Context->SelectedComponent : SelectedActor->GetRootComponent();
+
+    if (SelectedObject == nullptr)
+    {
+        ImGui::TextDisabled("No Component selected.");
+        ImGui::End();
+        SetOpen(bIsOpen);
+        return;
+    }
 
     if (SelectedObject == nullptr)
     {
