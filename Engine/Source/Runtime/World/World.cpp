@@ -20,15 +20,16 @@ FName UWorld::MakeUniqueActorName(FName RequestedName, const UClass* ActorClass)
         return RequestedName;
     }
 
-    const FString BaseName = RequestedName.IsNone() ? ActorClass->GetName() : RequestedName.ToString();
+    const FString BaseName = RequestedName.IsNone() ? ActorClass->GetName() : RequestedName.GetPlainNameString();
+    const FName BaseNameEntry(BaseName);
 
-    FName Candidate = RequestedName.IsNone() ? FName(BaseName) : RequestedName;
+    FName Candidate = RequestedName.IsNone() ? BaseNameEntry : RequestedName;
 
-    uint32 Number = 1;
+    int32 InternalNumber = 2;
 
     while (PersistentLevel->FindActorByName(Candidate) != nullptr)
     {
-        Candidate = FName(BaseName, Number++);
+        Candidate = FName(BaseNameEntry, InternalNumber++);
     }
 
     return Candidate;

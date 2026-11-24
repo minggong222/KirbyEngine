@@ -56,14 +56,14 @@ public:
 
         if (ComponentName.IsNone())
         {
-            const FString BaseName = TComponent::StaticClass()->GetName();
-            ComponentName = FName(BaseName);
+            const FName BaseName(TComponent::StaticClass()->GetName());
+            ComponentName = BaseName;
 
-            uint32 Number = 1;
+            int32 InternalNumber = 2;
 
             while (FindComponentByName(ComponentName) != nullptr)
             {
-                ComponentName = FName(BaseName, Number++);
+                ComponentName = FName(BaseName, InternalNumber++);
             }
         }
 
