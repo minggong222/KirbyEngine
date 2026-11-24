@@ -41,7 +41,12 @@ public:
             return nullptr;
         }
 
-        Actor->SetActorTransform(InTransform);
+        if (Actor->GetRootComponent() != nullptr && !Actor->SetActorTransform(InTransform))
+        {
+            PersistentLevel->RemoveActor(Actor);
+            delete Actor;
+            return nullptr;
+        }
 
         if (bHasBegunPlay)
         {

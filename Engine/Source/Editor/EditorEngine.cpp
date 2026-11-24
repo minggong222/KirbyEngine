@@ -108,7 +108,7 @@ bool FEditorEngine::Init(HINSTANCE hInstance)
         return false;
     }
     
-    ObjectListPanel = new FObjectListPanel(&ObjectContext, &AssetManager, ViewportPanel, Renderer);
+    ObjectListPanel = new FObjectListPanel(&ObjectContext, &AssetManager, ViewportPanel);
     if (!ImGuiRenderer->GetPanelManager()->AddPanel(ObjectListPanel))
     {
         ObjectListPanel = nullptr;
@@ -132,7 +132,7 @@ bool FEditorEngine::Init(HINSTANCE hInstance)
         return false;
     }
     
-    ContentBrowserPanel = new FContentBrowserPanel(&ObjectContext, &AssetManager);
+    ContentBrowserPanel = new FContentBrowserPanel(&ObjectContext, &AssetManager, Renderer);
     if (!ImGuiRenderer->GetPanelManager()->AddPanel(ContentBrowserPanel))
     {
         ContentBrowserPanel = nullptr;

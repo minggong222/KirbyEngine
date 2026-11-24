@@ -4,6 +4,7 @@
 #include "EditorObjectContext.h"
 
 class FAssetManager;
+class URenderer;
 class UStaticMesh;
 class UMaterial;
 class UTexture2D;
@@ -11,7 +12,7 @@ class UTexture2D;
 class FContentBrowserPanel : public IEditorPanel
 {
 public:
-    FContentBrowserPanel(FEditorObjectContext* InContext, FAssetManager* InAssetManager) : Context(InContext), AssetManager(InAssetManager) {}
+    FContentBrowserPanel(FEditorObjectContext* InContext, FAssetManager* InAssetManager, URenderer* InRenderer) : Context(InContext), AssetManager(InAssetManager), Renderer(InRenderer) {}
 
     const char* GetPanelName() const override { return "Content Browser"; }
 
@@ -22,4 +23,5 @@ public:
 private:
     FEditorObjectContext* Context = nullptr;
     FAssetManager* AssetManager = nullptr;
+    URenderer* Renderer = nullptr;
 };

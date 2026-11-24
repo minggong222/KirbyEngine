@@ -1,6 +1,8 @@
 ﻿#include "SceneComponent.h"
 #include <cmath>
 
+#include "Core/Math/MathUtility.h"
+
 namespace
 {
     bool TryMakeTransform(const FMatrix& Matrix, FTransform& OutTransform)
@@ -8,17 +10,25 @@ namespace
         FVector Scale;
         FVector Translation;
         FQuat Rotation;
-        
+
         if (!Matrix.Decompose(Scale, Rotation, Translation))
         {
             return false;
         }
-        
+
+        if (!std::isfinite(Scale.x) || !std::isfinite(Scale.y) || !std::isfinite(Scale.z) ||
+            !std::isfinite(Translation.x) || !std::isfinite(Translation.y) || !std::isfinite(Translation.z) ||
+            std::fabs(Scale.x) <= EPSILON_1E_6 || std::fabs(Scale.y) <= EPSILON_1E_6 || std::fabs(Scale.z) <= EPSILON_1E_6)
+        {
+            return false;
+        }
+
         Rotation.Normalize();
         OutTransform = FTransform(Translation, FRotator(Rotation), Scale);
-        
-        return true;
+
+        return std::isfinite(OutTransform.Rotation.Pitch) && std::isfinite(OutTransform.Rotation.Yaw) && std::isfinite(OutTransform.Rotation.Roll);
     }
+
 }
 
 

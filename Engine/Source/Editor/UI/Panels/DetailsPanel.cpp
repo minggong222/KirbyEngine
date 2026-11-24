@@ -10,6 +10,8 @@
 #include "Actors/Actor.h"
 #include "Components/SceneComponent.h"
 #include "Components/ActorComponent.h"
+#include "Components/CameraComponent.h"
+#include <cmath>
 
 #include <algorithm>
 
@@ -112,6 +114,113 @@ static void DrawStaticMeshSettings(FEditorObjectContext* Context, FAssetManager*
     }
 }
 
+static bool IsValidPropertyInput(UObject* Object, const FProperty* Property, const void* ValuePtr)
+{
+    if (Object == nullptr || Property == nullptr || ValuePtr == nullptr)
+    {
+        return false;
+    }
+
+    switch (Property->GetType())
+    {
+    case EPropertyType::Float:
+    {
+        const float Value = *static_cast<const float*>(ValuePtr);
+
+        if (!std::isfinite(Value))
+        {
+            return false;
+        }
+
+        if (Cast<UCameraComponent>(Object) != nullptr)
+        {
+            const std::string PropertyName = Property->GetName().ToStd();
+
+            if (PropertyName == "FieldOfView" && (Value <= 1.0f || Value >= 179.0f))
+            {
+                return false;
+            }
+
+            if ((PropertyName == "AspectRatio" || PropertyName == "NearClipPlane" || PropertyName == "FarClipPlane" || PropertyName == "OrthoWidth") && Value <= 0.0f)
+            {
+                return false;
+            }
+
+            if ((PropertyName == "MoveSpeed" || PropertyName == "MouseSensitivity" || PropertyName == "WheelSpeed") && Value < 0.0f)
+            {
+                return false;
+            }
+
+            if (PropertyName == "NearClipPlane" || PropertyName == "FarClipPlane")
+            {
+                const FProperty* NearProperty = Object->GetClass()->FindProperty("NearClipPlane");
+                const FProperty* FarProperty = Object->GetClass()->FindProperty("FarClipPlane");
+
+                if (NearProperty == nullptr || FarProperty == nullptr)
+                {
+                    return false;
+                }
+
+                const void* NearValuePtr = NearProperty->GetValuePtr(Object);
+                const void* FarValuePtr = FarProperty->GetValuePtr(Object);
+
+                if (NearValuePtr == nullptr || FarValuePtr == nullptr)
+                {
+                    return false;
+                }
+
+                float NearValue = *static_cast<const float*>(NearValuePtr);
+                float FarValue = *static_cast<const float*>(FarValuePtr);
+
+                if (PropertyName == "NearClipPlane")
+                {
+                    NearValue = Value;
+                }
+                else
+                {
+                    FarValue = Value;
+                }
+
+                if (FarValue <= NearValue)
+                {
+                    return false;
+                }
+            }
+        }
+
+        return true;
+    }
+
+    case EPropertyType::Double:
+        return std::isfinite(*static_cast<const double*>(ValuePtr));
+
+    case EPropertyType::Vector:
+    {
+        const FVector& Value = *static_cast<const FVector*>(ValuePtr);
+        return std::isfinite(Value.x) && std::isfinite(Value.y) && std::isfinite(Value.z);
+    }
+
+    case EPropertyType::Rotator:
+    {
+        const FRotator& Value = *static_cast<const FRotator*>(ValuePtr);
+        return std::isfinite(Value.Pitch) && std::isfinite(Value.Yaw) && std::isfinite(Value.Roll);
+    }
+
+    case EPropertyType::Transform:
+    {
+        const FTransform& Value = *static_cast<const FTransform*>(ValuePtr);
+
+        return std::isfinite(Value.Location.x) && std::isfinite(Value.Location.y) && std::isfinite(Value.Location.z) &&
+            std::isfinite(Value.Rotation.Pitch) && std::isfinite(Value.Rotation.Yaw) && std::isfinite(Value.Rotation.Roll) &&
+            std::isfinite(Value.Scale3D.x) && std::isfinite(Value.Scale3D.y) && std::isfinite(Value.Scale3D.z) &&
+            std::fabs(Value.Scale3D.x) > EPSILON_1E_6 && std::fabs(Value.Scale3D.y) > EPSILON_1E_6 && std::fabs(Value.Scale3D.z) > EPSILON_1E_6;
+    }
+
+    default:
+        return true;
+    }
+}
+
 static void DrawProperty(FEditorObjectContext* Context, UObject* Object, const FProperty* Property)
 {
     if (Object == nullptr || Property == nullptr)
@@ -136,7 +245,7 @@ static void DrawProperty(FEditorObjectContext* Context, UObject* Object, const F
     
     auto CommitValue = [&](bool bChanged, const void* NewValue)
     {
-        if (bChanged && bEditable)
+        if (bChanged && bEditable && IsValidPropertyInput(Object, Property, NewValue))
         {
             if (Context != nullptr && Context->UndoManager != nullptr)
             {

@@ -10,10 +10,71 @@
 #include "Actors/StaticMeshActor.h"
 #include "Components/StaticMeshComponent.h"
 #include "World/World.h"
+#include "OBJStaticMeshImporter.h"
+#include "TextureAssetImporter.h"
+#include "Renderer/Renderer.h"
+
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <Windows.h>
+#include <commdlg.h>
+#include <filesystem>
+#include <iterator>
+
+#pragma comment(lib, "Comdlg32.lib")
+
+
+namespace
+{
+    UStaticMesh* SelectAndImportOBJ(FAssetManager& AssetManager, URenderer& Renderer)
+    {
+        wchar_t FileName[32768] = {};
+
+        static constexpr wchar_t Filter[] = L"Wavefront OBJ (*.obj)\0*.obj\0All Files (*.*)\0*.*\0";
+
+        OPENFILENAMEW Dialog = {};
+        Dialog.lStructSize = sizeof(Dialog);
+        Dialog.lpstrFilter = Filter;
+        Dialog.lpstrFile = FileName;
+        Dialog.nMaxFile = static_cast<DWORD>(std::size(FileName));
+        Dialog.lpstrTitle = L"Import OBJ";
+        Dialog.Flags = OFN_EXPLORER | OFN_FILEMUSTEXIST | OFN_PATHMUSTEXIST | OFN_NOCHANGEDIR;
+
+        if (!GetOpenFileNameW(&Dialog))
+        {
+            return nullptr;
+        }
+
+        return OBJImporter::ImportExternalOBJ(std::filesystem::path(FileName), AssetManager, Renderer);
+    }
+
+    UMaterial* SelectAndImportTexture(FAssetManager& AssetManager, URenderer& Renderer)
+    {
+        wchar_t FileName[32768] = {};
+
+        static constexpr wchar_t Filter[] = L"Image Files (*.png;*.jpg;*.jpeg;*.bmp;*.tif;*.tiff;*.gif)\0*.png;*.jpg;*.jpeg;*.bmp;*.tif;*.tiff;*.gif\0All Files (*.*)\0*.*\0";
+
+        OPENFILENAMEW Dialog = {};
+        Dialog.lStructSize = sizeof(Dialog);
+        Dialog.lpstrFilter = Filter;
+        Dialog.lpstrFile = FileName;
+        Dialog.nMaxFile = static_cast<DWORD>(std::size(FileName));
+        Dialog.lpstrTitle = L"Import Texture";
+        Dialog.Flags = OFN_EXPLORER | OFN_FILEMUSTEXIST | OFN_PATHMUSTEXIST | OFN_NOCHANGEDIR;
+
+        if (!GetOpenFileNameW(&Dialog))
+        {
+            return nullptr;
+        }
+
+        return TextureImporter::ImportExternalTexture(std::filesystem::path(FileName), AssetManager, Renderer);
+    }
+}
 
 bool FContentBrowserPanel::Init()
 {
-    return Context != nullptr && AssetManager != nullptr;
+    return Context != nullptr && AssetManager != nullptr && Renderer != nullptr;
 }
 
 void FContentBrowserPanel::Tick(float DeltaTime)
@@ -35,6 +96,20 @@ void FContentBrowserPanel::OnRender()
         ImGui::End();
         return;
     }
+    
+    if (ImGui::Button("Import OBJ"))
+    {
+        SelectAndImportOBJ(*AssetManager, *Renderer);
+    }
+
+    ImGui::SameLine();
+
+    if (ImGui::Button("Import Texture"))
+    {
+        SelectAndImportTexture(*AssetManager, *Renderer);
+    }
+
+    ImGui::Separator();
 
     if (ImGui::BeginTabBar("AssetTabs"))
     {

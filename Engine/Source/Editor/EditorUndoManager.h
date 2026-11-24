@@ -726,7 +726,13 @@ private:
             return true;
         }
 
-        return false;
+        if (!Actor->GetComponents().IsEmpty() || RootComponent != nullptr)
+        {
+            return false;
+        }
+
+        OutSnapshot.Type = EObjectType::Actor;
+        return true;
     }
 
     static AActor* RestoreObject(FEditorObjectContext& Context, const FObjectSnapshot& Snapshot, bool bPreserveUUID = true)
@@ -745,10 +751,17 @@ private:
             if (StaticMeshActor != nullptr)
             {
                 UStaticMeshComponent* Component = StaticMeshActor->GetStaticMeshComponent();
+
+                if (Component == nullptr)
+                {
+                    Context.World->DestroyActor(StaticMeshActor);
+                    return nullptr;
+                }
+
                 Component->SetStaticMesh(Snapshot.StaticMesh);
                 Component->SetMaterial(Snapshot.Material);
 
-                if (bPreserveUUID)
+                if (bPreserveUUID && Snapshot.RootComponentUUID != 0)
                 {
                     Component->SetUUID(Snapshot.RootComponentUUID);
                 }
@@ -756,6 +769,7 @@ private:
                 Actor = StaticMeshActor;
             }
         }
+        
         else if (Snapshot.Type == EObjectType::CameraActor)
         {
             ACameraActor* CameraActor = Context.World->SpawnActor<ACameraActor>(Snapshot.Name, Snapshot.Transform);
@@ -763,6 +777,12 @@ private:
             if (CameraActor != nullptr)
             {
                 UCameraComponent* Component = CameraActor->GetCameraComponent();
+
+                if (Component == nullptr)
+                {
+                    Context.World->DestroyActor(CameraActor);
+                    return nullptr;
+                }
 
                 for (const FPropertySnapshot& PropertySnapshot : Snapshot.CameraProperties)
                 {
@@ -786,7 +806,7 @@ private:
                     }
                 }
 
-                if (bPreserveUUID)
+                if (bPreserveUUID && Snapshot.RootComponentUUID != 0)
                 {
                     Component->SetUUID(Snapshot.RootComponentUUID);
                 }
