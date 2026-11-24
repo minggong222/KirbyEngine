@@ -40,7 +40,9 @@ namespace
         HRESULT Result = E_FAIL;
         bool bShouldUninitialize = false;
     };
-
+    
+    constexpr uint64 MaxDecodedTextureBytes = 256ull * 1024ull * 1024ull;
+    
     bool DecodeImage(const std::filesystem::path& FilePath, TArray<uint8>& OutPixels, uint32& OutWidth, uint32& OutHeight)
     {
         OutPixels.Reset();
@@ -101,7 +103,7 @@ namespace
         const uint64 RowPitch = static_cast<uint64>(Width) * 4;
         const uint64 PixelByteWidth = RowPitch * Height;
 
-        if (RowPitch > (std::numeric_limits<UINT>::max)() || PixelByteWidth > static_cast<uint64>((std::numeric_limits<int32>::max)()) || PixelByteWidth > (std::numeric_limits<UINT>::max)())
+        if (RowPitch > (std::numeric_limits<UINT>::max)() || PixelByteWidth > MaxDecodedTextureBytes || PixelByteWidth > static_cast<uint64>((std::numeric_limits<int32>::max)()) || PixelByteWidth > (std::numeric_limits<UINT>::max)())
         {
             return false;
         }

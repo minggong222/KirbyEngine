@@ -375,7 +375,7 @@ namespace
         return false;
     }
 
-    bool ReadObjectMap(const FJsonObject& ObjectMap, bool bIsCamera, uint32 Version, FAssetManager& AssetManager, URenderer& Renderer, TArray<FSceneObjectRecord>& OutRecords, TSet<uint32>& SeenUUIDs, uint32& OutMaxUUID)
+    bool ReadObjectMap(const FJsonObject& ObjectMap, bool bIsCamera, FAssetManager& AssetManager, URenderer& Renderer, TArray<FSceneObjectRecord>& OutRecords, TSet<uint32>& SeenUUIDs, uint32& OutMaxUUID)
     {
         for (const auto& Pair : ObjectMap.GetValues())
         {
@@ -438,11 +438,6 @@ namespace
                     {
                         return false;
                     }
-                }
-
-                if (Record.StaticMesh == nullptr)
-                {
-                    return false;
                 }
             }
 
@@ -760,13 +755,13 @@ bool FSceneSerializer::Load(const std::filesystem::path& FilePath, FEditorObject
     TSet<uint32> SeenUUIDs;
     uint32 MaxUUID = 0;
 
-    if (!ReadObjectMap(*PrimitiveObject, false, static_cast<uint32>(Version), AssetManager, Renderer, Records, SeenUUIDs, MaxUUID))
+    if (!ReadObjectMap(*PrimitiveObject, false, AssetManager, Renderer, Records, SeenUUIDs, MaxUUID))
     {
         UE_LOG(Error, "Scene Load failed: Invalid primitive data");
         return false;
     }
 
-    if (CameraObject != nullptr && !ReadObjectMap(*CameraObject, true, static_cast<uint32>(Version), AssetManager, Renderer, Records, SeenUUIDs, MaxUUID))
+    if (CameraObject != nullptr && !ReadObjectMap(*CameraObject, true, AssetManager, Renderer, Records, SeenUUIDs, MaxUUID))
     {
         UE_LOG(Error, "Scene Load failed: Invalid camera data");
         return false;
