@@ -59,7 +59,7 @@ void FViewportPanel::OnRender()
         if (EditorSettings != nullptr)
         {
             int32 ViewMode = static_cast<int32>(EditorSettings->ViewMode);
-            const char* ViewModes[] = {"Lit", "Wireframe"};
+            const char* ViewModes[] = {"Lit", "Unlit", "Wireframe"};
 
             if (ImGui::Combo("View Mode", &ViewMode, ViewModes, IM_ARRAYSIZE(ViewModes)))
             {
@@ -69,12 +69,21 @@ void FViewportPanel::OnRender()
             ImGui::Separator();
             ImGui::Text("Show Flags");
 
-            ImGui::Checkbox("Static Meshes", &EditorSettings->ShowFlags.StaticMeshes);
-            ImGui::Checkbox("Grid", &EditorSettings->ShowFlags.Grid);
-            ImGui::Checkbox("Axes", &EditorSettings->ShowFlags.Axes);
-            ImGui::Checkbox("Bounds", &EditorSettings->ShowFlags.Bounds);
-            ImGui::Checkbox("Billboards", &EditorSettings->ShowFlags.Billboards);
-            ImGui::Checkbox("Actor Names", &EditorSettings->ShowFlags.ActorNames);
+            bool bPrimitives = EditorSettings->ShowFlags.IsEnabled(EEngineShowFlag::Primitives);
+            if (ImGui::Checkbox("Primitives", &bPrimitives)) EditorSettings->ShowFlags.SetEnabled(EEngineShowFlag::Primitives, bPrimitives);
+            bool bGrid = EditorSettings->ShowFlags.IsEnabled(EEngineShowFlag::Grid);
+            if (ImGui::Checkbox("Grid", &bGrid)) EditorSettings->ShowFlags.SetEnabled(EEngineShowFlag::Grid, bGrid);
+            bool bAxes = EditorSettings->ShowFlags.IsEnabled(EEngineShowFlag::Axes);
+            if (ImGui::Checkbox("Axes", &bAxes)) EditorSettings->ShowFlags.SetEnabled(EEngineShowFlag::Axes, bAxes);
+            bool bBounds = EditorSettings->ShowFlags.IsEnabled(EEngineShowFlag::Bounds);
+            if (ImGui::Checkbox("Bounds", &bBounds)) EditorSettings->ShowFlags.SetEnabled(EEngineShowFlag::Bounds, bBounds);
+            bool bBillboardText = EditorSettings->ShowFlags.IsEnabled(EEngineShowFlag::BillboardText);
+            if (ImGui::Checkbox("UUID Labels", &bBillboardText)) EditorSettings->ShowFlags.SetEnabled(EEngineShowFlag::BillboardText, bBillboardText);
+
+            ImGui::Separator();
+            ImGui::Text("Camera");
+            float CameraSensitivity = EditorSettings->CameraSensitivity;
+            if (ImGui::SliderFloat("Camera Sensitivity", &CameraSensitivity, 0.001f, 0.2f, "%.3f")) EditorSettings->CameraSensitivity = CameraSensitivity;
 
             ImGui::Separator();
             ImGui::Text("Grid Settings");

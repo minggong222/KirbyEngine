@@ -329,16 +329,11 @@ void FObjectListPanel::OnRender()
                 continue;
             }
 
-            ImGui::PushID(Actor);
-
             const FString ActorName = Actor->GetName();
-
             const std::string SearchText = ActorSearchBuffer;
+            if (!SearchText.empty() && ActorName.ToStd().find(SearchText) == std::string::npos) continue;
 
-            if (!SearchText.empty() && ActorName.ToStd().find(SearchText) == std::string::npos)
-            {
-                continue;
-            }
+            ImGui::PushID(Actor);
             
             if (ImGui::Selectable(ActorName.c_str(), Context->SelectedActor == Actor))
             {

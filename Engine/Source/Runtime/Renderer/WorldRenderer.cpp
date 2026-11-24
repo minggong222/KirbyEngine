@@ -17,7 +17,7 @@
 
 void FWorldRenderer::Render(UWorld* World, URenderer& Renderer, const FMatrix& View, const FMatrix& Projection, UObject* SelectedObject, const FEngineShowFlags& ShowFlags) const
 {
-    if (World == nullptr || !Renderer.IsReady() || !ShowFlags.StaticMeshes)
+    if (World == nullptr || !Renderer.IsReady() || !ShowFlags.IsEnabled(EEngineShowFlag::Primitives))
     {
         return;
     }

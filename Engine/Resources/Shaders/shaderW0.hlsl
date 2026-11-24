@@ -1,15 +1,12 @@
-// ShaderW0.hlsl
-
-// ShaderW0.hlsl 소스 파일 맨위에 아래 상수버퍼 선언을 추가 하세요.
 cbuffer constants : register(b0)
 {
     row_major float4x4 World;
     row_major float4x4 View;
     row_major float4x4 Projection;
-
     uint IsOutline;
     uint IsTextured;
-    float2 ConstantsPadding;
+    uint IsUnlit;
+    uint ConstantsPadding;
 }
 
 Texture2D BaseColorTexture : register(t0);
@@ -27,34 +24,34 @@ struct PS_INPUT
     float4 position : SV_POSITION;
     float4 color : COLOR;
     float2 uv : TEXCOORD0;
+    float3 worldPosition : TEXCOORD1;
 };
 
 PS_INPUT mainVS(VS_INPUT input)
 {
     PS_INPUT output;
-    
-    // Pass the position directly to the pixel shader (no transformation)
-    //output.position = input.position;
-    
-    // 상수버퍼를 통해 넘겨 받은 Offset을 더해서 버텍스를 이동 시켜 픽셀쉐이더로 넘김
-    float4 WorldPosition = mul(float4(input.position.xyz, 1.0f), World);
-    float4 ViewPosition = mul(WorldPosition, View);
+    const float4 WorldPosition = mul(float4(input.position.xyz, 1.0f), World);
+    const float4 ViewPosition = mul(WorldPosition, View);
     output.position = mul(ViewPosition, Projection);
-    
-    // Pass the color to the pixel shader
     output.color = IsOutline != 0 ? float4(1.0f, 0.45f, 0.05f, 1.0f) : input.color;
     output.uv = input.uv;
-    
+    output.worldPosition = WorldPosition.xyz;
     return output;
 }
 
-float4 mainPS(PS_INPUT input) : SV_TARGET
+float4 mainPS(PS_INPUT input, bool bFrontFace : SV_IsFrontFace) : SV_TARGET
 {
-    if (IsTextured != 0)
+    float4 BaseColor = IsTextured != 0 ? BaseColorTexture.Sample(BaseColorSampler, input.uv) * input.color : input.color;
+    if (IsUnlit != 0 || IsOutline != 0)
     {
-        const float4 TextureColor = BaseColorTexture.Sample(BaseColorSampler, input.uv);
-        return TextureColor * input.color;
+        return BaseColor;
     }
 
-    return input.color;
+    float3 Normal = normalize(cross(ddx(input.worldPosition), ddy(input.worldPosition)));
+    if (!bFrontFace) Normal = -Normal;
+    const float3 LightDirection = normalize(float3(-0.35f, -0.45f, 0.82f));
+    const float Diffuse = saturate(dot(Normal, LightDirection));
+    const float Lighting = 0.22f + Diffuse * 0.78f;
+    BaseColor.rgb *= Lighting;
+    return BaseColor;
 }

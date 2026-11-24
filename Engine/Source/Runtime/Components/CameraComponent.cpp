@@ -1,9 +1,8 @@
 ﻿#include "CameraComponent.h"
 
 #include "Core/Math/MathUtility.h"
-#include "CameraComponent.h"
-
-#include "Core/Math/MathUtility.h"
+#include <algorithm>
+#include <cmath>
 
 UCameraComponent::UCameraComponent()
 {
@@ -39,8 +38,16 @@ FMatrix UCameraComponent::GetProjectionMatrix() const
 
 void UCameraComponent::SetAspectRatio(float InAspectRatio)
 {
-    if (InAspectRatio > 0.0f)
+    if (std::isfinite(InAspectRatio) && InAspectRatio > 0.0f)
     {
         AspectRatio = InAspectRatio;
+    }
+}
+
+void UCameraComponent::SetMouseSensitivity(float InSensitivity)
+{
+    if (std::isfinite(InSensitivity))
+    {
+        MouseSensitivity = std::clamp(InSensitivity, 0.001f, 1.0f);
     }
 }

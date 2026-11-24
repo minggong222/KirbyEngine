@@ -434,6 +434,42 @@ void FDetailsPanel::OnRender()
     ImGui::Text("Actor: %s", SelectedActor->GetName().c_str());
     ImGui::Text("Actor UUID: %u", SelectedActor->GetUUID());
 
+    if (ImGui::BeginPopup("AddComponentMenu"))
+    {
+        auto AddSceneComponent = [&](UActorComponent* Component)
+        {
+            if (Component == nullptr) return;
+            if (USceneComponent* SceneComponent = Cast<USceneComponent>(Component))
+            {
+                USceneComponent* Root = SelectedActor->GetRootComponent();
+                if (Root != nullptr && Root != SceneComponent && !SceneComponent->AttachToComponent(Root, false))
+                {
+                    SelectedActor->DestroyComponent(Component);
+                    return;
+                }
+            }
+            const uint32 PreviousSelectedUUID = Context->GetSelectedObject() != nullptr ? Context->GetSelectedObject()->GetUUID() : 0;
+            Context->SelectComponent(Component);
+            if (Context->UndoManager != nullptr) Context->UndoManager->RecordComponentCreate(*Context, SelectedActor, Component, PreviousSelectedUUID);
+        };
+        if (ImGui::MenuItem("Scene Component")) AddSceneComponent(SelectedActor->CreateComponent<USceneComponent>(FName("SceneComponent")));
+        if (ImGui::MenuItem("Static Mesh Component")) AddSceneComponent(SelectedActor->CreateComponent<UStaticMeshComponent>(FName("StaticMeshComponent")));
+        if (ImGui::MenuItem("Camera Component")) AddSceneComponent(SelectedActor->CreateComponent<UCameraComponent>(FName("CameraComponent")));
+        ImGui::EndPopup();
+    }
+    if (ImGui::Button("Add Component")) ImGui::OpenPopup("AddComponentMenu");
+    ImGui::SameLine();
+    const bool bCanRemoveSelectedComponent = Context->SelectedComponent != nullptr && Context->SelectedComponent != SelectedActor->GetRootComponent();
+    ImGui::BeginDisabled(!bCanRemoveSelectedComponent);
+    if (ImGui::Button("Remove Component") && Context->SelectedComponent != nullptr)
+    {
+        UActorComponent* ComponentToRemove = Context->SelectedComponent;
+        if (Context->UndoManager != nullptr) Context->UndoManager->RecordComponentDelete(*Context, SelectedActor, ComponentToRemove);
+        Context->SelectActor(SelectedActor);
+        SelectedActor->DestroyComponent(ComponentToRemove);
+    }
+    ImGui::EndDisabled();
+
     if (SelectedObject == nullptr)
     {
         ImGui::TextDisabled("No Component selected.");

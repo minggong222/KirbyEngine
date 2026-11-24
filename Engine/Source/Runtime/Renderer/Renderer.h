@@ -3,6 +3,7 @@
 #include "FVertexSimple.h"
 #include "Core/STL.h"
 #include "Core/Math/Math.h"
+#include "Renderer/RenderSettings.h"
 
 struct FTexture2DResource;
 struct FConstants
@@ -13,7 +14,8 @@ struct FConstants
 
     uint32 IsOutline = 0;
     uint32 IsTextured = 0;
-    float Padding[2] = {};
+    uint32 IsUnlit = 0;
+    uint32 Padding = 0;
 };
 
 class URenderer
@@ -36,7 +38,8 @@ public:
     void PrepareShader();
     void RenderPrimitive(ID3D11Buffer* VertexBuffer, ID3D11Buffer* IndexBuffer, UINT IndexCount, bool bRenderOutline = false, ID3D11ShaderResourceView* TextureSRV = nullptr);
     bool DrawDynamicVertices(const FVertexSimple* Vertices, UINT VertexCount, D3D11_PRIMITIVE_TOPOLOGY Topology, const FMatrix& World, const FMatrix& View, const FMatrix& Projection, ID3D11ShaderResourceView* TextureSRV = nullptr, bool bIsTextured = false, bool bAlphaBlend = false);
-    void SetWireframeEnabled(bool bEnabled);
+    bool DrawDynamicIndexedLines(const FVertexSimple* Vertices, UINT VertexCount, const uint32* Indices, UINT IndexCount, const FMatrix& View, const FMatrix& Projection);
+    void SetViewMode(EViewMode InViewMode);
     
     ID3D11Buffer* CreateVertexBuffer(FVertexSimple* vertices, UINT byteWidth);
     void ReleaseVertexBuffer(ID3D11Buffer* VertexBuffer);
@@ -48,7 +51,7 @@ public:
     
     void CreateConstantBuffer();
     void ReleaseConstantBuffer();
-    void UpdateConstant(FMatrix World, FMatrix View, FMatrix Projection, bool bIsOutline, bool bIsTextured = false);
+    void UpdateConstant(FMatrix World, FMatrix View, FMatrix Projection, bool bIsOutline, bool bIsTextured = false, bool bForceUnlit = false);
 
     ID3D11Device* GetDevice();
     ID3D11DeviceContext* GetDeviceContext();
@@ -71,6 +74,7 @@ public:
     void Shutdown();
 private:
     void ReleaseDynamicVertexBuffer();
+    void ReleaseDynamicIndexBuffer();
     
     // Direct3D 11 장치(Device)와 장치 컨텍스트(Device Context) 및 스왑 체인(Swap Chain)을 관리하기 위한 포인터들
     ID3D11Device* mDevice = nullptr; // GPU와 통신하기 위한 Direct3D 장치
@@ -106,10 +110,13 @@ private:
     
     ID3D11Buffer* mDynamicVertexBuffer = nullptr;
     UINT mDynamicVertexCapacity = 0;
+    ID3D11Buffer* mDynamicIndexBuffer = nullptr;
+    UINT mDynamicIndexCapacity = 0;
 
     ID3D11RasterizerState* mWireframeRasterizerState = nullptr;
     ID3D11BlendState* mAlphaBlendState = nullptr;
     ID3D11DepthStencilState* ViewportOverlayDepthState = nullptr;
 
     bool bWireframeEnabled = false;
+    bool bUnlitEnabled = false;
 };

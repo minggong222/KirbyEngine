@@ -43,6 +43,7 @@
 #include <cstdint>
 #include <memory>
 #include <unordered_set>
+#include <unordered_map>
 
 extern TArray<UObject*> GUObjectArray;
 
@@ -57,6 +58,25 @@ namespace
         CameraActor
     };
 
+    enum class ESceneComponentType
+    {
+        Scene,
+        StaticMesh,
+        Camera
+    };
+
+    struct FSceneComponentRecord
+    {
+        uint32 UUID = 0;
+        uint32 ParentUUID = 0;
+        FName Name;
+        ESceneComponentType Type = ESceneComponentType::Scene;
+        FTransform RelativeTransform;
+        UStaticMesh* StaticMesh = nullptr;
+        UMaterial* Material = nullptr;
+        TSharedPtr<FJsonObject> CameraSettings;
+    };
+
     struct FSceneActorRecord
     {
         uint32 UUID = 0;
@@ -69,8 +89,15 @@ namespace
 
         UStaticMesh* StaticMesh = nullptr;
         UMaterial* Material = nullptr;
-
         TSharedPtr<FJsonObject> CameraSettings;
+        bool bHasSerializedRoot = false;
+        ESceneComponentType RootComponentType = ESceneComponentType::Scene;
+        FName RootComponentName = FName("SceneRoot");
+        FTransform RootRelativeTransform;
+        UStaticMesh* RootStaticMesh = nullptr;
+        UMaterial* RootMaterial = nullptr;
+        TSharedPtr<FJsonObject> RootCameraSettings;
+        TArray<FSceneComponentRecord> Components;
     };
     
     struct FScopedNextUUIDRollback
@@ -443,7 +470,7 @@ namespace
         return false;
     }
 
-    bool ReadActorMap(const FJsonObject& ActorMap, FAssetManager& AssetManager, URenderer& Renderer, TArray<FSceneActorRecord>& OutRecords, TSet<uint32>& SeenUUIDs, uint32& OutMaxUUID)
+    bool ReadActorMap(const FJsonObject& ActorMap, double Version, FAssetManager& AssetManager, URenderer& Renderer, TArray<FSceneActorRecord>& OutRecords, TSet<uint32>& SeenUUIDs, uint32& OutMaxUUID)
     {
         for (const auto& Pair : ActorMap.GetValues())
         {
@@ -472,18 +499,13 @@ namespace
 
             const bool bHasRootComponentUUID = ActorData->TryGetNumberField("RootComponentUUID", RootComponentUUIDNumber);
 
-            if (ClassName == "Actor")
+            if (!bHasRootComponentUUID || RootComponentUUIDNumber == 0.0)
             {
-                if (bHasRootComponentUUID && RootComponentUUIDNumber != 0.0)
-                {
-                    return false;
-                }
-
                 Record.RootComponentUUID = 0;
             }
             else
             {
-                if (!bHasRootComponentUUID || !std::isfinite(RootComponentUUIDNumber) || RootComponentUUIDNumber < 1.0 || RootComponentUUIDNumber > (std::numeric_limits<uint32>::max)() || std::floor(RootComponentUUIDNumber) != RootComponentUUIDNumber)
+                if (!std::isfinite(RootComponentUUIDNumber) || RootComponentUUIDNumber < 1.0 || RootComponentUUIDNumber > (std::numeric_limits<uint32>::max)() || std::floor(RootComponentUUIDNumber) != RootComponentUUIDNumber)
                 {
                     return false;
                 }
@@ -496,6 +518,56 @@ namespace
                 }
             }
 
+            if (ClassName == "Actor" && Record.RootComponentUUID != 0)
+            {
+                FString RootComponentClass;
+                FString RootComponentName;
+                if (Version < 3.0 || !ActorData->TryGetStringField("RootComponentClass", RootComponentClass)) return false;
+                if (ActorData->TryGetStringField("RootComponentName", RootComponentName) && !RootComponentName.IsEmpty()) Record.RootComponentName = FName(RootComponentName);
+                const TSharedPtr<FJsonValue> RootTransformValue = ActorData->GetField("RootComponentTransform");
+                const FJsonObject* RootTransformObject = nullptr;
+                if (!TryGetJsonObject(RootTransformValue, RootTransformObject) || !ReadTransform(*RootTransformObject, Record.RootRelativeTransform)) return false;
+                if (RootComponentClass == "SceneComponent")
+                {
+                    Record.RootComponentType = ESceneComponentType::Scene;
+                }
+                else if (RootComponentClass == "StaticMeshComponent")
+                {
+                    Record.RootComponentType = ESceneComponentType::StaticMesh;
+                    FString AssetPath;
+                    if (ActorData->HasField("RootAssetPath"))
+                    {
+                        if (!ActorData->TryGetStringField("RootAssetPath", AssetPath) || AssetPath.IsEmpty()) return false;
+                        Record.RootStaticMesh = OBJImporter::LoadOBJAsset(AssetPath, AssetManager, Renderer);
+                        if (Record.RootStaticMesh == nullptr) return false;
+                    }
+                    FString TexturePath;
+                    if (ActorData->HasField("RootTexturePath"))
+                    {
+                        if (!ActorData->TryGetStringField("RootTexturePath", TexturePath) || TexturePath.IsEmpty()) return false;
+                        Record.RootMaterial = TextureImporter::LoadTextureMaterial(TexturePath, AssetManager, Renderer);
+                        if (Record.RootMaterial == nullptr) return false;
+                    }
+                }
+                else if (RootComponentClass == "CameraComponent")
+                {
+                    Record.RootComponentType = ESceneComponentType::Camera;
+                    if (ActorData->HasField("RootSettings"))
+                    {
+                        const TSharedPtr<FJsonValue> SettingsValue = ActorData->GetField("RootSettings");
+                        const FJsonObject* SettingsObject = nullptr;
+                        if (!TryGetJsonObject(SettingsValue, SettingsObject)) return false;
+                        Record.RootCameraSettings = SettingsValue->AsObject();
+                    }
+                }
+                else
+                {
+                    return false;
+                }
+                Record.bHasSerializedRoot = true;
+            }
+
+            if (ClassName != "Actor" && Record.RootComponentUUID == 0) return false;
             Record.Name = FName(ActorName);
 
             if (ClassName == "StaticMeshActor")
@@ -557,6 +629,99 @@ namespace
             else
             {
                 return false;
+            }
+
+            if (Version >= 3.0)
+            {
+                const TArray<TSharedPtr<FJsonValue>>* ComponentValues = nullptr;
+                if (!ActorData->TryGetArrayField("Components", ComponentValues) || ComponentValues == nullptr) return false;
+                for (const TSharedPtr<FJsonValue>& ComponentValue : *ComponentValues)
+                {
+                    const FJsonObject* ComponentData = nullptr;
+                    if (!TryGetJsonObject(ComponentValue, ComponentData)) return false;
+                    FSceneComponentRecord ComponentRecord;
+                    double ComponentUUIDNumber = 0.0;
+                    double ParentUUIDNumber = 0.0;
+                    FString ComponentClass;
+                    FString ComponentName;
+                    if (!ComponentData->TryGetNumberField("UUID", ComponentUUIDNumber) || !std::isfinite(ComponentUUIDNumber) || ComponentUUIDNumber < 1.0 || ComponentUUIDNumber > (std::numeric_limits<uint32>::max)() || std::floor(ComponentUUIDNumber) != ComponentUUIDNumber) return false;
+                    ComponentRecord.UUID = static_cast<uint32>(ComponentUUIDNumber);
+                    if (!SeenUUIDs.Add(ComponentRecord.UUID) || !ComponentData->TryGetStringField("Class", ComponentClass) || !ComponentData->TryGetStringField("Name", ComponentName) || ComponentName.IsEmpty()) return false;
+                    if (ComponentData->HasField("ParentUUID"))
+                    {
+                        if (!ComponentData->TryGetNumberField("ParentUUID", ParentUUIDNumber) || !std::isfinite(ParentUUIDNumber) || ParentUUIDNumber < 0.0 || ParentUUIDNumber > (std::numeric_limits<uint32>::max)() || std::floor(ParentUUIDNumber) != ParentUUIDNumber) return false;
+                    }
+                    ComponentRecord.ParentUUID = static_cast<uint32>(ParentUUIDNumber);
+                    ComponentRecord.Name = FName(ComponentName);
+                    const TSharedPtr<FJsonValue> RelativeTransformValue = ComponentData->GetField("RelativeTransform");
+                    const FJsonObject* RelativeTransformObject = nullptr;
+                    if (!TryGetJsonObject(RelativeTransformValue, RelativeTransformObject) || !ReadTransform(*RelativeTransformObject, ComponentRecord.RelativeTransform)) return false;
+
+                    if (ComponentClass == "SceneComponent")
+                    {
+                        ComponentRecord.Type = ESceneComponentType::Scene;
+                    }
+                    else if (ComponentClass == "StaticMeshComponent")
+                    {
+                        ComponentRecord.Type = ESceneComponentType::StaticMesh;
+                        FString AssetPath;
+                        if (ComponentData->HasField("AssetPath"))
+                        {
+                            if (!ComponentData->TryGetStringField("AssetPath", AssetPath) || AssetPath.IsEmpty()) return false;
+                            ComponentRecord.StaticMesh = OBJImporter::LoadOBJAsset(AssetPath, AssetManager, Renderer);
+                            if (ComponentRecord.StaticMesh == nullptr) return false;
+                        }
+                        if (ComponentData->HasField("TexturePath"))
+                        {
+                            FString TexturePath;
+                            if (!ComponentData->TryGetStringField("TexturePath", TexturePath) || TexturePath.IsEmpty()) return false;
+                            ComponentRecord.Material = TextureImporter::LoadTextureMaterial(TexturePath, AssetManager, Renderer);
+                            if (ComponentRecord.Material == nullptr) return false;
+                        }
+                    }
+                    else if (ComponentClass == "CameraComponent")
+                    {
+                        ComponentRecord.Type = ESceneComponentType::Camera;
+                        if (ComponentData->HasField("Settings"))
+                        {
+                            const TSharedPtr<FJsonValue> SettingsValue = ComponentData->GetField("Settings");
+                            const FJsonObject* SettingsObject = nullptr;
+                            if (!TryGetJsonObject(SettingsValue, SettingsObject)) return false;
+                            ComponentRecord.CameraSettings = SettingsValue->AsObject();
+                        }
+                    }
+                    else
+                    {
+                        return false;
+                    }
+                    if (ComponentRecord.ParentUUID == ComponentRecord.UUID || ComponentRecord.ParentUUID == Record.UUID) return false;
+                    OutMaxUUID = (std::max)(OutMaxUUID, ComponentRecord.UUID);
+                    Record.Components.Add(std::move(ComponentRecord));
+                }
+
+                if (Record.RootComponentUUID == 0 && (!Record.Components.IsEmpty() || Record.bHasSerializedRoot)) return false;
+                for (const FSceneComponentRecord& ComponentRecord : Record.Components)
+                {
+                    if (ComponentRecord.ParentUUID != 0 && ComponentRecord.ParentUUID != Record.RootComponentUUID)
+                    {
+                        bool bParentFound = false;
+                        for (const FSceneComponentRecord& Candidate : Record.Components) bParentFound = bParentFound || Candidate.UUID == ComponentRecord.ParentUUID;
+                        if (!bParentFound) return false;
+                    }
+                }
+                for (const FSceneComponentRecord& ComponentRecord : Record.Components)
+                {
+                    uint32 ParentUUID = ComponentRecord.ParentUUID;
+                    TSet<uint32> VisitedParents;
+                    while (ParentUUID != 0 && ParentUUID != Record.RootComponentUUID)
+                    {
+                        if (!VisitedParents.Add(ParentUUID)) return false;
+                        const FSceneComponentRecord* ParentRecord = nullptr;
+                        for (const FSceneComponentRecord& Candidate : Record.Components) if (Candidate.UUID == ParentUUID) { ParentRecord = &Candidate; break; }
+                        if (ParentRecord == nullptr) return false;
+                        ParentUUID = ParentRecord->ParentUUID;
+                    }
+                }
             }
 
             OutMaxUUID = (std::max)(OutMaxUUID, Record.UUID);
@@ -695,7 +860,7 @@ bool FSceneSerializer::Save(const std::filesystem::path& FilePath, const FEditor
 
     TSharedPtr<FJsonObject> Actors = MakeShared<FJsonObject>();
 
-    Root->SetNumberField("Version", 2);
+    Root->SetNumberField("Version", 3);
     Root->SetNumberField("NextUUID", FEngineStatics::NextUUID);
 
     for (AActor* Actor : Level->GetActors())
@@ -771,15 +936,92 @@ bool FSceneSerializer::Save(const std::filesystem::path& FilePath, const FEditor
                 return false;
             }
         }
-        else if (Actor->GetClass() == AActor::StaticClass() && Actor->GetComponents().IsEmpty())
+        else if (Actor->GetClass() == AActor::StaticClass())
         {
             ActorData.SetStringField("Class", "Actor");
+            if (RootComponent != nullptr)
+            {
+                FString RootComponentClass = "SceneComponent";
+                if (UStaticMeshComponent* RootMesh = Cast<UStaticMeshComponent>(RootComponent))
+                {
+                    RootComponentClass = "StaticMeshComponent";
+                    if (RootMesh->GetStaticMesh() != nullptr)
+                    {
+                        const FString& AssetPath = RootMesh->GetStaticMesh()->GetAssetPath();
+                        if (AssetPath.IsEmpty()) return false;
+                        ActorData.SetStringField("RootAssetPath", AssetPath);
+                    }
+                    if (RootMesh->GetMaterial() != nullptr && RootMesh->GetMaterial()->GetBaseColorTexture() != nullptr)
+                    {
+                        const FString& TexturePath = RootMesh->GetMaterial()->GetBaseColorTexture()->GetAssetPath();
+                        if (TexturePath.IsEmpty()) return false;
+                        ActorData.SetStringField("RootTexturePath", TexturePath);
+                    }
+                }
+                else if (UCameraComponent* RootCamera = Cast<UCameraComponent>(RootComponent))
+                {
+                    RootComponentClass = "CameraComponent";
+                    FJsonObject RootCameraData;
+                    if (!WriteCameraSettings(RootCameraData, *RootCamera)) return false;
+                    const TSharedPtr<FJsonValue> SettingsValue = RootCameraData.GetField("Settings");
+                    if (!SettingsValue.IsValid()) return false;
+                    ActorData.SetField("RootSettings", SettingsValue);
+                }
+                ActorData.SetStringField("RootComponentClass", RootComponentClass);
+                ActorData.SetStringField("RootComponentName", RootComponent->GetName());
+                FJsonObject RootComponentData;
+                WriteTransform(RootComponentData, RootComponent->GetRelativeTransform());
+                ActorData.SetObjectField("RootComponentTransform", std::move(RootComponentData));
+            }
         }
         else
         {
             UE_LOG(Error, "Scene Save failed: Unsupported Actor class");
             return false;
         }
+
+        TArray<TSharedPtr<FJsonValue>> ComponentValues;
+        for (UActorComponent* ActorComponent : Actor->GetComponents())
+        {
+            if (ActorComponent == nullptr || ActorComponent == RootComponent) continue;
+            USceneComponent* SceneComponent = Cast<USceneComponent>(ActorComponent);
+            if (SceneComponent == nullptr) return false;
+
+            FJsonObject ComponentData;
+            ComponentData.SetNumberField("UUID", ActorComponent->GetUUID());
+            ComponentData.SetStringField("Name", ActorComponent->GetName());
+            ComponentData.SetNumberField("ParentUUID", SceneComponent->GetAttachParent() != nullptr ? SceneComponent->GetAttachParent()->GetUUID() : 0);
+            WriteTransform(ComponentData, SceneComponent->GetRelativeTransform());
+
+            if (UCameraComponent* CameraComponent = Cast<UCameraComponent>(ActorComponent))
+            {
+                ComponentData.SetStringField("Class", "CameraComponent");
+                if (!WriteCameraSettings(ComponentData, *CameraComponent)) return false;
+            }
+            else if (UStaticMeshComponent* MeshComponent = Cast<UStaticMeshComponent>(ActorComponent))
+            {
+                ComponentData.SetStringField("Class", "StaticMeshComponent");
+                if (MeshComponent->GetStaticMesh() != nullptr)
+                {
+                    const FString& AssetPath = MeshComponent->GetStaticMesh()->GetAssetPath();
+                    if (AssetPath.IsEmpty()) return false;
+                    ComponentData.SetStringField("AssetPath", AssetPath);
+                }
+                if (MeshComponent->GetMaterial() != nullptr && MeshComponent->GetMaterial()->GetBaseColorTexture() != nullptr)
+                {
+                    const FString& TexturePath = MeshComponent->GetMaterial()->GetBaseColorTexture()->GetAssetPath();
+                    if (TexturePath.IsEmpty()) return false;
+                    ComponentData.SetStringField("TexturePath", TexturePath);
+                }
+            }
+            else
+            {
+                ComponentData.SetStringField("Class", "SceneComponent");
+            }
+
+            ComponentValues.Add(MakeShared<FJsonValueObject>(MakeShared<FJsonObject>(std::move(ComponentData))));
+        }
+        ActorData.SetArrayField("Components", std::move(ComponentValues));
 
         Actors->SetObjectField(std::to_string(Actor->GetUUID()).c_str(), std::move(ActorData));
     }
@@ -913,7 +1155,7 @@ bool FSceneSerializer::Load(const std::filesystem::path& FilePath, FEditorObject
     double Version = 0.0;
     double NextUUIDNumber = 0.0;
 
-    if (!Root->TryGetNumberField("Version", Version) || (Version != 1.0 && Version != 2.0) || !Root->TryGetNumberField("NextUUID", NextUUIDNumber))
+    if (!Root->TryGetNumberField("Version", Version) || (Version != 1.0 && Version != 2.0 && Version != 3.0) || !Root->TryGetNumberField("NextUUID", NextUUIDNumber))
     {
         UE_LOG(Error, "Scene Load failed: Invalid scene header");
         return false;
@@ -968,7 +1210,7 @@ bool FSceneSerializer::Load(const std::filesystem::path& FilePath, FEditorObject
     TSet<uint32> SeenUUIDs;
     uint32 MaxUUID = 0;
 
-    if (Version == 2.0)
+    if (Version >= 2.0)
     {
         const TSharedPtr<FJsonValue> ActorsValue = Root->GetField("Actors", EJson::Object);
         const FJsonObject* ActorsObject = nullptr;
@@ -979,7 +1221,7 @@ bool FSceneSerializer::Load(const std::filesystem::path& FilePath, FEditorObject
             return false;
         }
 
-        if (!ReadActorMap(*ActorsObject, AssetManager, Renderer, Records, SeenUUIDs, MaxUUID))
+        if (!ReadActorMap(*ActorsObject, Version, AssetManager, Renderer, Records, SeenUUIDs, MaxUUID))
         {
             UE_LOG(Error, "Scene Load failed: Invalid actor data");
             return false;
@@ -1038,11 +1280,21 @@ bool FSceneSerializer::Load(const std::filesystem::path& FilePath, FEditorObject
             UE_LOG(Error, "Scene Load failed: UUID collision (Actor=%u, RootComponent=%u)", Record.UUID, Record.RootComponentUUID);
             return false;
         }
+        for (const FSceneComponentRecord& ComponentRecord : Record.Components)
+        {
+            if (HasUUIDCollision(ComponentRecord.UUID, Context))
+            {
+                UE_LOG(Error, "Scene Load failed: Component UUID collision (%u)", ComponentRecord.UUID);
+                return false;
+            }
+        }
     }
     
     const uint32 StagingStartUUID = (std::max)(FEngineStatics::NextUUID, SavedNextUUID);
 
-    const uint64 RequiredUUIDCount = 2ull + static_cast<uint64>(Records.Num()) * 2ull + (bHasViewportCameraData ? 1ull : 0ull);
+    uint64 TotalComponentCount = 0;
+    for (const FSceneActorRecord& Record : Records) TotalComponentCount += (Record.RootComponentUUID != 0 ? 1ull : 0ull) + static_cast<uint64>(Record.Components.Num());
+    const uint64 RequiredUUIDCount = 2ull + static_cast<uint64>(Records.Num()) + TotalComponentCount + (bHasViewportCameraData ? 1ull : 0ull);
 
     if (StagingStartUUID == 0 || static_cast<uint64>(StagingStartUUID) + RequiredUUIDCount > (std::numeric_limits<uint32>::max)())
     {
@@ -1113,7 +1365,7 @@ bool FSceneSerializer::Load(const std::filesystem::path& FilePath, FEditorObject
 
         USceneComponent* RootComponent = NewActor->GetRootComponent();
 
-        if (Record.RootComponentUUID != 0 && RootComponent == nullptr)
+        if (Record.RootComponentUUID != 0 && RootComponent == nullptr && !Record.bHasSerializedRoot)
         {
             UE_LOG(Error, "Scene Load failed: Actor has no Root Component");
             return false;
@@ -1124,6 +1376,66 @@ bool FSceneSerializer::Load(const std::filesystem::path& FilePath, FEditorObject
         if (RootComponent != nullptr && Record.RootComponentUUID != 0)
         {
             RootComponent->SetUUID(Record.RootComponentUUID);
+        }
+        if (Record.bHasSerializedRoot)
+        {
+            if (RootComponent != nullptr) return false;
+            switch (Record.RootComponentType)
+            {
+            case ESceneComponentType::Scene: RootComponent = NewActor->CreateComponent<USceneComponent>(Record.RootComponentName); break;
+            case ESceneComponentType::StaticMesh: RootComponent = NewActor->CreateComponent<UStaticMeshComponent>(Record.RootComponentName); break;
+            case ESceneComponentType::Camera: RootComponent = NewActor->CreateComponent<UCameraComponent>(Record.RootComponentName); break;
+            default: return false;
+            }
+            if (RootComponent == nullptr || !NewActor->SetRootComponent(RootComponent)) return false;
+            RootComponent->SetUUID(Record.RootComponentUUID);
+            RootComponent->SetRelativeTransform(Record.RootRelativeTransform);
+            if (UStaticMeshComponent* RootMesh = Cast<UStaticMeshComponent>(RootComponent))
+            {
+                RootMesh->SetStaticMesh(Record.RootStaticMesh);
+                RootMesh->SetMaterial(Record.RootMaterial);
+            }
+            if (UCameraComponent* RootCamera = Cast<UCameraComponent>(RootComponent))
+            {
+                if (!ValidateCameraSettings(*RootCamera, Record.RootCameraSettings.Get()) || !ApplyCameraSettings(*RootCamera, Record.RootCameraSettings.Get())) return false;
+            }
+        }
+
+        std::unordered_map<uint32, USceneComponent*> ComponentMap;
+        if (RootComponent != nullptr) ComponentMap.emplace(RootComponent->GetUUID(), RootComponent);
+        for (const FSceneComponentRecord& ComponentRecord : Record.Components)
+        {
+            UActorComponent* RestoredComponent = nullptr;
+            switch (ComponentRecord.Type)
+            {
+            case ESceneComponentType::Scene: RestoredComponent = NewActor->CreateComponent<USceneComponent>(ComponentRecord.Name); break;
+            case ESceneComponentType::StaticMesh: RestoredComponent = NewActor->CreateComponent<UStaticMeshComponent>(ComponentRecord.Name); break;
+            case ESceneComponentType::Camera: RestoredComponent = NewActor->CreateComponent<UCameraComponent>(ComponentRecord.Name); break;
+            default: return false;
+            }
+            if (RestoredComponent == nullptr) return false;
+            RestoredComponent->SetUUID(ComponentRecord.UUID);
+            if (RestoredComponent->GetFName() != ComponentRecord.Name) return false;
+            USceneComponent* RestoredSceneComponent = Cast<USceneComponent>(RestoredComponent);
+            if (RestoredSceneComponent == nullptr) return false;
+            RestoredSceneComponent->SetRelativeTransform(ComponentRecord.RelativeTransform);
+            if (UStaticMeshComponent* MeshComponent = Cast<UStaticMeshComponent>(RestoredComponent))
+            {
+                MeshComponent->SetStaticMesh(ComponentRecord.StaticMesh);
+                MeshComponent->SetMaterial(ComponentRecord.Material);
+            }
+            if (UCameraComponent* CameraComponent = Cast<UCameraComponent>(RestoredComponent))
+            {
+                if (!ValidateCameraSettings(*CameraComponent, ComponentRecord.CameraSettings.Get()) || !ApplyCameraSettings(*CameraComponent, ComponentRecord.CameraSettings.Get())) return false;
+            }
+            ComponentMap.emplace(ComponentRecord.UUID, RestoredSceneComponent);
+        }
+        for (const FSceneComponentRecord& ComponentRecord : Record.Components)
+        {
+            if (ComponentRecord.ParentUUID == 0) continue;
+            const auto Child = ComponentMap.find(ComponentRecord.UUID);
+            const auto Parent = ComponentMap.find(ComponentRecord.ParentUUID);
+            if (Child == ComponentMap.end() || Parent == ComponentMap.end() || !Child->second->AttachToComponent(Parent->second, false)) return false;
         }
     }
     

@@ -288,6 +288,7 @@ void URenderer::Release()
     }
 
     ReleaseDynamicVertexBuffer();
+    ReleaseDynamicIndexBuffer();
     ReleaseRasterizerState();
     ReleaseFrameBuffer();
     ReleaseDeviceAndSwapChain();
@@ -321,7 +322,7 @@ void URenderer::CreateShader()
     ID3DBlob* PixelShaderBlob = nullptr;
     ID3DBlob* ErrorBlob = nullptr;
 
-    HRESULT hr = D3DCompileFromFile(L"Engine/Resources/Shaders/ShaderW0.hlsl", nullptr, nullptr, "mainVS", "vs_5_0", 0, 0, &VertexShaderBlob, &ErrorBlob);
+    HRESULT hr = D3DCompileFromFile(L"Engine/Resources/Shaders/shaderW0.hlsl", nullptr, nullptr, "mainVS", "vs_5_0", 0, 0, &VertexShaderBlob, &ErrorBlob);
 
     if (FAILED(hr))
     {
@@ -341,7 +342,7 @@ void URenderer::CreateShader()
         ErrorBlob = nullptr;
     }
 
-    hr = D3DCompileFromFile(L"Engine/Resources/Shaders/ShaderW0.hlsl", nullptr, nullptr, "mainPS", "ps_5_0", 0, 0, &PixelShaderBlob, &ErrorBlob);
+    hr = D3DCompileFromFile(L"Engine/Resources/Shaders/shaderW0.hlsl", nullptr, nullptr, "mainPS", "ps_5_0", 0, 0, &PixelShaderBlob, &ErrorBlob);
 
     if (FAILED(hr))
     {
@@ -516,9 +517,10 @@ void URenderer::RenderPrimitive(ID3D11Buffer* VertexBuffer, ID3D11Buffer* IndexB
     }
 }
 
-void URenderer::SetWireframeEnabled(bool bEnabled)
+void URenderer::SetViewMode(EViewMode InViewMode)
 {
-    bWireframeEnabled = bEnabled;
+    bWireframeEnabled = InViewMode == EViewMode::Wireframe;
+    bUnlitEnabled = InViewMode == EViewMode::Unlit;
 
     if (mDeviceContext != nullptr)
     {
@@ -696,7 +698,7 @@ void URenderer::ReleaseConstantBuffer()
     }
 }
 
-void URenderer::UpdateConstant(FMatrix World, FMatrix View, FMatrix Projection, bool bIsOutline, bool bIsTextured)
+void URenderer::UpdateConstant(FMatrix World, FMatrix View, FMatrix Projection, bool bIsOutline, bool bIsTextured, bool bForceUnlit)
 {
     if (mConstantBuffer == nullptr || mDeviceContext == nullptr)
     {
@@ -719,6 +721,7 @@ void URenderer::UpdateConstant(FMatrix World, FMatrix View, FMatrix Projection, 
     Constants->Projection = Projection;
     Constants->IsOutline = bIsOutline ? 1u : 0u;
     Constants->IsTextured = bIsTextured ? 1u : 0u;
+    Constants->IsUnlit = (bUnlitEnabled || bForceUnlit) ? 1u : 0u;
 
     mDeviceContext->Unmap(mConstantBuffer, 0);
 }
@@ -1026,6 +1029,122 @@ void URenderer::ReleaseDynamicVertexBuffer()
     mDynamicVertexCapacity = 0;
 }
 
+void URenderer::ReleaseDynamicIndexBuffer()
+{
+    if (mDynamicIndexBuffer != nullptr)
+    {
+        mDynamicIndexBuffer->Release();
+        mDynamicIndexBuffer = nullptr;
+    }
+
+    mDynamicIndexCapacity = 0;
+}
+
+bool URenderer::DrawDynamicIndexedLines(const FVertexSimple* Vertices, UINT VertexCount, const uint32* Indices, UINT IndexCount, const FMatrix& View, const FMatrix& Projection)
+{
+    if (mDevice == nullptr || mDeviceContext == nullptr || Vertices == nullptr || Indices == nullptr || VertexCount == 0 || IndexCount == 0 || IndexCount % 2 != 0 || mSimpleVertexShader == nullptr || mSimplePixelShader == nullptr || mSimpleInputLayout == nullptr || mConstantBuffer == nullptr || mRasterizerState == nullptr || mAlphaBlendState == nullptr || ViewportDepthState == nullptr || ViewportOverlayDepthState == nullptr)
+    {
+        return false;
+    }
+
+    for (UINT Index = 0; Index < IndexCount; ++Index)
+    {
+        if (Indices[Index] >= VertexCount)
+        {
+            return false;
+        }
+    }
+
+    const auto GrowCapacity = [](UINT Current, UINT Required, UINT& OutCapacity)
+    {
+        UINT Capacity = Current == 0 ? 256 : Current;
+        while (Capacity < Required)
+        {
+            if (Capacity > (std::numeric_limits<UINT>::max)() / 2)
+            {
+                Capacity = Required;
+                break;
+            }
+            Capacity *= 2;
+        }
+        OutCapacity = Capacity;
+        return Capacity >= Required;
+    };
+
+    if (mDynamicVertexCapacity < VertexCount)
+    {
+        UINT NewCapacity = 0;
+        if (!GrowCapacity(mDynamicVertexCapacity, VertexCount, NewCapacity)) return false;
+        const uint64 ByteWidth = sizeof(FVertexSimple) * static_cast<uint64>(NewCapacity);
+        if (ByteWidth > (std::numeric_limits<UINT>::max)()) return false;
+        ReleaseDynamicVertexBuffer();
+        D3D11_BUFFER_DESC BufferDesc = {};
+        BufferDesc.ByteWidth = static_cast<UINT>(ByteWidth);
+        BufferDesc.Usage = D3D11_USAGE_DYNAMIC;
+        BufferDesc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
+        BufferDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+        if (FAILED(mDevice->CreateBuffer(&BufferDesc, nullptr, &mDynamicVertexBuffer)) || mDynamicVertexBuffer == nullptr)
+        {
+            ReleaseDynamicVertexBuffer();
+            return false;
+        }
+        mDynamicVertexCapacity = NewCapacity;
+    }
+
+    if (mDynamicIndexCapacity < IndexCount)
+    {
+        UINT NewCapacity = 0;
+        if (!GrowCapacity(mDynamicIndexCapacity, IndexCount, NewCapacity)) return false;
+        const uint64 ByteWidth = sizeof(uint32) * static_cast<uint64>(NewCapacity);
+        if (ByteWidth > (std::numeric_limits<UINT>::max)()) return false;
+        ReleaseDynamicIndexBuffer();
+        D3D11_BUFFER_DESC BufferDesc = {};
+        BufferDesc.ByteWidth = static_cast<UINT>(ByteWidth);
+        BufferDesc.Usage = D3D11_USAGE_DYNAMIC;
+        BufferDesc.BindFlags = D3D11_BIND_INDEX_BUFFER;
+        BufferDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+        if (FAILED(mDevice->CreateBuffer(&BufferDesc, nullptr, &mDynamicIndexBuffer)) || mDynamicIndexBuffer == nullptr)
+        {
+            ReleaseDynamicIndexBuffer();
+            return false;
+        }
+        mDynamicIndexCapacity = NewCapacity;
+    }
+
+    D3D11_MAPPED_SUBRESOURCE MappedVertices = {};
+    if (FAILED(mDeviceContext->Map(mDynamicVertexBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &MappedVertices)) || MappedVertices.pData == nullptr) return false;
+    std::memcpy(MappedVertices.pData, Vertices, sizeof(FVertexSimple) * static_cast<SIZE_T>(VertexCount));
+    mDeviceContext->Unmap(mDynamicVertexBuffer, 0);
+
+    D3D11_MAPPED_SUBRESOURCE MappedIndices = {};
+    if (FAILED(mDeviceContext->Map(mDynamicIndexBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &MappedIndices)) || MappedIndices.pData == nullptr) return false;
+    std::memcpy(MappedIndices.pData, Indices, sizeof(uint32) * static_cast<SIZE_T>(IndexCount));
+    mDeviceContext->Unmap(mDynamicIndexBuffer, 0);
+
+    UpdateConstant(FMatrix::Identity, View, Projection, false, false, true);
+    mDeviceContext->VSSetShader(mSimpleVertexShader, nullptr, 0);
+    mDeviceContext->VSSetConstantBuffers(0, 1, &mConstantBuffer);
+    mDeviceContext->PSSetShader(mSimplePixelShader, nullptr, 0);
+    mDeviceContext->IASetInputLayout(mSimpleInputLayout);
+    const UINT Offset = 0;
+    mDeviceContext->IASetVertexBuffers(0, 1, &mDynamicVertexBuffer, &mStride, &Offset);
+    mDeviceContext->IASetIndexBuffer(mDynamicIndexBuffer, DXGI_FORMAT_R32_UINT, 0);
+    mDeviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_LINELIST);
+    ID3D11ShaderResourceView* NullSRV = nullptr;
+    mDeviceContext->PSSetShaderResources(0, 1, &NullSRV);
+    const FLOAT BlendFactor[4] = {};
+    mDeviceContext->OMSetBlendState(mAlphaBlendState, BlendFactor, 0xffffffff);
+    mDeviceContext->OMSetDepthStencilState(ViewportOverlayDepthState, 0);
+    mDeviceContext->RSSetState(mRasterizerState);
+    mDeviceContext->DrawIndexed(IndexCount, 0, 0);
+    mDeviceContext->OMSetBlendState(nullptr, nullptr, 0xffffffff);
+    mDeviceContext->OMSetDepthStencilState(ViewportDepthState, 0);
+    mDeviceContext->RSSetState(bWireframeEnabled ? mWireframeRasterizerState : mRasterizerState);
+    mDeviceContext->IASetIndexBuffer(nullptr, DXGI_FORMAT_UNKNOWN, 0);
+    mDeviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+    return true;
+}
+
 bool URenderer::DrawDynamicVertices(const FVertexSimple* Vertices, UINT VertexCount, D3D11_PRIMITIVE_TOPOLOGY Topology, const FMatrix& World, const FMatrix& View, const FMatrix& Projection, ID3D11ShaderResourceView* TextureSRV, bool bIsTextured, bool bAlphaBlend)
 {
     if (mDevice == nullptr || mDeviceContext == nullptr || Vertices == nullptr || VertexCount == 0 || mSimpleVertexShader == nullptr || mSimplePixelShader == nullptr || mSimpleInputLayout == nullptr || (bIsTextured && TextureSRV == nullptr) ||
@@ -1096,8 +1215,7 @@ bool URenderer::DrawDynamicVertices(const FVertexSimple* Vertices, UINT VertexCo
     std::memcpy(MappedResource.pData, Vertices, sizeof(FVertexSimple) * static_cast<SIZE_T>(VertexCount));
     mDeviceContext->Unmap(mDynamicVertexBuffer, 0);
 
-    UpdateConstant(World, View, Projection, false, bIsTextured);
-
+    UpdateConstant(World, View, Projection, false, bIsTextured, true);
     mDeviceContext->VSSetShader(mSimpleVertexShader, nullptr, 0);
     if (mConstantBuffer != nullptr)
     {

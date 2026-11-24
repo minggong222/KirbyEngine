@@ -53,6 +53,16 @@ bool FTextRenderer::Initialize(const wchar_t* FontFace, int32 InFontHeight)
     CurrentRowHeight = 0;
     bAtlasDirty = true;
 
+    for (uint32 Character = 32; Character <= 126; ++Character)
+    {
+        FTextGlyph Glyph;
+        if (!GetGlyph(Character, Glyph))
+        {
+            Shutdown();
+            return false;
+        }
+    }
+
     return true;
 }
 

@@ -89,6 +89,7 @@ bool FEditorEngine::Init(HINSTANCE hInstance)
     }
     
     MainCamera = new UCameraComponent();
+    MainCamera->SetMouseSensitivity(EditorSettings.CameraSensitivity);
     
     ViewportPanel = new FViewportPanel();
     ViewportPanel->SetViewportTexture(Renderer->GetViewportSRV());
@@ -217,6 +218,7 @@ void FEditorEngine::Run()
             const float AspectRatio = static_cast<float>(ViewportWidth) / static_cast<float>(ViewportHeight);
             MainCamera->SetAspectRatio(AspectRatio);
         }
+        MainCamera->SetMouseSensitivity(EditorSettings.CameraSensitivity);
         CameraController.Update(*MainCamera, *WindowsWindow, static_cast<float>(DeltaTime), ViewportPanel->IsViewportHovered());
         
         const FMatrix View = MainCamera->GetViewMatrix();
@@ -226,7 +228,7 @@ void FEditorEngine::Run()
         
         {
             // 준비 작업
-            Renderer->SetWireframeEnabled(EditorSettings.ViewMode == EViewMode::Wireframe);
+            Renderer->SetViewMode(EditorSettings.ViewMode);
 
             LineRenderer.BeginFrame();
             TextRenderer.BeginFrame();
@@ -239,7 +241,7 @@ void FEditorEngine::Run()
             
             ULevel* Level = ObjectContext.World != nullptr ? ObjectContext.World->GetPersistentLevel() : nullptr;
 
-            if (EditorSettings.ShowFlags.Bounds && Level != nullptr)
+            if (EditorSettings.ShowFlags.IsEnabled(EEngineShowFlag::Bounds) && Level != nullptr)
             {
                 for (AActor* Actor : Level->GetActors())
                 {
@@ -267,14 +269,14 @@ void FEditorEngine::Run()
                 }
             }
             
-            if (EditorSettings.ShowFlags.Grid || EditorSettings.ShowFlags.Axes)
+            if (EditorSettings.ShowFlags.IsEnabled(EEngineShowFlag::Grid) || EditorSettings.ShowFlags.IsEnabled(EEngineShowFlag::Axes))
             {
-                LineRenderer.AddGrid(EditorSettings.GridExtent, EditorSettings.GridSpacing, EditorSettings.MajorGridInterval, EditorSettings.ShowFlags.Grid, EditorSettings.ShowFlags.Axes);
+                LineRenderer.AddGrid(EditorSettings.GridExtent, EditorSettings.GridSpacing, EditorSettings.MajorGridInterval, EditorSettings.ShowFlags.IsEnabled(EEngineShowFlag::Grid), EditorSettings.ShowFlags.IsEnabled(EEngineShowFlag::Axes));
             }
 
             LineRenderer.Flush(*Renderer, View, Projection);
             
-            if (EditorSettings.ShowFlags.ActorNames && Level != nullptr)
+            if (EditorSettings.ShowFlags.IsEnabled(EEngineShowFlag::BillboardText) && Level != nullptr)
             {
                 const FTransform CameraTransform = MainCamera->GetTransform();
 
@@ -331,11 +333,7 @@ void FEditorEngine::Run()
                     const FVector TextPosition = LabelAnchor - CameraRight * (TextSize.x * 0.5f * WorldUnitsPerPixel) + CameraUp * (2.0f * WorldUnitsPerPixel);
                     const FVector BillboardCenter = TextPosition + CameraRight * (TextSize.x * 0.5f * WorldUnitsPerPixel) + CameraUp * (TextSize.y * 0.5f * WorldUnitsPerPixel);
 
-                    if (EditorSettings.ShowFlags.Billboards)
-                    {
-                        BillboardRenderer.DrawScreenAlignedQuad(*Renderer, BillboardCenter, CameraPosition, CameraRight, CameraUp, FVector2D(TextSize.x + 8.0f, TextSize.y + 6.0f), Renderer->GetViewportHeight(), FVector4(0.025f, 0.025f, 0.025f, 0.75f), View, Projection);
-                    }
-
+                    BillboardRenderer.DrawScreenAlignedQuad(*Renderer, BillboardCenter, CameraPosition, CameraRight, CameraUp, FVector2D(TextSize.x + 8.0f, TextSize.y + 6.0f), Renderer->GetViewportHeight(), FVector4(0.025f, 0.025f, 0.025f, 0.75f), View, Projection);
                     TextRenderer.AddText(Label, TextPosition, CameraRight, CameraUp, WorldUnitsPerPixel, FVector4(1.0f, 1.0f, 1.0f, 1.0f));
                 }
             }

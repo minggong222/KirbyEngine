@@ -13,6 +13,7 @@ public:
     FMatrix GetProjectionMatrix() const;
     float GetMoveSpeed() const { return MoveSpeed; }
     float GetMouseSensitivity() const { return MouseSensitivity; }
+    void SetMouseSensitivity(float InSensitivity);
     
     UFUNCTION(Category="Camera")
     void SetAspectRatio(float InAspectRatio);
