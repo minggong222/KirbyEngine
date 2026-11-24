@@ -329,15 +329,19 @@ void FDetailsPanel::OnRender()
     {
         ImGui::TextDisabled("No Component selected.");
         ImGui::End();
+        SetOpen(bIsOpen);
         return;
     }
 
     UClass* ObjectClass = SelectedObject->GetClass();
+
     if (ObjectClass == nullptr)
     {
         ImGui::End();
+        SetOpen(bIsOpen);
         return;
     }
+    
     ImGui::Text("%s", ObjectClass->GetName().c_str());
     
     ImGui::Text("UUID: %u", SelectedObject->GetUUID());

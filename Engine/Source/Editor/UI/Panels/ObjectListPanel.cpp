@@ -379,6 +379,28 @@ void FObjectListPanel::OnRender()
                 Context->SelectActor(Actor);
             }
 
+            if (ImGui::BeginPopupContextItem("ActorContextMenu"))
+            {
+                Context->SelectActor(Actor);
+
+                if (ImGui::MenuItem("Copy", "Ctrl+C"))
+                {
+                    bPendingCopy = true;
+                }
+
+                if (ImGui::MenuItem("Duplicate", "Ctrl+W"))
+                {
+                    bPendingDuplicate = true;
+                }
+
+                if (ImGui::MenuItem("Delete", "Delete"))
+                {
+                    PendingDeleteActor = Actor;
+                }
+
+                ImGui::EndPopup();
+            }
+
             if (ImGui::TreeNode("Components"))
             {
                 for (UActorComponent* Component : Actor->GetComponents())
@@ -406,29 +428,6 @@ void FObjectListPanel::OnRender()
 
                 ImGui::TreePop();
             }
-
-            if (ImGui::BeginPopupContextItem("ActorContextMenu"))
-            {
-                Context->SelectActor(Actor);
-
-                if (ImGui::MenuItem("Copy", "Ctrl+C"))
-                {
-                    bPendingCopy = true;
-                }
-
-                if (ImGui::MenuItem("Duplicate", "Ctrl+W"))
-                {
-                    bPendingDuplicate = true;
-                }
-
-                if (ImGui::MenuItem("Delete", "Delete"))
-                {
-                    PendingDeleteActor = Actor;
-                }
-
-                ImGui::EndPopup();
-            }
-
             ImGui::PopID();
         }
     }

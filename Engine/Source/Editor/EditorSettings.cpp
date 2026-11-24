@@ -3,6 +3,7 @@
 #include <filesystem>
 #include <fstream>
 #include <string>
+#include <cmath>
 
 bool FEditorSettings::Load(const char* FilePath)
 {
@@ -59,12 +60,12 @@ bool FEditorSettings::Load(const char* FilePath)
         }
     }
 
-    GridExtent = std::clamp(GridExtent, 1.0f, 10000.0f);
-    GridSpacing = std::clamp(GridSpacing, 0.1f, 1000.0f);
+    GridExtent = std::isfinite(GridExtent) ? std::clamp(GridExtent, 1.0f, 10000.0f) : 40.0f;
+    GridSpacing = std::isfinite(GridSpacing) ? std::clamp(GridSpacing, 0.1f, 1000.0f) : 2.0f;
     MajorGridInterval = std::clamp(MajorGridInterval, 1, 100);
-    TranslationSnap = std::clamp(TranslationSnap, 0.001f, 1000.0f);
-    RotationSnap = std::clamp(RotationSnap, 0.1f, 180.0f);
-    ScaleSnap = std::clamp(ScaleSnap, 0.001f, 100.0f);
+    TranslationSnap = std::isfinite(TranslationSnap) ? std::clamp(TranslationSnap, 0.001f, 1000.0f) : 1.0f;
+    RotationSnap = std::isfinite(RotationSnap) ? std::clamp(RotationSnap, 0.1f, 180.0f) : 15.0f;
+    ScaleSnap = std::isfinite(ScaleSnap) ? std::clamp(ScaleSnap, 0.001f, 100.0f) : 0.1f;
 
     return true;
 }

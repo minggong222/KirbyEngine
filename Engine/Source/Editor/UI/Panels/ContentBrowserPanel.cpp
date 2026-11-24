@@ -113,11 +113,18 @@ void FContentBrowserPanel::OnRender()
 
                 if (ImGui::Selectable(AssetPath.c_str()) && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left))
                 {
-                    AStaticMeshActor* Actor = Cast<AStaticMeshActor>(Context->SelectedActor);
+                    UStaticMeshComponent* Component = Cast<UStaticMeshComponent>(Context->SelectedComponent);
 
-                    if (Actor != nullptr && Actor->GetStaticMeshComponent() != nullptr)
+                    if (Component == nullptr)
                     {
-                        UStaticMeshComponent* Component = Actor->GetStaticMeshComponent();
+                        if (AStaticMeshActor* Actor = Cast<AStaticMeshActor>(Context->SelectedActor))
+                        {
+                            Component = Actor->GetStaticMeshComponent();
+                        }
+                    }
+
+                    if (Component != nullptr)
+                    {
                         UMaterial* PreviousMaterial = Component->GetMaterial();
 
                         Component->SetMaterial(Asset);

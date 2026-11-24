@@ -97,7 +97,12 @@ bool USceneComponent::AttachToComponent(USceneComponent* InParent, bool bKeepWor
     {
         return false;
     }
-    
+
+    if (InParent != nullptr && (GetOwner() == nullptr || InParent->GetOwner() != GetOwner()))
+    {
+        return false;
+    }
+
     if (Parent == InParent)
     {
         return true;

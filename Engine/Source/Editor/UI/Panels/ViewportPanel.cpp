@@ -34,6 +34,8 @@ void FViewportPanel::OnRender()
 
     if (!IsOpen())
     {
+        TransformGizmo.CancelDrag();
+        bViewportHovered = false;
         return;
     }
 
@@ -41,6 +43,7 @@ void FViewportPanel::OnRender()
 
     if (!ImGui::Begin("Viewport", &bIsOpen))
     {
+        TransformGizmo.CancelDrag();
         SetOpen(bIsOpen);
         ImGui::End();
         return;
@@ -232,6 +235,12 @@ void FViewportPanel::OnRender()
     }
     
     ImGui::End();
+
+    if (!bIsOpen)
+    {
+        TransformGizmo.CancelDrag();
+    }
+
     SetOpen(bIsOpen);
 }
 

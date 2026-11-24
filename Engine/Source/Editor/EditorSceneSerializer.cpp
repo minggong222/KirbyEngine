@@ -32,7 +32,7 @@
 
 #include "OBJStaticMeshImporter.h"
 #include "Renderer/Renderer.h"
-
+#include "EditorTransformGizmo.h"
 #include <algorithm>
 #include <charconv>
 #include <cmath>
@@ -761,7 +761,7 @@ bool FSceneSerializer::Load(const std::filesystem::path& FilePath, FEditorObject
     double Version = 0.0;
     double NextUUIDNumber = 0.0;
 
-    if (!Root->TryGetNumberField("Version", Version) || Version != 2.0 || !Root->TryGetNumberField("NextUUID", NextUUIDNumber))
+    if (!Root->TryGetNumberField("Version", Version) || (Version != 1.0 && Version != 2.0) || !Root->TryGetNumberField("NextUUID", NextUUIDNumber))
     {
         UE_LOG(Error, "Scene Load failed: Invalid scene header");
         return false;
@@ -899,7 +899,9 @@ bool FSceneSerializer::Load(const std::filesystem::path& FilePath, FEditorObject
                 return false;
             }
 
-            if (!ApplyCameraSettings(*CameraActor->GetCameraComponent(), Record.CameraSettings.Get()))
+            UCameraComponent* CameraComponent = CameraActor->GetCameraComponent();
+
+            if (CameraComponent == nullptr || !ValidateCameraSettings(*CameraComponent, Record.CameraSettings.Get()) || !ApplyCameraSettings(*CameraComponent, Record.CameraSettings.Get()))
             {
                 UE_LOG(Error, "Scene Load failed: Invalid CameraActor settings");
                 return false;
@@ -962,6 +964,11 @@ bool FSceneSerializer::Load(const std::filesystem::path& FilePath, FEditorObject
             UE_LOG(Error, "Scene Load failed: Cannot commit viewport camera settings");
             return false;
         }
+    }
+
+    if (Context.TransformGizmo != nullptr)
+    {
+        Context.TransformGizmo->CancelDrag();
     }
 
     UWorld* OldWorld = Context.World;

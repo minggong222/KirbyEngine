@@ -529,7 +529,7 @@ bool FEditorTransformGizmo::Draw(FEditorObjectContext& Context, const FMatrix& V
     {
         ImGuiIO& IO = ImGui::GetIO();
 
-        if (!IO.WantTextInput && !ImGui::IsMouseDown(ImGuiMouseButton_Right))
+        if (!IO.WantTextInput && !IO.WantCaptureKeyboard && !IO.KeyCtrl && !IO.KeyAlt && !IO.KeyShift && !ImGui::IsAnyItemActive() && !ImGui::IsMouseDown(ImGuiMouseButton_Right))
         {
             if (ImGui::IsKeyPressed(ImGuiKey_W, false))
             {
@@ -897,8 +897,7 @@ bool FEditorTransformGizmo::Draw(FEditorObjectContext& Context, const FMatrix& V
 
     if (!bWasDragging && bImageHovered && ImGui::IsMouseClicked(ImGuiMouseButton_Left) && HoverHandle != EGizmoHandle::None)
     {
-        BeginDrag(SelectedComponent, HoverHandle, Transform, Axes, MousePosition, ImageMin, ImageSize, View, Projection, GizmoWorldSize);
-        bConsumedInput = true;
+        bConsumedInput = BeginDrag(SelectedComponent, HoverHandle, Transform, Axes, MousePosition, ImageMin, ImageSize, View, Projection, GizmoWorldSize);
     }
 
     return bConsumedInput;
