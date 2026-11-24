@@ -60,6 +60,24 @@ public:
         return static_cast<TAsset*>(*FoundAsset);
     }
     
+    template<typename TAsset>
+    void GetAssets(TArray<TAsset*>& OutAssets) const
+    {
+        static_assert(std::is_base_of_v<UAsset, TAsset>, "TAsset must derive from UAsset");
+
+        OutAssets.Reset();
+
+        for (const auto& Pair : LoadedAssets)
+        {
+            UAsset* Asset = Pair.second;
+
+            if (Asset != nullptr && Asset->IsA<TAsset>())
+            {
+                OutAssets.Add(static_cast<TAsset*>(Asset));
+            }
+        }
+    }
+    
     void Shutdown();
     int32 GetLoadedAssetCount() const {return LoadedAssets.Num();}
 private:

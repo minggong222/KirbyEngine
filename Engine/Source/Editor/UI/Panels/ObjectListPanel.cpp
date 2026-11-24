@@ -259,7 +259,14 @@ namespace
 
 bool FObjectListPanel::Init()
 {
-    return Context != nullptr && AssetManager != nullptr;
+    if (Context == nullptr || AssetManager == nullptr)
+    {
+        return false;
+    }
+
+    MeshToSpawn = AssetManager->Find<UStaticMesh>(BuiltinAssetPaths::Cube);
+
+    return MeshToSpawn != nullptr;
 }
 
 void FObjectListPanel::Tick(float DeltaTime)
@@ -280,32 +287,52 @@ void FObjectListPanel::OnRender()
     }
 
     UObject* PendingDeleteObject = nullptr;
-    bool bPendingCopy = false;
-    bool bPendingPaste = false;
-    bool bPendingDuplicate = false;
-    bool bPendingDeleteSelected = false;
+    
+    TArray<UStaticMesh*> StaticMeshes;
+    AssetManager->GetAssets(StaticMeshes);
 
-    if (ImGui::Button("Sphere"))
+    StaticMeshes.Sort([](const UStaticMesh* A, const UStaticMesh* B)
     {
-        UStaticMesh* SphereMesh = AssetManager->Find<UStaticMesh>(BuiltinAssetPaths::Sphere);
-        SpawnStaticMeshObject(*Context, SphereMesh);
+        return A->GetAssetPath() < B->GetAssetPath();
+    });
+
+    if (!StaticMeshes.Contains(MeshToSpawn))
+    {
+        MeshToSpawn = StaticMeshes.IsEmpty() ? nullptr : StaticMeshes[0];
+    }
+
+    const char* MeshPreview = MeshToSpawn != nullptr ? MeshToSpawn->GetAssetPath().c_str() : "No Static Mesh";
+
+    if (ImGui::BeginCombo("Static Mesh", MeshPreview))
+    {
+        for (UStaticMesh* Mesh : StaticMeshes)
+        {
+            const bool bSelected = MeshToSpawn == Mesh;
+
+            if (ImGui::Selectable(Mesh->GetAssetPath().c_str(), bSelected))
+            {
+                MeshToSpawn = Mesh;
+            }
+
+            if (bSelected)
+            {
+                ImGui::SetItemDefaultFocus();
+            }
+        }
+
+        ImGui::EndCombo();
     }
 
     ImGui::SameLine();
 
-    if (ImGui::Button("Cube"))
+    ImGui::BeginDisabled(MeshToSpawn == nullptr);
+
+    if (ImGui::Button("Add Static Mesh"))
     {
-        UStaticMesh* CubeMesh = AssetManager->Find<UStaticMesh>(BuiltinAssetPaths::Cube);
-        SpawnStaticMeshObject(*Context, CubeMesh);
+        SpawnStaticMeshObject(*Context, MeshToSpawn);
     }
 
-    ImGui::SameLine();
-
-    if (ImGui::Button("Plane"))
-    {
-        UStaticMesh* PlaneMesh = AssetManager->Find<UStaticMesh>(BuiltinAssetPaths::Plane);
-        SpawnStaticMeshObject(*Context, PlaneMesh);
-    }
+    ImGui::EndDisabled();
 
     ImGui::SameLine();
 
@@ -319,32 +346,24 @@ void FObjectListPanel::OnRender()
     if (ImGui::Button("Import OBJ") && Renderer != nullptr)
     {
         UStaticMesh* ImportedMesh = SelectAndImportOBJ(*AssetManager, *Renderer);
-        SpawnStaticMeshObject(*Context, ImportedMesh);
-    }
-    
-    UStaticMeshComponent* SelectedMeshComponent = Cast<UStaticMeshComponent>(Context->SelectedObject);
 
-    ImGui::SameLine();
-
-    ImGui::BeginDisabled(SelectedMeshComponent == nullptr || Renderer == nullptr);
-
-    if (ImGui::Button("Import Texture"))
-    {
-        UMaterial* ImportedMaterial = SelectAndImportTexture(*AssetManager, *Renderer);
-
-        if (ImportedMaterial != nullptr)
+        if (ImportedMesh != nullptr)
         {
-            UMaterial* PreviousMaterial = SelectedMeshComponent->GetMaterial();
-            SelectedMeshComponent->SetMaterial(ImportedMaterial);
-
-            if (Context->UndoManager != nullptr)
-            {
-                Context->UndoManager->RecordMaterialChange(*Context, SelectedMeshComponent, PreviousMaterial, ImportedMaterial);
-            }
+            MeshToSpawn = ImportedMesh;
         }
     }
 
-    ImGui::EndDisabled();
+    ImGui::SameLine();
+
+    if (ImGui::Button("Import Texture") && Renderer != nullptr)
+    {
+        SelectAndImportTexture(*AssetManager, *Renderer);
+    }
+    
+    bool bPendingCopy = false;
+    bool bPendingPaste = false;
+    bool bPendingDuplicate = false;
+    bool bPendingDeleteSelected = false;
     
     if (ImGui::Button("Copy Selected"))
     {

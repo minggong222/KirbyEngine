@@ -117,6 +117,32 @@ namespace TextureImporter
             return NewMaterial;
         });
     }
+    
+    inline void RegisterImportedTextureMaterials(FAssetManager& AssetManager, URenderer& Renderer)
+    {
+        const std::filesystem::path ImportDirectory = std::filesystem::current_path() / "Content" / "Imported";
+
+        std::error_code DirectoryError;
+
+        if (!std::filesystem::is_directory(ImportDirectory, DirectoryError) || DirectoryError)
+        {
+            return;
+        }
+
+        for (std::filesystem::directory_iterator It(ImportDirectory, DirectoryError), End; !DirectoryError && It != End; It.increment(DirectoryError))
+        {
+            std::error_code EntryError;
+
+            if (!It->is_regular_file(EntryError) || EntryError || !HasSupportedTextureExtension(It->path()))
+            {
+                continue;
+            }
+
+            const FString AssetPath((std::filesystem::path("Content") / "Imported" / It->path().filename()).generic_string());
+
+            LoadTextureMaterial(AssetPath, AssetManager, Renderer);
+        }
+    }
 
     inline UMaterial* ImportExternalTexture(const std::filesystem::path& SourcePath, FAssetManager& AssetManager, URenderer& Renderer)
     {

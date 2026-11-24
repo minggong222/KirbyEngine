@@ -31,6 +31,7 @@ private:
         Transform,
         ObjectPresence,
         Property,
+        StaticMesh,
         Material
     };
 
@@ -64,7 +65,10 @@ private:
 
         FTransform BeforeTransform;
         FTransform AfterTransform;
-        
+
+        UStaticMesh* BeforeStaticMesh = nullptr;
+        UStaticMesh* AfterStaticMesh = nullptr;
+
         UMaterial* BeforeMaterial = nullptr;
         UMaterial* AfterMaterial = nullptr;
         
@@ -286,6 +290,26 @@ public:
         Entry.AfterTransform = After;
         Entry.BeforeSelectedUUID = UUID;
         Entry.AfterSelectedUUID = UUID;
+
+        PushEntry(std::move(Entry));
+    }
+    
+    void RecordStaticMeshChange(const FEditorObjectContext& Context, UStaticMeshComponent* Component, UStaticMesh* Before, UStaticMesh* After)
+    {
+        CommitPendingPropertyEdit(Context);
+
+        if (Component == nullptr || Before == After || !Context.Objects.Contains(Component))
+        {
+            return;
+        }
+
+        FHistoryEntry Entry;
+        Entry.Type = EHistoryType::StaticMesh;
+        Entry.Object.UUID = Component->GetUUID();
+        Entry.BeforeStaticMesh = Before;
+        Entry.AfterStaticMesh = After;
+        Entry.BeforeSelectedUUID = Component->GetUUID();
+        Entry.AfterSelectedUUID = Component->GetUUID();
 
         PushEntry(std::move(Entry));
     }
@@ -791,6 +815,17 @@ private:
             {
                 return false;
             }
+        }
+        else if (Entry.Type == EHistoryType::StaticMesh)
+        {
+            UStaticMeshComponent* Component = Cast<UStaticMeshComponent>(FindObject(Context, Entry.Object.UUID));
+
+            if (Component == nullptr)
+            {
+                return false;
+            }
+
+            Component->SetStaticMesh(bUndo ? Entry.BeforeStaticMesh : Entry.AfterStaticMesh);
         }
         else if (Entry.Type == EHistoryType::Material)
         {

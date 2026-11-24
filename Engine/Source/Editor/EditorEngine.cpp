@@ -3,8 +3,6 @@
 #include "EditorCameraController.h"
 #include "EditorObjectPicker.h"
 #include "Components/CameraComponent.h"
-#include "Components/SphereComp.h"
-#include "Components/CubeComp.h"
 #include "Components/StaticMeshComponent.h"
 #include "Core/STL.h"
 #include "Core/Math/MathUtility.h"
@@ -18,6 +16,8 @@
 #include "Resources/StaticMesh.h"
 #include "Resources/Material.h"
 #include "Resources/Texture2D.h"
+#include "OBJStaticMeshImporter.h"
+#include "TextureAssetImporter.h"
 
 bool FEditorEngine::Init(HINSTANCE hInstance)
 {
@@ -54,6 +54,9 @@ bool FEditorEngine::Init(HINSTANCE hInstance)
             Shutdown();
             return false;
         }
+        
+        OBJImporter::RegisterImportedStaticMeshes(AssetManager, *Renderer);
+        TextureImporter::RegisterImportedTextureMaterials(AssetManager, *Renderer);
     }
 
     if (!ImGuiRenderer->Init(WindowsWindow->GetHWND(), Renderer->GetDevice(), Renderer->GetDeviceContext()))
@@ -90,7 +93,7 @@ bool FEditorEngine::Init(HINSTANCE hInstance)
         return false;
     }
     
-    DetailsPanel = new FDetailsPanel(&ObjectContext);
+    DetailsPanel = new FDetailsPanel(&ObjectContext, &AssetManager);
     if (!ImGuiRenderer->GetPanelManager()->AddPanel(DetailsPanel))
     {
         DetailsPanel = nullptr;

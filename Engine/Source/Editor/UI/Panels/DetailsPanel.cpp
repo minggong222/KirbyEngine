@@ -3,6 +3,111 @@
 #include "imgui.h"
 #include "UObject/Class.h"
 #include "EditorUndoManager.h"
+#include "Components/StaticMeshComponent.h"
+#include "Resources/AssetManager.h"
+#include "Resources/StaticMesh.h"
+#include "Resources/Material.h"
+
+#include <algorithm>
+
+static void DrawStaticMeshSettings(FEditorObjectContext* Context, FAssetManager* AssetManager, UStaticMeshComponent* Component)
+{
+    if (Context == nullptr || AssetManager == nullptr || Component == nullptr)
+    {
+        return;
+    }
+
+    ImGui::Separator();
+    ImGui::Text("Static Mesh");
+
+    TArray<UStaticMesh*> StaticMeshes;
+    AssetManager->GetAssets(StaticMeshes);
+
+    StaticMeshes.Sort([](const UStaticMesh* A, const UStaticMesh* B)
+    {
+        return A->GetAssetPath() < B->GetAssetPath();
+    });
+
+    UStaticMesh* CurrentMesh = Component->GetStaticMesh();
+    const char* MeshPreview = CurrentMesh != nullptr ? CurrentMesh->GetAssetPath().c_str() : "None";
+
+    if (ImGui::BeginCombo("Static Mesh", MeshPreview))
+    {
+        for (UStaticMesh* Mesh : StaticMeshes)
+        {
+            const bool bSelected = CurrentMesh == Mesh;
+
+            if (ImGui::Selectable(Mesh->GetAssetPath().c_str(), bSelected))
+            {
+                UStaticMesh* PreviousMesh = CurrentMesh;
+                Component->SetStaticMesh(Mesh);
+
+                if (Context->UndoManager != nullptr)
+                {
+                    Context->UndoManager->RecordStaticMeshChange(*Context, Component, PreviousMesh, Mesh);
+                }
+            }
+
+            if (bSelected)
+            {
+                ImGui::SetItemDefaultFocus();
+            }
+        }
+
+        ImGui::EndCombo();
+    }
+
+    ImGui::Separator();
+    ImGui::Text("Material");
+
+    TArray<UMaterial*> Materials;
+    AssetManager->GetAssets(Materials);
+
+    Materials.Sort([](const UMaterial* A, const UMaterial* B)
+    {
+        return A->GetAssetPath() < B->GetAssetPath();
+    });
+
+    UMaterial* CurrentMaterial = Component->GetMaterial();
+    const char* MaterialPreview = CurrentMaterial != nullptr ? CurrentMaterial->GetAssetPath().c_str() : "None";
+
+    if (ImGui::BeginCombo("Material", MaterialPreview))
+    {
+        if (ImGui::Selectable("None", CurrentMaterial == nullptr))
+        {
+            UMaterial* PreviousMaterial = CurrentMaterial;
+            Component->SetMaterial(nullptr);
+
+            if (Context->UndoManager != nullptr)
+            {
+                Context->UndoManager->RecordMaterialChange(*Context, Component, PreviousMaterial, nullptr);
+            }
+        }
+
+        for (UMaterial* Material : Materials)
+        {
+            const bool bSelected = CurrentMaterial == Material;
+
+            if (ImGui::Selectable(Material->GetAssetPath().c_str(), bSelected))
+            {
+                UMaterial* PreviousMaterial = CurrentMaterial;
+                Component->SetMaterial(Material);
+
+                if (Context->UndoManager != nullptr)
+                {
+                    Context->UndoManager->RecordMaterialChange(*Context, Component, PreviousMaterial, Material);
+                }
+            }
+
+            if (bSelected)
+            {
+                ImGui::SetItemDefaultFocus();
+            }
+        }
+
+        ImGui::EndCombo();
+    }
+}
 
 static void DrawProperty(FEditorObjectContext* Context, UObject* Object, const FProperty* Property)
 {
@@ -210,7 +315,12 @@ void FDetailsPanel::OnRender()
     ImGui::Text("%s", ObjectClass->GetName().c_str());
     
     ImGui::Text("UUID: %u", SelectedObject->GetUUID());
-    
+
+    if (UStaticMeshComponent* Component = Cast<UStaticMeshComponent>(SelectedObject))
+    {
+        DrawStaticMeshSettings(Context, AssetManager, Component);
+    }
+
     ImGui::Separator();
     
     TArray<const FProperty*> Properties;

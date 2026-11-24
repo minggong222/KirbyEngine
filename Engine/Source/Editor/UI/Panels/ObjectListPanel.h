@@ -5,6 +5,7 @@
 class URenderer;
 class FViewportPanel;
 class FAssetManager;
+class UStaticMesh;
 
 class FObjectListPanel : public IEditorPanel
 {
@@ -21,4 +22,5 @@ private:
     FAssetManager* AssetManager = nullptr;
     FViewportPanel* ViewportPanel = nullptr;
     URenderer* Renderer = nullptr;
+    UStaticMesh* MeshToSpawn = nullptr;
 };

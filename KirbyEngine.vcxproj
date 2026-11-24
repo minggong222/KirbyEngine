@@ -228,11 +228,8 @@
     <ClCompile Include="Engine\Source\Editor\UI\Panels\StatsPanel.cpp" />
     <ClCompile Include="Engine\Source\Editor\UI\Panels\ViewportPanel.cpp" />
     <ClCompile Include="Engine\Source\Runtime\Components\CameraComponent.cpp" />
-    <ClCompile Include="Engine\Source\Runtime\Components\CubeComp.cpp" />
-    <ClCompile Include="Engine\Source\Runtime\Components\PlaneComp.cpp" />
     <ClCompile Include="Engine\Source\Runtime\Components\PrimitiveComponent.cpp" />
     <ClCompile Include="Engine\Source\Runtime\Components\SceneComponent.cpp" />
-    <ClCompile Include="Engine\Source\Runtime\Components\SphereComp.cpp" />
     <ClCompile Include="Engine\Source\Runtime\Components\StaticMeshComponent.cpp" />
     <ClCompile Include="Engine\Source\Runtime\Core\EngineStatics.cpp" />
     <ClCompile Include="Engine\Source\Runtime\Core\EntryPoint.cpp" />
@@ -311,12 +308,9 @@
     <ClInclude Include="Engine\Source\Editor\UI\Panels\StatsPanel.h" />
     <ClInclude Include="Engine\Source\Editor\UI\Panels\ViewportPanel.h" />
     <ClInclude Include="Engine\Source\Runtime\Components\CameraComponent.h" />
-    <ClInclude Include="Engine\Source\Runtime\Components\CubeComp.h" />
     <ClInclude Include="Engine\Source\Runtime\Components\PrimitiveComponent.h" />
     <ClInclude Include="Engine\Source\Runtime\Components\SceneComponent.h" />
-    <ClInclude Include="Engine\Source\Runtime\Components\SphereComp.h" />
     <ClInclude Include="Engine\Source\Runtime\Components\StaticMeshComponent.h" />
-    <ClInclude Include="Engine\Source\Runtime\Components\PlaneComp.h" />
     <ClInclude Include="Engine\Source\Runtime\Core\EngineStatics.h" />
     <ClInclude Include="Engine\Source\Runtime\Core\Precompiled.h" />
     <ClInclude Include="Engine\Source\Runtime\Core\Logging\Log.h" />

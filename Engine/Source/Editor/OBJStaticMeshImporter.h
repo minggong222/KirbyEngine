@@ -274,19 +274,9 @@ namespace OBJImporter
 
     inline UStaticMesh* LoadOBJAsset(const FString& AssetPath, FAssetManager& AssetManager, URenderer& Renderer)
     {
-        if (AssetPath == BuiltinAssetPaths::Cube)
+        if (UStaticMesh* ExistingMesh = AssetManager.Find<UStaticMesh>(AssetPath))
         {
-            return AssetManager.Find<UStaticMesh>(BuiltinAssetPaths::Cube);
-        }
-
-        if (AssetPath == BuiltinAssetPaths::Sphere)
-        {
-            return AssetManager.Find<UStaticMesh>(BuiltinAssetPaths::Sphere);
-        }
-
-        if (AssetPath == BuiltinAssetPaths::Plane)
-        {
-            return AssetManager.Find<UStaticMesh>(BuiltinAssetPaths::Plane);
+            return ExistingMesh;
         }
 
         const std::filesystem::path RelativePath(AssetPath.ToStd());
@@ -345,6 +335,32 @@ namespace OBJImporter
 
             return NewMesh;
         });
+    }
+    
+    inline void RegisterImportedStaticMeshes(FAssetManager& AssetManager, URenderer& Renderer)
+    {
+        const std::filesystem::path ImportDirectory = std::filesystem::current_path() / "Content" / "Imported";
+
+        std::error_code DirectoryError;
+
+        if (!std::filesystem::is_directory(ImportDirectory, DirectoryError) || DirectoryError)
+        {
+            return;
+        }
+
+        for (std::filesystem::directory_iterator It(ImportDirectory, DirectoryError), End; !DirectoryError && It != End; It.increment(DirectoryError))
+        {
+            std::error_code EntryError;
+
+            if (!It->is_regular_file(EntryError) || EntryError || !HasOBJExtension(It->path()))
+            {
+                continue;
+            }
+
+            const FString AssetPath((std::filesystem::path("Content") / "Imported" / It->path().filename()).generic_string());
+
+            LoadOBJAsset(AssetPath, AssetManager, Renderer);
+        }
     }
 
     inline UStaticMesh* ImportExternalOBJ(const std::filesystem::path& SourcePath, FAssetManager& AssetManager, URenderer& Renderer)
