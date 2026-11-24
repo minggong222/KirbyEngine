@@ -4,8 +4,10 @@
 
 struct FEditorObjectContext;
 class UObject;
+class UWorld;
+class UStaticMeshComponent;
 
 namespace EditorPicking
 {
-    UObject* PickObject(const FEditorObjectContext& Context, float U, float V, uint32 ViewportWidth, uint32 ViewportHeight, const FMatrix& View, const FMatrix& Projection);
+    UStaticMeshComponent* PickComponent(UWorld* World, float U, float V, uint32 ViewportWidth, uint32 ViewportHeight, const FMatrix& View, const FMatrix& Projection);
 }

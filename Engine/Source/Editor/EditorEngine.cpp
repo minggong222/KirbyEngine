@@ -2,22 +2,27 @@
 
 #include "EditorCameraController.h"
 #include "EditorObjectPicker.h"
+#include "OBJStaticMeshImporter.h"
+#include "TextureAssetImporter.h"
+#include "Actors/Actor.h"
+#include "Actors/CameraActor.h"
+#include "Actors/StaticMeshActor.h"
 #include "Components/CameraComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "Core/STL.h"
 #include "Core/Math/MathUtility.h"
 #include "Core/Time/PlatformTime.h"
+#include "Renderer/WorldRenderer.h"
+#include "Resources/Material.h"
 #include "Resources/PrimitiveMeshAssets.h"
+#include "Resources/StaticMesh.h"
+#include "Resources/Texture2D.h"
 #include "UI/Panels/DetailsPanel.h"
-#include "UI/Panels/ObjectListPanel.h"
 #include "UI/Panels/MainMenuPanel.h"
+#include "UI/Panels/ObjectListPanel.h"
 #include "UI/Panels/StatsPanel.h"
 #include "UObject/Object.h"
-#include "Resources/StaticMesh.h"
-#include "Resources/Material.h"
-#include "Resources/Texture2D.h"
-#include "OBJStaticMeshImporter.h"
-#include "TextureAssetImporter.h"
+#include "World/World.h"
 
 bool FEditorEngine::Init(HINSTANCE hInstance)
 {
@@ -66,6 +71,15 @@ bool FEditorEngine::Init(HINSTANCE hInstance)
         TextureImporter::RegisterImportedTextureMaterials(AssetManager, *Renderer);
     }
 
+    ObjectContext.World = NewObject<UWorld>(nullptr, FName("EditorWorld"));
+
+    if (ObjectContext.World == nullptr || ObjectContext.World->GetPersistentLevel() == nullptr)
+    {
+        UE_LOG(Error, "Editor World initialization failed");
+        Shutdown();
+        return false;
+    }
+    
     if (!ImGuiRenderer->Init(WindowsWindow->GetHWND(), Renderer->GetDevice(), Renderer->GetDeviceContext()))
     {
         UE_LOG(Error, "ImGui initialization failed");
@@ -301,27 +315,6 @@ void FEditorEngine::Run()
                 LineRenderer.AddGrid(EditorSettings.GridExtent, EditorSettings.GridSpacing, EditorSettings.MajorGridInterval, EditorSettings.ShowFlags.Grid, EditorSettings.ShowFlags.Axes);
             }
 
-            if (EditorSettings.ShowFlags.Bounds)
-            {
-                for (UObject* Object : ObjectContext.Objects)
-                {
-                    UStaticMeshComponent* Component = Cast<UStaticMeshComponent>(Object);
-
-                    if (Component == nullptr)
-                    {
-                        continue;
-                    }
-
-                    const FBox Bounds = Component->CalcBounds();
-
-                    const FVector4 Color = ObjectContext.SelectedObject == Object
-                        ? FVector4(1.0f, 0.75f, 0.1f, 1.0f)
-                        : FVector4(0.1f, 0.85f, 1.0f, 0.8f);
-
-                    LineRenderer.AddBox(Bounds, Color);
-                }
-            }
-
             LineRenderer.Flush(*Renderer, View, Projection);
             
             if (EditorSettings.ShowFlags.ActorNames)
@@ -487,19 +480,20 @@ void FEditorEngine::ProcessViewportPicking(const UCameraComponent& Camera)
 {
     float U = 0.0f;
     float V = 0.0f;
+
     if (!ViewportPanel->ConsumeClick(U, V))
     {
         return;
     }
-    
-    const uint32 Width = Renderer->GetViewportWidth();
-    const uint32 Height = Renderer->GetViewportHeight();
-    
-    if (Width == 0 || Height == 0)
+
+    UStaticMeshComponent* Component = EditorPicking::PickComponent(ObjectContext.World, U, V, Renderer->GetViewportWidth(), Renderer->GetViewportHeight(), Camera.GetViewMatrix(), Camera.GetProjectionMatrix());
+
+    if (Component != nullptr)
     {
-        ObjectContext.SelectedObject = nullptr;
-        return;
+        ObjectContext.SelectComponent(Component);
     }
-    
-    ObjectContext.SelectedObject = EditorPicking::PickObject(ObjectContext, U, V, Width, Height, Camera.GetViewMatrix(), Camera.GetProjectionMatrix());
+    else
+    {
+        ObjectContext.ClearSelection();
+    }
 }

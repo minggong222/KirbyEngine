@@ -4,6 +4,10 @@
 
 #include "Components/PrimitiveComponent.h"
 #include "Core/Math/MathUtility.h"
+#include "World/World.h"
+#include "World/Level.h"
+#include "Actors/Actor.h"
+#include "Components/ActorComponent.h"
 
 #include <cmath>
 #include <limits>
@@ -46,119 +50,130 @@ namespace EditorPicking
 
             float ClosestT = (std::numeric_limits<float>::max)();
 
-            for (UObject* Object : Context.Objects)
+            ULevel* Level = World != nullptr ? World->GetPersistentLevel() : nullptr;
+
+            if (Level == nullptr)
             {
-                if (Object == nullptr)
-                {
-                    continue;
-                }
-                UStaticMeshComponent* Component = Cast<UStaticMeshComponent>(Object);
+                return nullptr;
+            }
 
-                if (Component == nullptr)
-                {
-                    continue;
-                }
-
-                const UStaticMesh* Mesh = Component->GetStaticMesh();
-
-                if (Mesh == nullptr)
+            for (AActor* Actor : Level->GetActors())
+            {
+                if (Actor == nullptr)
                 {
                     continue;
                 }
 
-                const FStaticMeshRenderData& MeshData = Mesh->GetRenderData();
-
-                const TArray<FVector>& Positions = MeshData.Positions;
-                const TArray<uint32>& Indices = MeshData.Indices;
-                
-                if (Positions.Num() < 3 || Indices.Num() < 3 || Indices.Num() % 3 != 0)
+                for (UActorComponent* ActorComponent : Actor->GetComponents())
                 {
-                    continue;
-                }
+                    UStaticMeshComponent* Component = Cast<UStaticMeshComponent>(ActorComponent);
 
-                if (!MeshData.LocalBounds.IsValid())
-                {
-                    continue;
-                }
-
-                const FMatrix WorldMatrix = Component->GetWorldMatrix();
-
-                const float Determinant = WorldMatrix.Determinant();
-
-                if (!std::isfinite(Determinant) || std::fabs(Determinant) <= THRESH_MATRIX_INVERSE_DETERMINANT)
-                {
-                    continue;
-                }
-
-                const FMatrix InverseWorld = WorldMatrix.Invert();
-
-                const FVector LocalOrigin = FVector::Transform(WorldRay.position, InverseWorld);
-
-                const FVector LocalDirection = FVector::TransformNormal(WorldRay.direction, InverseWorld);
-
-                const float LocalDirectionLengthSquared = LocalDirection.LengthSquared();
-
-                if (!std::isfinite(LocalDirectionLengthSquared) || LocalDirectionLengthSquared <= EPSILON_1E_12)
-                {
-                    continue;
-                }
-
-                const FRay LocalRay(LocalOrigin, LocalDirection);
-                
-                float BoundsHitT = 0.0f;
-
-                if (!MeshData.LocalBounds.Intersect(LocalRay, BoundsHitT))
-                {
-                    continue;
-                }
-
-                if (BoundsHitT > ClosestT)
-                {
-                    continue;
-                }
-                
-                bool bHasTriangleHit = false;
-
-                float ObjectHitT = (std::numeric_limits<float>::max)();
-
-                for (int32 Index = 0; Index + 2 < Indices.Num(); Index += 3)
-                {
-                    const uint32 I0 = Indices[Index];
-                    const uint32 I1 = Indices[Index + 1];
-                    const uint32 I2 = Indices[Index + 2];
-
-                    if (I0 >= static_cast<uint32>(Positions.Num()) || I1 >= static_cast<uint32>(Positions.Num()) || I2 >= static_cast<uint32>(Positions.Num()))
+                    if (Component == nullptr)
                     {
                         continue;
                     }
 
-                    const FVector& V0 = Positions[static_cast<int32>(I0)];
-                    const FVector& V1 = Positions[static_cast<int32>(I1)];
-                    const FVector& V2 = Positions[static_cast<int32>(I2)];
+                    const UStaticMesh* Mesh = Component->GetStaticMesh();
 
-                    float TriangleHitT = 0.0f;
-
-                    if (!LocalRay.Intersects(V0, V1, V2, TriangleHitT))
+                    if (Mesh == nullptr)
                     {
                         continue;
                     }
 
-                    if (!std::isfinite(TriangleHitT) || TriangleHitT < 0.0f)
+                    const FStaticMeshRenderData& MeshData = Mesh->GetRenderData();
+
+                    const TArray<FVector>& Positions = MeshData.Positions;
+                    const TArray<uint32>& Indices = MeshData.Indices;
+                    
+                    if (Positions.Num() < 3 || Indices.Num() < 3 || Indices.Num() % 3 != 0)
                     {
                         continue;
                     }
 
-                    if (TriangleHitT < ObjectHitT)
+                    if (!MeshData.LocalBounds.IsValid())
                     {
-                        ObjectHitT = TriangleHitT;
-                        bHasTriangleHit = true;
+                        continue;
                     }
-                }
 
-                if (bHasTriangleHit && ObjectHitT < ClosestT)
-                {
-                    ClosestT = ObjectHitT;
-                    ClosestObject = Object;
+                    const FMatrix WorldMatrix = Component->GetWorldMatrix();
+
+                    const float Determinant = WorldMatrix.Determinant();
+
+                    if (!std::isfinite(Determinant) || std::fabs(Determinant) <= THRESH_MATRIX_INVERSE_DETERMINANT)
+                    {
+                        continue;
+                    }
+
+                    const FMatrix InverseWorld = WorldMatrix.Invert();
+
+                    const FVector LocalOrigin = FVector::Transform(WorldRay.position, InverseWorld);
+
+                    const FVector LocalDirection = FVector::TransformNormal(WorldRay.direction, InverseWorld);
+
+                    const float LocalDirectionLengthSquared = LocalDirection.LengthSquared();
+
+                    if (!std::isfinite(LocalDirectionLengthSquared) || LocalDirectionLengthSquared <= EPSILON_1E_12)
+                    {
+                        continue;
+                    }
+
+                    const FRay LocalRay(LocalOrigin, LocalDirection);
+                    
+                    float BoundsHitT = 0.0f;
+
+                    if (!MeshData.LocalBounds.Intersect(LocalRay, BoundsHitT))
+                    {
+                        continue;
+                    }
+
+                    if (BoundsHitT > ClosestT)
+                    {
+                        continue;
+                    }
+                    
+                    bool bHasTriangleHit = false;
+
+                    float ObjectHitT = (std::numeric_limits<float>::max)();
+
+                    for (int32 Index = 0; Index + 2 < Indices.Num(); Index += 3)
+                    {
+                        const uint32 I0 = Indices[Index];
+                        const uint32 I1 = Indices[Index + 1];
+                        const uint32 I2 = Indices[Index + 2];
+
+                        if (I0 >= static_cast<uint32>(Positions.Num()) || I1 >= static_cast<uint32>(Positions.Num()) || I2 >= static_cast<uint32>(Positions.Num()))
+                        {
+                            continue;
+                        }
+
+                        const FVector& V0 = Positions[static_cast<int32>(I0)];
+                        const FVector& V1 = Positions[static_cast<int32>(I1)];
+                        const FVector& V2 = Positions[static_cast<int32>(I2)];
+
+                        float TriangleHitT = 0.0f;
+
+                        if (!LocalRay.Intersects(V0, V1, V2, TriangleHitT))
+                        {
+                            continue;
+                        }
+
+                        if (!std::isfinite(TriangleHitT) || TriangleHitT < 0.0f)
+                        {
+                            continue;
+                        }
+
+                        if (TriangleHitT < ObjectHitT)
+                        {
+                            ObjectHitT = TriangleHitT;
+                            bHasTriangleHit = true;
+                        }
+                    }
+
+                    if (bHasTriangleHit && ObjectHitT < ClosestT)
+                    {
+                        ClosestT = ObjectHitT;
+                        ClosestObject = Object;
+                    }
                 }
             }
 

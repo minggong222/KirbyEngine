@@ -215,6 +215,7 @@ void URenderer::CreateRasterizerState()
         bInitializationFailed = true;
         ReleaseRasterizerState();
         OutputDebugStringA("[Renderer] CreateOutlineRasterizerState failed.\n");
+        return;
     }
     
     D3D11_RASTERIZER_DESC WireframeDesc = RasterizerDesc;
@@ -286,10 +287,10 @@ void URenderer::Release()
         mDeviceContext->OMSetRenderTargets(0, nullptr, nullptr);
     }
 
+    ReleaseDynamicVertexBuffer();
     ReleaseRasterizerState();
     ReleaseFrameBuffer();
     ReleaseDeviceAndSwapChain();
-    ReleaseDynamicVertexBuffer();
 }
 
 // 스왑 체인의 백 버퍼와 프론트 버퍼를 교체하여 화면에 출력

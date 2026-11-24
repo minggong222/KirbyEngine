@@ -13,6 +13,7 @@
 #include "UI/Panels/ViewportPanel.h"
 #include "Windows/WindowsWindow.h"
 #include "EditorUndoManager.h"
+#include "Renderer/WorldRenderer.h"
 
 struct FStaticMeshData;
 class UCameraComponent;
@@ -41,6 +42,7 @@ private:
     
     
     URenderer* Renderer = nullptr;
+    FWorldRenderer WorldRenderer;
     FBatchLineRenderer LineRenderer;
     FBillboardRenderer BillboardRenderer;
     FTextRenderer TextRenderer;

@@ -12,6 +12,11 @@
 #include "EditorTransformGizmo.h"
 #include "Core/Math/MathUtility.h"
 #include "Resources/Material.h"
+#include "Actors/Actor.h"
+#include "Actors/StaticMeshActor.h"
+#include "Actors/CameraActor.h"
+#include "World/World.h"
+#include "World/Level.h"
 
 #include <algorithm>
 #include <cmath>
@@ -37,8 +42,9 @@ private:
 
     enum class EObjectType
     {
-        StaticMesh,
-        Camera
+        Actor,
+        StaticMeshActor,
+        CameraActor
     };
 
     struct FPropertySnapshot
@@ -51,10 +57,16 @@ private:
     struct FObjectSnapshot
     {
         uint32 UUID = 0;
-        EObjectType Type = EObjectType::StaticMesh;
+        uint32 RootComponentUUID = 0;
+
+        FName Name;
+        EObjectType Type = EObjectType::Actor;
+
         FTransform Transform;
+
         UStaticMesh* StaticMesh = nullptr;
         UMaterial* Material = nullptr;
+
         std::vector<FPropertySnapshot> CameraProperties;
     };
 
@@ -121,14 +133,14 @@ public:
 
     bool CopySelected(const FEditorObjectContext& Context)
     {
-        if (Context.SelectedObject == nullptr)
+        if (Context.SelectedActor == nullptr)
         {
             return false;
         }
 
         FObjectSnapshot Snapshot;
 
-        if (!CaptureObject(Context.SelectedObject, Snapshot))
+        if (!CaptureObject(Context.SelectedActor, Snapshot))
         {
             return false;
         }
@@ -224,7 +236,7 @@ public:
         return CommitPendingPropertyEdit(Context);
     }
 
-    void RecordCreate(const FEditorObjectContext& Context, UObject* Object, uint32 PreviousSelectedUUID)
+    void RecordCreate(const FEditorObjectContext& Context, AActor* Actor, uint32 PreviousSelectedUUID)
     {
         CommitPendingPropertyEdit(Context);
         FHistoryEntry Entry;
@@ -243,7 +255,7 @@ public:
         PushEntry(std::move(Entry));
     }
 
-    void RecordDelete(const FEditorObjectContext& Context, UObject* Object)
+    void RecordDelete(const FEditorObjectContext& Context, AActor* Actor)
     {
         if (Object == nullptr)
         {
@@ -555,20 +567,45 @@ private:
     
     static UObject* FindObject(const FEditorObjectContext& Context, uint32 UUID)
     {
-        if (UUID == 0)
+        if (Context.World == nullptr || UUID == 0)
         {
             return nullptr;
         }
 
-        for (UObject* Object : Context.Objects)
+        ULevel* Level = Context.World->GetPersistentLevel();
+
+        if (Level == nullptr)
         {
-            if (Object != nullptr && Object->GetUUID() == UUID)
+            return nullptr;
+        }
+
+        for (AActor* Actor : Level->GetActors())
+        {
+            if (Actor == nullptr)
             {
-                return Object;
+                continue;
+            }
+
+            if (Actor->GetUUID() == UUID)
+            {
+                return Actor;
+            }
+
+            for (UActorComponent* Component : Actor->GetComponents())
+            {
+                if (Component != nullptr && Component->GetUUID() == UUID)
+                {
+                    return Component;
+                }
             }
         }
 
         return nullptr;
+    }
+    
+    static AActor* FindActor(const FEditorObjectContext& Context, uint32 UUID)
+    {
+        return Cast<AActor>(FindObject(Context, UUID));
     }
 
     static uint32 GetSelectedUUID(const FEditorObjectContext& Context)
@@ -671,69 +708,79 @@ private:
         return false;
     }
 
-    static UObject* RestoreObject(const FObjectSnapshot& Snapshot, bool bPreserveUUID = true)
+    static AActor* RestoreObject(FEditorObjectContext& Context, const FObjectSnapshot& Snapshot, bool bPreserveUUID = true)
     {
-        UObject* NewObjectInstance = nullptr;
-
-        if (Snapshot.Type == EObjectType::StaticMesh)
-        {
-            UStaticMeshComponent* Component = NewObject<UStaticMeshComponent>();
-
-            if (Component == nullptr || Snapshot.StaticMesh == nullptr)
-            {
-                delete Component;
-                return nullptr;
-            }
-
-            Component->SetStaticMesh(Snapshot.StaticMesh);
-            Component->SetMaterial(Snapshot.Material);
-            Component->SetTransform(Snapshot.Transform);
-            NewObjectInstance = Component;
-        }
-        else if (Snapshot.Type == EObjectType::Camera)
-        {
-            UCameraComponent* Camera = NewObject<UCameraComponent>();
-
-            if (Camera == nullptr)
-            {
-                return nullptr;
-            }
-
-            Camera->SetTransform(Snapshot.Transform);
-
-            for (const FPropertySnapshot& PropertySnapshot : Snapshot.CameraProperties)
-            {
-                const FProperty* Property = Camera->GetClass()->FindProperty(PropertySnapshot.Name.c_str());
-
-                if (Property == nullptr)
-                {
-                    delete Camera;
-                    return nullptr;
-                }
-
-                const bool bApplied = std::visit([&](const auto& Value)
-                {
-                    return Property->SetValue(Camera, PropertySnapshot.Type, &Value);
-                }, PropertySnapshot.Value);
-
-                if (!bApplied)
-                {
-                    delete Camera;
-                    return nullptr;
-                }
-            }
-
-            NewObjectInstance = Camera;
-        }
-
-        if (NewObjectInstance == nullptr)
+        if (Context.World == nullptr)
         {
             return nullptr;
         }
 
-        if (bPreserveUUID)
+        AActor* Actor = nullptr;
+
+        if (Snapshot.Type == EObjectType::StaticMeshActor)
         {
-            NewObjectInstance->SetUUID(Snapshot.UUID);
+            AStaticMeshActor* StaticMeshActor = Context.World->SpawnActor<AStaticMeshActor>(Snapshot.Name, Snapshot.Transform);
+
+            if (StaticMeshActor != nullptr)
+            {
+                UStaticMeshComponent* Component = StaticMeshActor->GetStaticMeshComponent();
+                Component->SetStaticMesh(Snapshot.StaticMesh);
+                Component->SetMaterial(Snapshot.Material);
+
+                if (bPreserveUUID)
+                {
+                    Component->SetUUID(Snapshot.RootComponentUUID);
+                }
+
+                Actor = StaticMeshActor;
+            }
+        }
+        else if (Snapshot.Type == EObjectType::CameraActor)
+        {
+            ACameraActor* CameraActor = Context.World->SpawnActor<ACameraActor>(Snapshot.Name, Snapshot.Transform);
+
+            if (CameraActor != nullptr)
+            {
+                UCameraComponent* Component = CameraActor->GetCameraComponent();
+
+                for (const FPropertySnapshot& PropertySnapshot : Snapshot.CameraProperties)
+                {
+                    const FProperty* Property = Component->GetClass()->FindProperty(PropertySnapshot.Name.c_str());
+
+                    if (Property == nullptr)
+                    {
+                        Context.World->DestroyActor(CameraActor);
+                        return nullptr;
+                    }
+
+                    const bool bApplied = std::visit([&](const auto& Value)
+                    {
+                        return Property->SetValue(Component, PropertySnapshot.Type, &Value);
+                    }, PropertySnapshot.Value);
+
+                    if (!bApplied)
+                    {
+                        Context.World->DestroyActor(CameraActor);
+                        return nullptr;
+                    }
+                }
+
+                if (bPreserveUUID)
+                {
+                    Component->SetUUID(Snapshot.RootComponentUUID);
+                }
+
+                Actor = CameraActor;
+            }
+        }
+        else
+        {
+            Actor = Context.World->SpawnActor<AActor>(Snapshot.Name, Snapshot.Transform);
+        }
+
+        if (Actor != nullptr && bPreserveUUID)
+        {
+            Actor->SetUUID(Snapshot.UUID);
 
             if (Snapshot.UUID < (std::numeric_limits<uint32>::max)() && FEngineStatics::NextUUID <= Snapshot.UUID)
             {
@@ -741,7 +788,7 @@ private:
             }
         }
 
-        return NewObjectInstance;
+        return Actor;
     }
 
     static bool RemoveObject(FEditorObjectContext& Context, uint32 UUID)

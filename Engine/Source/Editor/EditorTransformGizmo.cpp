@@ -473,7 +473,7 @@ namespace
 
 bool FEditorTransformGizmo::Draw(FEditorObjectContext& Context, const FMatrix& View, const FMatrix& Projection, ImDrawList* DrawList, const ImVec2& ImageMin, const ImVec2& ImageSize, bool bImageHovered)
 {
-    USceneComponent* SelectedComponent = Cast<USceneComponent>(Context.SelectedObject);
+    USceneComponent* SelectedComponent = Context.GetSelectedSceneComponent();
 
     const bool bWasDragging = bIsDragging;
     const EGizmoHandle PreviousDragHandle = DragHandle;
