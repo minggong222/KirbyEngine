@@ -4,53 +4,72 @@
 #include "Core/Logging/Log.h"
 #include "StatsPanel.h"
 
-static int TextEditCallbackStub(ImGuiInputTextCallbackData* data)
+#include <cctype>
+#include <cstdarg>
+#include <cstdio>
+#include <cstring>
+
+static int TextEditCallbackStub(ImGuiInputTextCallbackData* Data)
 {
-    FConsolePanel* OutputLog = (FConsolePanel*)data->UserData;
-    return OutputLog->TextEditCallback(data);
+    FConsolePanel* OutputLog = static_cast<FConsolePanel*>(Data->UserData);
+    return OutputLog->TextEditCallback(Data);
 }
-static int Stricmp(const char* s1, const char* s2)
+
+static int Stricmp(const char* S1, const char* S2)
 {
-    int d;
-    while ((d = toupper(*s2) - toupper(*s1)) == 0 && *s1)
+    int Difference = 0;
+
+    while ((Difference = std::toupper(static_cast<unsigned char>(*S2)) - std::toupper(static_cast<unsigned char>(*S1))) == 0 && *S1 != '\0')
     {
-        s1++; s2++;
-    } 
-    return d;
+        ++S1;
+        ++S2;
+    }
+
+    return Difference;
 }
 
-static int Strnicmp(const char* s1, const char* s2, int n)
+static int Strnicmp(const char* S1, const char* S2, int Count)
 {
-    int d = 0; 
-    while (n > 0 && (d = toupper(*s2) - toupper(*s1)) == 0 && *s1)
+    int Difference = 0;
+
+    while (Count > 0 && (Difference = std::toupper(static_cast<unsigned char>(*S2)) - std::toupper(static_cast<unsigned char>(*S1))) == 0 && *S1 != '\0')
     {
-        s1++; s2++; n--;
-    } 
-    return d;
+        ++S1;
+        ++S2;
+        --Count;
+    }
+
+    return Difference;
 }
 
-static void Strtrim(char* s)
+static void Strtrim(char* Text)
 {
-    char* str_end = s + strlen(s);
-    while (str_end > s && str_end[-1] == ' ') 
-        str_end--;
-    *str_end = 0;
+    char* End = Text + std::strlen(Text);
+
+    while (End > Text && End[-1] == ' ')
+    {
+        --End;
+    }
+
+    *End = '\0';
 }
 
-static char* Strdup(const char* s)
+static char* Strdup(const char* Text)
 {
-    IM_ASSERT(s);
-    size_t len = strlen(s) + 1;
-    void* buf = ImGui::MemAlloc(len);
-    IM_ASSERT(buf);
-    return (char*)memcpy(buf, (const void*)s, len);
-}
+    IM_ASSERT(Text);
 
+    const std::size_t Length = std::strlen(Text) + 1;
+    void* Buffer = ImGui::MemAlloc(Length);
+
+    IM_ASSERT(Buffer);
+
+    return static_cast<char*>(std::memcpy(Buffer, Text, Length));
+}
 
 bool FConsolePanel::Init()
 {
     FLog::Init(&FConsolePanel::HandleLogOutput, this);
-    
+
     ClearLog();
 
     Commands.Add("HELP");
@@ -59,19 +78,21 @@ bool FConsolePanel::Init()
     Commands.Add("STAT");
     Commands.Add("STAT ON");
     Commands.Add("STAT OFF");
+    Commands.Add("STAT FPS");
+    Commands.Add("STAT MEMORY");
+    Commands.Add("STAT NONE");
 
     HistoryPos = -1;
     InputBuf[0] = '\0';
 
     AutoScroll = true;
     ScrollToBottom = false;
-    
+
     return true;
 }
 
 void FConsolePanel::Tick(float DeltaTime)
 {
-    
 }
 
 void FConsolePanel::OnRender()
@@ -83,7 +104,7 @@ void FConsolePanel::OnRender()
 
     bool bIsOpen = IsOpen();
 
-    ImGui::SetNextWindowSize(ImVec2(520, 600), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowSize(ImVec2(520.0f, 600.0f), ImGuiCond_FirstUseEver);
 
     if (!ImGui::Begin("Console", &bIsOpen))
     {
@@ -91,249 +112,309 @@ void FConsolePanel::OnRender()
         ImGui::End();
         return;
     }
-    
-    ImGui::TextWrapped(
-    "This example implements a console with basic coloring, completion (TAB key) and history (Up/Down keys). A more elaborate "
-    "implementation may want to store entries along with extra data such as timestamp, emitter, etc.");
+
+    ImGui::TextWrapped("This example implements a console with basic coloring, completion (TAB key) and history (Up/Down keys).");
     ImGui::TextWrapped("Enter 'HELP' for help.");
-    
+
     if (ImGui::SmallButton("Add Debug Text"))
     {
         AddLog(ELogVerbosity::Info, "%d some text", Items.Num());
         AddLog(ELogVerbosity::Info, "some more text");
         AddLog(ELogVerbosity::Info, "display very important message here!");
     }
+
     ImGui::SameLine();
+
     if (ImGui::SmallButton("Add Debug Error"))
     {
         AddLog(ELogVerbosity::Error, "[error] something went wrong");
     }
+
     ImGui::SameLine();
+
     if (ImGui::SmallButton("Clear"))
     {
         ClearLog();
     }
+
     ImGui::SameLine();
-    bool copy_to_clipboard = ImGui::SmallButton("Copy");
-    //static float t = 0.0f; if (ImGui::GetTime() - t > 0.02f) { t = ImGui::GetTime(); AddLog("Spam %f", t); }
-    
+
+    const bool bCopyToClipboard = ImGui::SmallButton("Copy");
+
     ImGui::Separator();
-    
-    // Options menu
+
     if (ImGui::BeginPopup("Options"))
     {
         ImGui::Checkbox("Auto-scroll", &AutoScroll);
         ImGui::EndPopup();
     }
-    
-    // Options, Filter
+
     ImGui::SetNextItemShortcut(ImGuiMod_Ctrl | ImGuiKey_O, ImGuiInputFlags_Tooltip);
+
     if (ImGui::Button("Options"))
+    {
         ImGui::OpenPopup("Options");
+    }
+
     ImGui::SameLine();
-    Filter.Draw("Filter (\"incl,-excl\") (\"error\")", 180);
+    Filter.Draw("Filter (\"incl,-excl\") (\"error\")", 180.0f);
     ImGui::Separator();
-    
-    // Reserve enough left-over height for 1 separator + 1 input text
-    ImGuiStyle& style = ImGui::GetStyle();
-    const float footer_height_to_reserve = style.SeparatorSize + style.ItemSpacing.y + ImGui::GetFrameHeightWithSpacing();
-    if (ImGui::BeginChild("ScrollingRegion", ImVec2(0, -footer_height_to_reserve), ImGuiChildFlags_NavFlattened, ImGuiWindowFlags_HorizontalScrollbar))
+
+    ImGuiStyle& Style = ImGui::GetStyle();
+    const float FooterHeightToReserve = Style.SeparatorSize + Style.ItemSpacing.y + ImGui::GetFrameHeightWithSpacing();
+
+    if (ImGui::BeginChild("ScrollingRegion", ImVec2(0.0f, -FooterHeightToReserve), ImGuiChildFlags_NavFlattened, ImGuiWindowFlags_HorizontalScrollbar))
     {
         if (ImGui::BeginPopupContextWindow())
         {
-            if (ImGui::Selectable("Clear")) ClearLog();
+            if (ImGui::Selectable("Clear"))
+            {
+                ClearLog();
+            }
+
             ImGui::EndPopup();
         }
-        ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(4, 1)); // Tighten spacing
-        if (copy_to_clipboard)
-            ImGui::LogToClipboard();
-        for (FLogData item : Items)
+
+        ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(4.0f, 1.0f));
+
+        if (bCopyToClipboard)
         {
-            if (!Filter.PassFilter(item.Massage.c_str()))
+            ImGui::LogToClipboard();
+        }
+
+        for (const FLogData& Item : Items)
+        {
+            if (!Filter.PassFilter(Item.Massage.c_str()))
+            {
                 continue;
-            
-            
-            ImGui::PushStyleColor(ImGuiCol_Text, item.Color);
-            ImGui::TextUnformatted(item.Massage.c_str());
+            }
+
+            ImGui::PushStyleColor(ImGuiCol_Text, Item.Color);
+            ImGui::TextUnformatted(Item.Massage.c_str());
             ImGui::PopStyleColor();
         }
-            if (copy_to_clipboard)
-                ImGui::LogFinish();
-        
-        // Keep up at the bottom of the scroll region if we were already at the bottom at the beginning of the frame.
-        // Using a scrollbar or mouse-wheel will take away from the bottom edge.
+
+        if (bCopyToClipboard)
+        {
+            ImGui::LogFinish();
+        }
+
         if (ScrollToBottom || (AutoScroll && ImGui::GetScrollY() >= ImGui::GetScrollMaxY()))
+        {
             ImGui::SetScrollHereY(1.0f);
+        }
+
         ScrollToBottom = false;
-        
+
         ImGui::PopStyleVar();
     }
+
     ImGui::EndChild();
     ImGui::Separator();
-    
-    // Command-line
-    bool reclaim_focus = false;
-    ImGuiInputTextFlags input_text_flags = ImGuiInputTextFlags_EnterReturnsTrue | ImGuiInputTextFlags_EscapeClearsAll | ImGuiInputTextFlags_CallbackCompletion | ImGuiInputTextFlags_CallbackHistory;
-    if (ImGui::InputText("Input", InputBuf, IM_COUNTOF(InputBuf), input_text_flags, &TextEditCallbackStub, (void*)this))
+
+    bool bReclaimFocus = false;
+
+    const ImGuiInputTextFlags InputTextFlags =
+        ImGuiInputTextFlags_EnterReturnsTrue |
+        ImGuiInputTextFlags_EscapeClearsAll |
+        ImGuiInputTextFlags_CallbackCompletion |
+        ImGuiInputTextFlags_CallbackHistory;
+
+    if (ImGui::InputText("Input", InputBuf, IM_COUNTOF(InputBuf), InputTextFlags, &TextEditCallbackStub, this))
     {
-        char* s = InputBuf;
-        Strtrim(s);
-        if (s[0])
-            ExecCommand(s);
-        strcpy_s(s, sizeof(s), "");
-        reclaim_focus = true;
+        Strtrim(InputBuf);
+
+        if (InputBuf[0] != '\0')
+        {
+            ExecCommand(InputBuf);
+        }
+
+        strcpy_s(InputBuf, sizeof(InputBuf), "");
+        bReclaimFocus = true;
     }
-    
-    // Auto-focus on window apparition
+
     ImGui::SetItemDefaultFocus();
-    if (reclaim_focus)
-        ImGui::SetKeyboardFocusHere(-1); // Auto focus previous widget
-    
+
+    if (bReclaimFocus)
+    {
+        ImGui::SetKeyboardFocusHere(-1);
+    }
+
     ImGui::End();
+
     SetOpen(bIsOpen);
 }
 
 void FConsolePanel::ClearLog()
 {
-    Items.clear();
+    Items.Reset();
 }
 
-int FConsolePanel::TextEditCallback(ImGuiInputTextCallbackData* data)
+int FConsolePanel::TextEditCallback(ImGuiInputTextCallbackData* Data)
 {
-    //AddLog("cursor: %d, selection: %d-%d", data->CursorPos, data->SelectionStart, data->SelectionEnd);
-    switch (data->EventFlag)
+    switch (Data->EventFlag)
     {
-    
     case ImGuiInputTextFlags_CallbackCompletion:
+    {
+        const char* WordEnd = Data->Buf + Data->CursorPos;
+        const char* WordStart = WordEnd;
+
+        while (WordStart > Data->Buf)
         {
-            // Example of TEXT COMPLETION
-            
-            // Locate beginning of current word
-            const char* word_end = data->Buf + data->CursorPos;
-            const char* word_start = word_end;
-            while (word_start > data->Buf)
+            const char Character = WordStart[-1];
+
+            if (Character == ' ' || Character == '\t' || Character == ',' || Character == ';')
             {
-                const char c = word_start[-1];
-                if (c == ' ' || c == '\t' || c == ',' || c == ';')
+                break;
+            }
+
+            --WordStart;
+        }
+
+        ImVector<const char*> Candidates;
+
+        for (int32 Index = 0; Index < Commands.Num(); ++Index)
+        {
+            if (Strnicmp(Commands[Index].c_str(), WordStart, static_cast<int>(WordEnd - WordStart)) == 0)
+            {
+                Candidates.push_back(Commands[Index].c_str());
+            }
+        }
+
+        if (Candidates.Size == 0)
+        {
+            AddLog(ELogVerbosity::Error, "No match for \"%.*s\"!", static_cast<int>(WordEnd - WordStart), WordStart);
+        }
+        else if (Candidates.Size == 1)
+        {
+            Data->DeleteChars(static_cast<int>(WordStart - Data->Buf), static_cast<int>(WordEnd - WordStart));
+            Data->InsertChars(Data->CursorPos, Candidates[0]);
+            Data->InsertChars(Data->CursorPos, " ");
+        }
+        else
+        {
+            int MatchLength = static_cast<int>(WordEnd - WordStart);
+
+            for (;;)
+            {
+                int Character = 0;
+                bool bAllCandidatesMatch = true;
+
+                for (int32 Index = 0; Index < Candidates.Size && bAllCandidatesMatch; ++Index)
+                {
+                    if (Index == 0)
+                    {
+                        Character = std::toupper(static_cast<unsigned char>(Candidates[Index][MatchLength]));
+                    }
+                    else if (Character == 0 || Character != std::toupper(static_cast<unsigned char>(Candidates[Index][MatchLength])))
+                    {
+                        bAllCandidatesMatch = false;
+                    }
+                }
+
+                if (!bAllCandidatesMatch)
+                {
                     break;
-                word_start--;
-            }
-            
-            // Build a list of candidates
-            ImVector<const char*> candidates;
-            for (int i = 0; i < Commands.Num(); i++)
-                if (Strnicmp(Commands[i].c_str(), word_start, (int)(word_end - word_start)) == 0)
-                    candidates.push_back(Commands[i].c_str());
-            
-            if (candidates.Size == 0)
-            {
-                // No match
-                AddLog(ELogVerbosity::Error, "No match for \"%.*s\"!\n", (int)(word_end - word_start), word_start);
-            }
-            else if (candidates.Size == 1)
-            {
-                // Single match. Delete the beginning of the word and replace it entirely so we've got nice casing.
-                data->DeleteChars((int)(word_start - data->Buf), (int)(word_end - word_start));
-                data->InsertChars(data->CursorPos, candidates[0]);
-                data->InsertChars(data->CursorPos, " ");
-            }
-            else
-            {
-                // Multiple matches. Complete as much as we can..
-                // So inputting "C"+Tab will complete to "CL" then display "CLEAR" and "CLASSIFY" as matches.
-                int match_len = (int)(word_end - word_start);
-                for (;;)
-                {
-                    int c = 0;
-                    bool all_candidates_matches = true;
-                    for (int i = 0; i < candidates.Size && all_candidates_matches; i++)
-                        if (i == 0)
-                            c = toupper(candidates[i][match_len]);
-                        else if (c == 0 || c != toupper(candidates[i][match_len]))
-                            all_candidates_matches = false;
-                    if (!all_candidates_matches)
-                        break;
-                    match_len++;
                 }
 
-                if (match_len > 0)
-                {
-                    data->DeleteChars((int)(word_start - data->Buf), (int)(word_end - word_start));
-                    data->InsertChars(data->CursorPos, candidates[0], candidates[0] + match_len);
-                }
-
-                // List matches
-                AddLog(ELogVerbosity::Info, "Possible matches:\n");
-                for (int i = 0; i < candidates.Size; i++)
-                    AddLog(ELogVerbosity::Info, "- %s\n", candidates[i]);
+                ++MatchLength;
             }
 
-            break;
-        }
-    case ImGuiInputTextFlags_CallbackHistory:
-        {
-            // Example of HISTORY
-            const int prev_history_pos = HistoryPos;
-            if (data->EventKey == ImGuiKey_UpArrow)
+            if (MatchLength > 0)
             {
-                if (HistoryPos == -1)
-                    HistoryPos = History.Num() - 1;
-                else if (HistoryPos > 0)
-                    HistoryPos--;
-                }
-            else if (data->EventKey == ImGuiKey_DownArrow)
-            {
-                if (HistoryPos != -1)
-                    if (++HistoryPos >= History.Num())
-                        HistoryPos = -1;
+                Data->DeleteChars(static_cast<int>(WordStart - Data->Buf), static_cast<int>(WordEnd - WordStart));
+                Data->InsertChars(Data->CursorPos, Candidates[0], Candidates[0] + MatchLength);
             }
 
-            // A better implementation would preserve the data on the current input line along with cursor position.
-            if (prev_history_pos != HistoryPos)
+            AddLog(ELogVerbosity::Info, "Possible matches:");
+
+            for (int32 Index = 0; Index < Candidates.Size; ++Index)
             {
-                const char* history_str = (HistoryPos >= 0) ? History[HistoryPos].c_str() : "";
-                data->DeleteChars(0, data->BufTextLen);
-                data->InsertChars(0, history_str);
+                AddLog(ELogVerbosity::Info, "- %s", Candidates[Index]);
             }
         }
+
+        break;
     }
+
+    case ImGuiInputTextFlags_CallbackHistory:
+    {
+        const int PreviousHistoryPosition = HistoryPos;
+
+        if (Data->EventKey == ImGuiKey_UpArrow)
+        {
+            if (HistoryPos == -1)
+            {
+                HistoryPos = History.Num() - 1;
+            }
+            else if (HistoryPos > 0)
+            {
+                --HistoryPos;
+            }
+        }
+        else if (Data->EventKey == ImGuiKey_DownArrow)
+        {
+            if (HistoryPos != -1 && ++HistoryPos >= History.Num())
+            {
+                HistoryPos = -1;
+            }
+        }
+
+        if (PreviousHistoryPosition != HistoryPos)
+        {
+            const char* HistoryText = HistoryPos >= 0 ? History[HistoryPos].c_str() : "";
+
+            Data->DeleteChars(0, Data->BufTextLen);
+            Data->InsertChars(0, HistoryText);
+        }
+
+        break;
+    }
+    }
+
     return 0;
 }
 
-void FConsolePanel::ExecCommand(const char* command_line)
+void FConsolePanel::ExecCommand(const char* CommandLine)
 {
-    AddLog(ELogVerbosity::Input, "# %s\n", command_line);
+    AddLog(ELogVerbosity::Input, "# %s", CommandLine);
 
-    // Insert into history. First find match and delete it so it can be pushed to the back.
-    // This isn't trying to be smart or optimal.
     HistoryPos = -1;
-    
-    for (int i = History.Num() - 1; i >= 0; i--)
-        if (Stricmp(History[i].c_str(), command_line) == 0)
+
+    for (int32 Index = History.Num() - 1; Index >= 0; --Index)
+    {
+        if (Stricmp(History[Index].c_str(), CommandLine) == 0)
         {
-            History.RemoveAt(i, 1);
+            History.RemoveAt(Index, 1);
             break;
         }
-    History.Add(Strdup(command_line));
+    }
 
-    // Process command
-    if (Stricmp(command_line, "CLEAR") == 0)
+    History.Add(Strdup(CommandLine));
+
+    if (Stricmp(CommandLine, "CLEAR") == 0)
     {
         ClearLog();
     }
-    else if (Stricmp(command_line, "HELP") == 0)
+    else if (Stricmp(CommandLine, "HELP") == 0)
     {
         AddLog(ELogVerbosity::Info, "Commands:");
-        for (int i = 0; i < Commands.Num(); i++)
-            AddLog(ELogVerbosity::Info, "- %s", Commands[i].c_str());
+
+        for (int32 Index = 0; Index < Commands.Num(); ++Index)
+        {
+            AddLog(ELogVerbosity::Info, "- %s", Commands[Index].c_str());
+        }
     }
-    else if (Stricmp(command_line, "HISTORY") == 0)
+    else if (Stricmp(CommandLine, "HISTORY") == 0)
     {
-        int first = History.Num() - 10;
-        for (int i = first > 0 ? first : 0; i < History.Num(); i++)
-            AddLog(ELogVerbosity::Info, "%3d: %s\n", i, History[i].c_str());
+        const int32 FirstIndex = History.Num() - 10;
+
+        for (int32 Index = FirstIndex > 0 ? FirstIndex : 0; Index < History.Num(); ++Index)
+        {
+            AddLog(ELogVerbosity::Info, "%3d: %s", Index, History[Index].c_str());
+        }
     }
-    else if (Stricmp(command_line, "STAT") == 0)
+    else if (Stricmp(CommandLine, "STAT") == 0)
     {
         if (StatsPanel == nullptr)
         {
@@ -346,7 +427,7 @@ void FConsolePanel::ExecCommand(const char* command_line)
             AddLog(ELogVerbosity::Info, "Stats window %s.", bOpen ? "opened" : "closed");
         }
     }
-    else if (Stricmp(command_line, "STAT ON") == 0)
+    else if (Stricmp(CommandLine, "STAT ON") == 0)
     {
         if (StatsPanel == nullptr)
         {
@@ -358,7 +439,7 @@ void FConsolePanel::ExecCommand(const char* command_line)
             AddLog(ELogVerbosity::Info, "Stats window opened.");
         }
     }
-    else if (Stricmp(command_line, "STAT OFF") == 0)
+    else if (Stricmp(CommandLine, "STAT OFF") == 0)
     {
         if (StatsPanel == nullptr)
         {
@@ -370,46 +451,91 @@ void FConsolePanel::ExecCommand(const char* command_line)
             AddLog(ELogVerbosity::Info, "Stats window closed.");
         }
     }
+    else if (Stricmp(CommandLine, "STAT FPS") == 0)
+    {
+        if (StatsPanel == nullptr)
+        {
+            AddLog(ELogVerbosity::Error, "StatsPanel is not available.");
+        }
+        else
+        {
+            StatsPanel->SetOverlayMode(EStatOverlayMode::FPS);
+            AddLog(ELogVerbosity::Info, "FPS overlay enabled.");
+        }
+    }
+    else if (Stricmp(CommandLine, "STAT MEMORY") == 0)
+    {
+        if (StatsPanel == nullptr)
+        {
+            AddLog(ELogVerbosity::Error, "StatsPanel is not available.");
+        }
+        else
+        {
+            StatsPanel->SetOverlayMode(EStatOverlayMode::Memory);
+            AddLog(ELogVerbosity::Info, "Memory overlay enabled.");
+        }
+    }
+    else if (Stricmp(CommandLine, "STAT NONE") == 0)
+    {
+        if (StatsPanel == nullptr)
+        {
+            AddLog(ELogVerbosity::Error, "StatsPanel is not available.");
+        }
+        else
+        {
+            StatsPanel->SetOverlayMode(EStatOverlayMode::None);
+            AddLog(ELogVerbosity::Info, "Stats overlay disabled.");
+        }
+    }
     else
     {
-        AddLog(ELogVerbosity::Error, "Unknown command: '%s'\n", command_line);
+        AddLog(ELogVerbosity::Error, "Unknown command: '%s'", CommandLine);
     }
 
-    // On command input, we scroll to bottom even if AutoScroll==false
     ScrollToBottom = true;
 }
 
-void FConsolePanel::AddLog(ELogVerbosity Verbosity, const char* fmt, ...)
+void FConsolePanel::AddLog(ELogVerbosity Verbosity, const char* Format, ...)
 {
     ImVec4 Color;
-    char buf[1024];
-    va_list args;
-    va_start(args, fmt);
-    vsnprintf(buf, IM_COUNTOF(buf), fmt, args);
-    buf[IM_COUNTOF(buf)-1] = 0;
-    va_end(args);
+    char Buffer[1024] = {};
+
+    va_list Arguments;
+    va_start(Arguments, Format);
+    std::vsnprintf(Buffer, IM_COUNTOF(Buffer), Format, Arguments);
+    Buffer[IM_COUNTOF(Buffer) - 1] = '\0';
+    va_end(Arguments);
+
     switch (Verbosity)
     {
     case ELogVerbosity::Info:
         Color = ImVec4(0.0f, 1.0f, 0.0f, 1.0f);
         break;
+
     case ELogVerbosity::Error:
         Color = ImVec4(1.0f, 1.0f, 0.0f, 1.0f);
         break;
+
     case ELogVerbosity::Warning:
         Color = ImVec4(1.0f, 0.0f, 0.0f, 1.0f);
         break;
+
     case ELogVerbosity::Input:
         Color = ImVec4(1.0f, 1.0f, 1.0f, 1.0f);
         break;
+
+    default:
+        Color = ImVec4(1.0f, 1.0f, 1.0f, 1.0f);
+        break;
     }
-    Items.Add({Strdup(buf), Color});
+
+    Items.Add({FString(Buffer), Color});
 }
 
 void FConsolePanel::HandleLogOutput(void* UserData, ELogVerbosity Verbosity, const char* Message)
 {
     FConsolePanel* Panel = static_cast<FConsolePanel*>(UserData);
-    
+
     if (Panel != nullptr)
     {
         Panel->AddLog(Verbosity, "%s", Message);

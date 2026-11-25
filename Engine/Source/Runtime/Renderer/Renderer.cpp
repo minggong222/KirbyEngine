@@ -1,12 +1,11 @@
-
 #include <d3d11.h>
 #include <d3dcompiler.h>
 
 #include "Engine/Source/Runtime/Renderer/Renderer.h"
 #include "Resources/TextureResource.h"
-
 #include "Core/Math/Math.h"
 
+#include <cstddef>
 #include <cstring>
 #include <limits>
 
@@ -168,13 +167,13 @@ void URenderer::CreateFrameBuffer()
 // 프레임 버퍼를 해제하는 함수
 void URenderer::ReleaseFrameBuffer()
 {
-    if (mFrameBufferRTV)
+    if (mFrameBufferRTV != nullptr)
     {
         mFrameBufferRTV->Release();
         mFrameBufferRTV = nullptr;
     }
-    
-    if (mFrameBuffer)
+
+    if (mFrameBuffer != nullptr)
     {
         mFrameBuffer->Release();
         mFrameBuffer = nullptr;
@@ -217,7 +216,7 @@ void URenderer::CreateRasterizerState()
         OutputDebugStringA("[Renderer] CreateOutlineRasterizerState failed.\n");
         return;
     }
-    
+
     D3D11_RASTERIZER_DESC WireframeDesc = RasterizerDesc;
     WireframeDesc.FillMode = D3D11_FILL_WIREFRAME;
 
@@ -266,13 +265,13 @@ void URenderer::ReleaseRasterizerState()
         mWireframeRasterizerState = nullptr;
     }
 
-    if (mOutlineRasterizerState)
+    if (mOutlineRasterizerState != nullptr)
     {
         mOutlineRasterizerState->Release();
         mOutlineRasterizerState = nullptr;
     }
 
-    if (mRasterizerState)
+    if (mRasterizerState != nullptr)
     {
         mRasterizerState->Release();
         mRasterizerState = nullptr;
@@ -388,7 +387,8 @@ void URenderer::CreateShader()
     {
         {"POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0},
         {"COLOR", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 12, D3D11_INPUT_PER_VERTEX_DATA, 0},
-        {"TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 28, D3D11_INPUT_PER_VERTEX_DATA, 0}
+        {"TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 28, D3D11_INPUT_PER_VERTEX_DATA, 0},
+        {"NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, static_cast<UINT>(offsetof(FVertexSimple, nx)), D3D11_INPUT_PER_VERTEX_DATA, 0}
     };
 
     hr = mDevice->CreateInputLayout(Layout, ARRAYSIZE(Layout), VertexShaderBlob->GetBufferPointer(), VertexShaderBlob->GetBufferSize(), &mSimpleInputLayout);
@@ -422,30 +422,30 @@ void URenderer::CreateShader()
         OutputDebugStringA("[Renderer] CreateSamplerState failed.\n");
         return;
     }
-    
+
     mStride = sizeof(FVertexSimple);
 }
 
 void URenderer::ReleaseShader()
 {
-    if (mSimpleInputLayout)
+    if (mSimpleInputLayout != nullptr)
     {
         mSimpleInputLayout->Release();
         mSimpleInputLayout = nullptr;
     }
 
-    if (mSimplePixelShader)
+    if (mSimplePixelShader != nullptr)
     {
         mSimplePixelShader->Release();
         mSimplePixelShader = nullptr;
     }
 
-    if (mSimpleVertexShader)
+    if (mSimpleVertexShader != nullptr)
     {
         mSimpleVertexShader->Release();
         mSimpleVertexShader = nullptr;
     }
-    
+
     if (mTextureSamplerState != nullptr)
     {
         mTextureSamplerState->Release();
@@ -462,10 +462,8 @@ void URenderer::Prepare()
 
     mDeviceContext->ClearRenderTargetView(mFrameBufferRTV, mClearColor);
     mDeviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-
     mDeviceContext->RSSetViewports(1, &mViewportInfo);
     mDeviceContext->RSSetState(bWireframeEnabled ? mWireframeRasterizerState : mRasterizerState);
-
     mDeviceContext->OMSetRenderTargets(1, &mFrameBufferRTV, nullptr);
     mDeviceContext->OMSetBlendState(nullptr, nullptr, 0xffffffff);
 }
@@ -476,19 +474,19 @@ void URenderer::PrepareShader()
     {
         return;
     }
-    
+
     mDeviceContext->VSSetShader(mSimpleVertexShader, nullptr, 0);
     mDeviceContext->PSSetShader(mSimplePixelShader, nullptr, 0);
     mDeviceContext->IASetInputLayout(mSimpleInputLayout);
 
-    // 버텍스 쉐이더에 상수 버퍼를 설정합니다.
-    if (mConstantBuffer)
+    if (mConstantBuffer != nullptr)
     {
         mDeviceContext->VSSetConstantBuffers(0, 1, &mConstantBuffer);
+        mDeviceContext->PSSetConstantBuffers(0, 1, &mConstantBuffer);
     }
 }
 
-void URenderer::RenderPrimitive(ID3D11Buffer* VertexBuffer, ID3D11Buffer* IndexBuffer, UINT IndexCount, bool bRenderOutline, ID3D11ShaderResourceView* TextureSRV)
+void URenderer::RenderPrimitive(ID3D11Buffer* VertexBuffer, ID3D11Buffer* IndexBuffer, UINT IndexCount, bool bRenderOutline, ID3D11ShaderResourceView* TextureSRV, UINT StartIndexLocation)
 {
     if (mDeviceContext == nullptr || VertexBuffer == nullptr || IndexBuffer == nullptr || IndexCount == 0 || mRasterizerState == nullptr || (bRenderOutline && mOutlineRasterizerState == nullptr))
     {
@@ -505,11 +503,9 @@ void URenderer::RenderPrimitive(ID3D11Buffer* VertexBuffer, ID3D11Buffer* IndexB
     mDeviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
     mDeviceContext->IASetVertexBuffers(0, 1, &VertexBuffer, &mStride, &Offset);
     mDeviceContext->IASetIndexBuffer(IndexBuffer, DXGI_FORMAT_R32_UINT, 0);
-
     mDeviceContext->PSSetShaderResources(0, 1, &TextureSRV);
     mDeviceContext->PSSetSamplers(0, 1, &mTextureSamplerState);
-
-    mDeviceContext->DrawIndexed(IndexCount, 0, 0);
+    mDeviceContext->DrawIndexed(IndexCount, StartIndexLocation, 0);
 
     if (bRenderOutline)
     {
@@ -534,10 +530,10 @@ ID3D11Buffer* URenderer::CreateVertexBuffer(FVertexSimple* vertices, UINT byteWi
     {
         return nullptr;
     }
-    // 2. Create a vertex buffer
+
     D3D11_BUFFER_DESC vertexbufferdesc = {};
     vertexbufferdesc.ByteWidth = byteWidth;
-    vertexbufferdesc.Usage = D3D11_USAGE_IMMUTABLE; // will never be updated 
+    vertexbufferdesc.Usage = D3D11_USAGE_IMMUTABLE;
     vertexbufferdesc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
 
     D3D11_SUBRESOURCE_DATA vertexbufferSRD = {};
@@ -569,31 +565,31 @@ ID3D11Buffer* URenderer::CreateIndexBuffer(const uint32* Indices, UINT IndexCoun
     {
         return nullptr;
     }
-    
+
     const uint64 ByteWidth = sizeof(uint32) * static_cast<uint64>(IndexCount);
-    
+
     if (ByteWidth > (std::numeric_limits<UINT>::max)())
     {
         return nullptr;
     }
-    
+
     D3D11_BUFFER_DESC IndexBufferDesc = {};
     IndexBufferDesc.ByteWidth = static_cast<UINT>(ByteWidth);
     IndexBufferDesc.Usage = D3D11_USAGE_IMMUTABLE;
     IndexBufferDesc.BindFlags = D3D11_BIND_INDEX_BUFFER;
-    
+
     D3D11_SUBRESOURCE_DATA IndexBufferData = {};
     IndexBufferData.pSysMem = Indices;
-    
+
     ID3D11Buffer* IndexBuffer = nullptr;
-    
+
     const HRESULT hr = mDevice->CreateBuffer(&IndexBufferDesc, &IndexBufferData, &IndexBuffer);
-    
+
     if (FAILED(hr))
     {
         return nullptr;
     }
-    
+
     return IndexBuffer;
 }
 
@@ -691,14 +687,14 @@ void URenderer::CreateConstantBuffer()
 
 void URenderer::ReleaseConstantBuffer()
 {
-    if (mConstantBuffer)
+    if (mConstantBuffer != nullptr)
     {
         mConstantBuffer->Release();
         mConstantBuffer = nullptr;
     }
 }
 
-void URenderer::UpdateConstant(FMatrix World, FMatrix View, FMatrix Projection, bool bIsOutline, bool bIsTextured, bool bForceUnlit)
+void URenderer::UpdateConstant(FMatrix World, FMatrix View, FMatrix Projection, bool bIsOutline, bool bIsTextured, bool bForceUnlit, const FVector4& InMaterialColor, const FVector2D& InUVOffset, bool bUseVertexNormals)
 {
     if (mConstantBuffer == nullptr || mDeviceContext == nullptr)
     {
@@ -719,9 +715,15 @@ void URenderer::UpdateConstant(FMatrix World, FMatrix View, FMatrix Projection, 
     Constants->World = World;
     Constants->View = View;
     Constants->Projection = Projection;
+    Constants->NormalMatrix = World.GetNormalMatrix();
+    Constants->MaterialColor = InMaterialColor;
+    Constants->UVOffset = InUVOffset;
+    Constants->MaterialPadding[0] = 0;
+    Constants->MaterialPadding[1] = 0;
     Constants->IsOutline = bIsOutline ? 1u : 0u;
     Constants->IsTextured = bIsTextured ? 1u : 0u;
     Constants->IsUnlit = (bUnlitEnabled || bForceUnlit) ? 1u : 0u;
+    Constants->UseVertexNormals = bUseVertexNormals ? 1u : 0u;
 
     mDeviceContext->Unmap(mConstantBuffer, 0);
 }
@@ -760,7 +762,6 @@ void URenderer::ResizeBackBuffer(uint32 Width, uint32 Height)
     if (FAILED(hr))
     {
         OutputDebugStringA("[Renderer] ResizeBuffers failed.\n");
-
         CreateFrameBuffer();
         return;
     }
@@ -773,6 +774,29 @@ void URenderer::ResizeBackBuffer(uint32 Width, uint32 Height)
     {
         OutputDebugStringA("[Renderer] Back buffer recreation failed.\n");
     }
+}
+
+void URenderer::SetViewportRegion(float X, float Y, float Width, float Height)
+{
+    if (mDeviceContext == nullptr || ViewportWidth == 0 || ViewportHeight == 0 || !std::isfinite(X) || !std::isfinite(Y) || !std::isfinite(Width) || !std::isfinite(Height) || Width <= 0.0f || Height <= 0.0f)
+    {
+        return;
+    }
+
+    if (X < 0.0f || Y < 0.0f || X + Width > static_cast<float>(ViewportWidth) || Y + Height > static_cast<float>(ViewportHeight))
+    {
+        return;
+    }
+
+    D3D11_VIEWPORT Viewport = {};
+    Viewport.TopLeftX = X;
+    Viewport.TopLeftY = Y;
+    Viewport.Width = Width;
+    Viewport.Height = Height;
+    Viewport.MinDepth = 0.0f;
+    Viewport.MaxDepth = 1.0f;
+
+    mDeviceContext->RSSetViewports(1, &Viewport);
 }
 
 void URenderer::CreateViewportRenderTarget(uint32 Width, uint32 Height)
@@ -862,7 +886,7 @@ void URenderer::CreateViewportRenderTarget(uint32 Width, uint32 Height)
         Fail();
         return;
     }
-    
+
     D3D11_DEPTH_STENCIL_DESC OverlayDepthDesc = StateDesc;
     OverlayDepthDesc.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ZERO;
     OverlayDepthDesc.DepthFunc = D3D11_COMPARISON_LESS_EQUAL;
@@ -886,10 +910,12 @@ void URenderer::ResizeViewportRenderTarget(uint32 Width, uint32 Height)
     {
         return;
     }
+
     if (ViewportTexture != nullptr && ViewportWidth == Width && ViewportHeight == Height)
     {
         return;
     }
+
     ReleaseViewportRenderTarget();
     CreateViewportRenderTarget(Width, Height);
 }
@@ -1056,12 +1082,12 @@ void URenderer::BeginViewportRender()
     {
         return;
     }
-    
+
     const float ClearColor[4] = {0.05f, 0.05f, 0.07f, 1.0f};
-    
+
     mDeviceContext->ClearRenderTargetView(ViewportRTV, ClearColor);
     mDeviceContext->ClearDepthStencilView(ViewportDSV, D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
-    
+
     mDeviceContext->OMSetRenderTargets(1, &ViewportRTV, ViewportDSV);
     mDeviceContext->RSSetViewports(1, &ViewportRenderInfo);
     mDeviceContext->RSSetState(bWireframeEnabled ? mWireframeRasterizerState : mRasterizerState);
@@ -1083,7 +1109,7 @@ void URenderer::EndViewportRender()
 
 void URenderer::ReleaseViewportRenderTarget()
 {
-    if (mDeviceContext)
+    if (mDeviceContext != nullptr)
     {
         mDeviceContext->OMSetRenderTargets(0, nullptr, nullptr);
 
@@ -1091,42 +1117,42 @@ void URenderer::ReleaseViewportRenderTarget()
         mDeviceContext->PSSetShaderResources(0, 1, &NullSRV);
     }
 
-    if (ViewportSRV)
+    if (ViewportSRV != nullptr)
     {
         ViewportSRV->Release();
         ViewportSRV = nullptr;
     }
 
-    if (ViewportRTV)
+    if (ViewportRTV != nullptr)
     {
         ViewportRTV->Release();
         ViewportRTV = nullptr;
     }
 
-    if (ViewportDSV)
+    if (ViewportDSV != nullptr)
     {
         ViewportDSV->Release();
         ViewportDSV = nullptr;
     }
 
-    if (ViewportDepthState)
+    if (ViewportDepthState != nullptr)
     {
         ViewportDepthState->Release();
         ViewportDepthState = nullptr;
     }
 
-    if (ViewportTexture)
+    if (ViewportTexture != nullptr)
     {
         ViewportTexture->Release();
         ViewportTexture = nullptr;
     }
 
-    if (ViewportDepthTexture)
+    if (ViewportDepthTexture != nullptr)
     {
         ViewportDepthTexture->Release();
         ViewportDepthTexture = nullptr;
     }
-    
+
     if (ViewportOverlayDepthState != nullptr)
     {
         ViewportOverlayDepthState->Release();
@@ -1135,7 +1161,6 @@ void URenderer::ReleaseViewportRenderTarget()
 
     ViewportWidth = 0;
     ViewportHeight = 0;
-
     ViewportRenderInfo = {};
 }
 
@@ -1168,7 +1193,6 @@ void URenderer::Shutdown()
 {
     ReleaseAssetPreviewRenderTarget();
     ReleaseViewportRenderTarget();
-    //ReleaseRasterizerState();
     ReleaseConstantBuffer();
     ReleaseShader();
     Release();
@@ -1214,6 +1238,7 @@ bool URenderer::DrawDynamicIndexedLines(const FVertexSimple* Vertices, UINT Vert
     const auto GrowCapacity = [](UINT Current, UINT Required, UINT& OutCapacity)
     {
         UINT Capacity = Current == 0 ? 256 : Current;
+
         while (Capacity < Required)
         {
             if (Capacity > (std::numeric_limits<UINT>::max)() / 2)
@@ -1221,8 +1246,10 @@ bool URenderer::DrawDynamicIndexedLines(const FVertexSimple* Vertices, UINT Vert
                 Capacity = Required;
                 break;
             }
+
             Capacity *= 2;
         }
+
         OutCapacity = Capacity;
         return Capacity >= Required;
     };
@@ -1230,65 +1257,108 @@ bool URenderer::DrawDynamicIndexedLines(const FVertexSimple* Vertices, UINT Vert
     if (mDynamicVertexCapacity < VertexCount)
     {
         UINT NewCapacity = 0;
-        if (!GrowCapacity(mDynamicVertexCapacity, VertexCount, NewCapacity)) return false;
+
+        if (!GrowCapacity(mDynamicVertexCapacity, VertexCount, NewCapacity))
+        {
+            return false;
+        }
+
         const uint64 ByteWidth = sizeof(FVertexSimple) * static_cast<uint64>(NewCapacity);
-        if (ByteWidth > (std::numeric_limits<UINT>::max)()) return false;
+
+        if (ByteWidth > (std::numeric_limits<UINT>::max)())
+        {
+            return false;
+        }
+
         ReleaseDynamicVertexBuffer();
+
         D3D11_BUFFER_DESC BufferDesc = {};
         BufferDesc.ByteWidth = static_cast<UINT>(ByteWidth);
         BufferDesc.Usage = D3D11_USAGE_DYNAMIC;
         BufferDesc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
         BufferDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+
         if (FAILED(mDevice->CreateBuffer(&BufferDesc, nullptr, &mDynamicVertexBuffer)) || mDynamicVertexBuffer == nullptr)
         {
             ReleaseDynamicVertexBuffer();
             return false;
         }
+
         mDynamicVertexCapacity = NewCapacity;
     }
 
     if (mDynamicIndexCapacity < IndexCount)
     {
         UINT NewCapacity = 0;
-        if (!GrowCapacity(mDynamicIndexCapacity, IndexCount, NewCapacity)) return false;
+
+        if (!GrowCapacity(mDynamicIndexCapacity, IndexCount, NewCapacity))
+        {
+            return false;
+        }
+
         const uint64 ByteWidth = sizeof(uint32) * static_cast<uint64>(NewCapacity);
-        if (ByteWidth > (std::numeric_limits<UINT>::max)()) return false;
+
+        if (ByteWidth > (std::numeric_limits<UINT>::max)())
+        {
+            return false;
+        }
+
         ReleaseDynamicIndexBuffer();
+
         D3D11_BUFFER_DESC BufferDesc = {};
         BufferDesc.ByteWidth = static_cast<UINT>(ByteWidth);
         BufferDesc.Usage = D3D11_USAGE_DYNAMIC;
         BufferDesc.BindFlags = D3D11_BIND_INDEX_BUFFER;
         BufferDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+
         if (FAILED(mDevice->CreateBuffer(&BufferDesc, nullptr, &mDynamicIndexBuffer)) || mDynamicIndexBuffer == nullptr)
         {
             ReleaseDynamicIndexBuffer();
             return false;
         }
+
         mDynamicIndexCapacity = NewCapacity;
     }
 
     D3D11_MAPPED_SUBRESOURCE MappedVertices = {};
-    if (FAILED(mDeviceContext->Map(mDynamicVertexBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &MappedVertices)) || MappedVertices.pData == nullptr) return false;
+
+    if (FAILED(mDeviceContext->Map(mDynamicVertexBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &MappedVertices)) || MappedVertices.pData == nullptr)
+    {
+        return false;
+    }
+
     std::memcpy(MappedVertices.pData, Vertices, sizeof(FVertexSimple) * static_cast<SIZE_T>(VertexCount));
     mDeviceContext->Unmap(mDynamicVertexBuffer, 0);
 
     D3D11_MAPPED_SUBRESOURCE MappedIndices = {};
-    if (FAILED(mDeviceContext->Map(mDynamicIndexBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &MappedIndices)) || MappedIndices.pData == nullptr) return false;
+
+    if (FAILED(mDeviceContext->Map(mDynamicIndexBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &MappedIndices)) || MappedIndices.pData == nullptr)
+    {
+        return false;
+    }
+
     std::memcpy(MappedIndices.pData, Indices, sizeof(uint32) * static_cast<SIZE_T>(IndexCount));
     mDeviceContext->Unmap(mDynamicIndexBuffer, 0);
 
     UpdateConstant(FMatrix::Identity, View, Projection, false, false, true);
+
     mDeviceContext->VSSetShader(mSimpleVertexShader, nullptr, 0);
     mDeviceContext->VSSetConstantBuffers(0, 1, &mConstantBuffer);
     mDeviceContext->PSSetShader(mSimplePixelShader, nullptr, 0);
+    mDeviceContext->PSSetConstantBuffers(0, 1, &mConstantBuffer);
     mDeviceContext->IASetInputLayout(mSimpleInputLayout);
+
     const UINT Offset = 0;
+
     mDeviceContext->IASetVertexBuffers(0, 1, &mDynamicVertexBuffer, &mStride, &Offset);
     mDeviceContext->IASetIndexBuffer(mDynamicIndexBuffer, DXGI_FORMAT_R32_UINT, 0);
     mDeviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_LINELIST);
+
     ID3D11ShaderResourceView* NullSRV = nullptr;
     mDeviceContext->PSSetShaderResources(0, 1, &NullSRV);
+
     const FLOAT BlendFactor[4] = {};
+
     mDeviceContext->OMSetBlendState(mAlphaBlendState, BlendFactor, 0xffffffff);
     mDeviceContext->OMSetDepthStencilState(ViewportOverlayDepthState, 0);
     mDeviceContext->RSSetState(mRasterizerState);
@@ -1298,13 +1368,13 @@ bool URenderer::DrawDynamicIndexedLines(const FVertexSimple* Vertices, UINT Vert
     mDeviceContext->RSSetState(bWireframeEnabled ? mWireframeRasterizerState : mRasterizerState);
     mDeviceContext->IASetIndexBuffer(nullptr, DXGI_FORMAT_UNKNOWN, 0);
     mDeviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+
     return true;
 }
 
 bool URenderer::DrawDynamicVertices(const FVertexSimple* Vertices, UINT VertexCount, D3D11_PRIMITIVE_TOPOLOGY Topology, const FMatrix& World, const FMatrix& View, const FMatrix& Projection, ID3D11ShaderResourceView* TextureSRV, bool bIsTextured, bool bAlphaBlend)
 {
-    if (mDevice == nullptr || mDeviceContext == nullptr || Vertices == nullptr || VertexCount == 0 || mSimpleVertexShader == nullptr || mSimplePixelShader == nullptr || mSimpleInputLayout == nullptr || (bIsTextured && TextureSRV == nullptr) ||
-        mRasterizerState == nullptr || mAlphaBlendState == nullptr || ViewportDepthState == nullptr || ViewportOverlayDepthState == nullptr)
+    if (mDevice == nullptr || mDeviceContext == nullptr || Vertices == nullptr || VertexCount == 0 || mSimpleVertexShader == nullptr || mSimplePixelShader == nullptr || mSimpleInputLayout == nullptr || (bIsTextured && TextureSRV == nullptr) || mRasterizerState == nullptr || mAlphaBlendState == nullptr || ViewportDepthState == nullptr || ViewportOverlayDepthState == nullptr)
     {
         return false;
     }
@@ -1361,6 +1431,7 @@ bool URenderer::DrawDynamicVertices(const FVertexSimple* Vertices, UINT VertexCo
     }
 
     D3D11_MAPPED_SUBRESOURCE MappedResource = {};
+
     const HRESULT MapResult = mDeviceContext->Map(mDynamicVertexBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &MappedResource);
 
     if (FAILED(MapResult) || MappedResource.pData == nullptr)
@@ -1372,15 +1443,15 @@ bool URenderer::DrawDynamicVertices(const FVertexSimple* Vertices, UINT VertexCo
     mDeviceContext->Unmap(mDynamicVertexBuffer, 0);
 
     UpdateConstant(World, View, Projection, false, bIsTextured, true);
+
     mDeviceContext->VSSetShader(mSimpleVertexShader, nullptr, 0);
-    if (mConstantBuffer != nullptr)
-    {
-        mDeviceContext->VSSetConstantBuffers(0, 1, &mConstantBuffer);
-    }
+    mDeviceContext->VSSetConstantBuffers(0, 1, &mConstantBuffer);
     mDeviceContext->PSSetShader(mSimplePixelShader, nullptr, 0);
+    mDeviceContext->PSSetConstantBuffers(0, 1, &mConstantBuffer);
     mDeviceContext->IASetInputLayout(mSimpleInputLayout);
 
     UINT Offset = 0;
+
     mDeviceContext->IASetVertexBuffers(0, 1, &mDynamicVertexBuffer, &mStride, &Offset);
     mDeviceContext->IASetIndexBuffer(nullptr, DXGI_FORMAT_UNKNOWN, 0);
     mDeviceContext->IASetPrimitiveTopology(Topology);
@@ -1394,15 +1465,15 @@ bool URenderer::DrawDynamicVertices(const FVertexSimple* Vertices, UINT VertexCo
     }
 
     const FLOAT BlendFactor[4] = {};
+
     mDeviceContext->OMSetBlendState(bAlphaBlend ? mAlphaBlendState : nullptr, BlendFactor, 0xffffffff);
     mDeviceContext->OMSetDepthStencilState(ViewportOverlayDepthState, 0);
     mDeviceContext->RSSetState(mRasterizerState);
-
     mDeviceContext->Draw(VertexCount, 0);
 
     ID3D11ShaderResourceView* NullSRV = nullptr;
-    mDeviceContext->PSSetShaderResources(0, 1, &NullSRV);
 
+    mDeviceContext->PSSetShaderResources(0, 1, &NullSRV);
     mDeviceContext->OMSetBlendState(nullptr, nullptr, 0xffffffff);
     mDeviceContext->OMSetDepthStencilState(ViewportDepthState, 0);
     mDeviceContext->RSSetState(bWireframeEnabled ? mWireframeRasterizerState : mRasterizerState);

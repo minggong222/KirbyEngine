@@ -36,6 +36,7 @@
     <ProjectName>KirbyEngine</ProjectName>
   </PropertyGroup>
   <ItemGroup>
+    <ClInclude Include="Engine\Source\Editor\EditorViewport.h" />
     <ClInclude Include="Engine\Source\Runtime\Actors\Actor.h" />
     <ClInclude Include="Engine\Source\Runtime\Actors\CameraActor.h" />
     <ClInclude Include="Engine\Source\Runtime\Actors\StaticMeshActor.h" />

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <d3d11.h>
+
 #include "FVertexSimple.h"
 #include "Core/STL.h"
 #include "Core/Math/Math.h"
@@ -13,11 +14,17 @@ struct FConstants
     FMatrix World;
     FMatrix View;
     FMatrix Projection;
+    FMatrix NormalMatrix;
+    FVector4 MaterialColor;
+    FVector2D UVOffset;
+    uint32 MaterialPadding[2] = {};
     uint32 IsOutline = 0;
     uint32 IsTextured = 0;
     uint32 IsUnlit = 0;
-    uint32 Padding = 0;
+    uint32 UseVertexNormals = 0;
 };
+
+static_assert(sizeof(FConstants) % 16u == 0u);
 
 class URenderer
 {
@@ -37,9 +44,13 @@ public:
 
     void Prepare();
     void PrepareShader();
-    void RenderPrimitive(ID3D11Buffer* VertexBuffer, ID3D11Buffer* IndexBuffer, UINT IndexCount, bool bRenderOutline = false, ID3D11ShaderResourceView* TextureSRV = nullptr);
+
+    void RenderPrimitive(ID3D11Buffer* VertexBuffer, ID3D11Buffer* IndexBuffer, UINT IndexCount, bool bRenderOutline = false, ID3D11ShaderResourceView* TextureSRV = nullptr, UINT StartIndexLocation = 0);
+
     bool DrawDynamicVertices(const FVertexSimple* Vertices, UINT VertexCount, D3D11_PRIMITIVE_TOPOLOGY Topology, const FMatrix& World, const FMatrix& View, const FMatrix& Projection, ID3D11ShaderResourceView* TextureSRV = nullptr, bool bIsTextured = false, bool bAlphaBlend = false);
+
     bool DrawDynamicIndexedLines(const FVertexSimple* Vertices, UINT VertexCount, const uint32* Indices, UINT IndexCount, const FMatrix& View, const FMatrix& Projection);
+
     void SetViewMode(EViewMode InViewMode);
 
     ID3D11Buffer* CreateVertexBuffer(FVertexSimple* vertices, UINT byteWidth);
@@ -50,12 +61,14 @@ public:
 
     void CreateConstantBuffer();
     void ReleaseConstantBuffer();
-    void UpdateConstant(FMatrix World, FMatrix View, FMatrix Projection, bool bIsOutline, bool bIsTextured = false, bool bForceUnlit = false);
+
+    void UpdateConstant(FMatrix World, FMatrix View, FMatrix Projection, bool bIsOutline, bool bIsTextured = false, bool bForceUnlit = false, const FVector4& InMaterialColor = FVector4(1.0f, 1.0f, 1.0f, 1.0f), const FVector2D& InUVOffset = FVector2D(0.0f, 0.0f), bool bUseVertexNormals = false);
 
     ID3D11Device* GetDevice();
     ID3D11DeviceContext* GetDeviceContext();
 
     void ResizeBackBuffer(uint32 Width, uint32 Height);
+
     void CreateViewportRenderTarget(uint32 Width, uint32 Height);
     void ResizeViewportRenderTarget(uint32 Width, uint32 Height);
     void BeginViewportRender();
@@ -67,8 +80,11 @@ public:
     void EndAssetPreviewRender();
     void ReleaseAssetPreviewRenderTarget();
 
+    void SetViewportRegion(float X, float Y, float Width, float Height);
+
     uint32 GetViewportWidth() const { return ViewportWidth; }
     uint32 GetViewportHeight() const { return ViewportHeight; }
+
     ID3D11ShaderResourceView* GetViewportSRV() const { return ViewportSRV; }
     ID3D11ShaderResourceView* GetAssetPreviewSRV() const { return AssetPreviewSRV; }
     ID3D11Texture2D* GetAssetPreviewTexture() const { return AssetPreviewTexture; }
@@ -90,13 +106,14 @@ private:
     ID3D11RasterizerState* mOutlineRasterizerState = nullptr;
     ID3D11Buffer* mConstantBuffer = nullptr;
 
-    FLOAT mClearColor[4] = { 0.025f, 0.025f, 0.025f, 1.0f };
-    D3D11_VIEWPORT mViewportInfo;
+    FLOAT mClearColor[4] = {0.025f, 0.025f, 0.025f, 1.0f};
+    D3D11_VIEWPORT mViewportInfo = {};
 
     ID3D11VertexShader* mSimpleVertexShader = nullptr;
     ID3D11PixelShader* mSimplePixelShader = nullptr;
     ID3D11InputLayout* mSimpleInputLayout = nullptr;
     ID3D11SamplerState* mTextureSamplerState = nullptr;
+
     unsigned int mStride = 0;
     bool bInitializationFailed = false;
 

@@ -4,6 +4,13 @@
 #include "EditorObjectContext.h"
 #include "Core/Stats/FrameStats.h"
 
+enum class EStatOverlayMode
+{
+    None,
+    FPS,
+    Memory
+};
+
 class FStatsPanel : public IEditorPanel
 {
 public:
@@ -17,7 +24,21 @@ public:
     const char* GetPanelName() const override { return "Stats"; }
     void OnRender() override;
 
+    void SetOverlayMode(EStatOverlayMode InMode)
+    {
+        OverlayMode = InMode;
+    }
+
+    EStatOverlayMode GetOverlayMode() const
+    {
+        return OverlayMode;
+    }
+
 private:
+    void RenderOverlay();
+
     FFrameStats* FrameStats = nullptr;
     FEditorObjectContext* Context = nullptr;
+
+    EStatOverlayMode OverlayMode = EStatOverlayMode::None;
 };

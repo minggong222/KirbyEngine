@@ -13,19 +13,21 @@
 #include <iomanip>
 #include <string>
 #include <system_error>
+#include <cmath>
 
 #ifndef NOMINMAX
 #define NOMINMAX
 #endif
+
 #include <Windows.h>
 
 namespace TextureImporter
 {
     inline constexpr std::uintmax_t MaxTextureFileBytes = 128ull * 1024ull * 1024ull;
 
-    inline std::string PathToUTF8(const std::filesystem::path& Path)
+    inline std::string PathToUTF8(const std::filesystem::path& FilePath)
     {
-        const std::u8string UTF8Path = Path.generic_u8string();
+        const std::u8string UTF8Path = FilePath.generic_u8string();
         return std::string(reinterpret_cast<const char*>(UTF8Path.data()), UTF8Path.size());
     }
 
@@ -124,14 +126,27 @@ namespace TextureImporter
         }
 
         std::filesystem::path RelativePath;
-        if (!IsValidContentAssetPath(Texture->GetAssetPath(), RelativePath) || !HasSupportedTextureExtension(RelativePath)) return false;
+
+        if (!IsValidContentAssetPath(Texture->GetAssetPath(), RelativePath) || !HasSupportedTextureExtension(RelativePath))
+        {
+            return false;
+        }
 
         const std::filesystem::path FullPath = std::filesystem::current_path() / RelativePath;
         std::error_code FileSystemError;
-        if (!std::filesystem::is_regular_file(FullPath, FileSystemError) || FileSystemError) return false;
+
+        if (!std::filesystem::is_regular_file(FullPath, FileSystemError) || FileSystemError)
+        {
+            return false;
+        }
 
         const std::uintmax_t FileSize = std::filesystem::file_size(FullPath, FileSystemError);
-        if (FileSystemError || FileSize == 0 || FileSize > MaxTextureFileBytes) return false;
+
+        if (FileSystemError || FileSize == 0 || FileSize > MaxTextureFileBytes)
+        {
+            return false;
+        }
+
         return Texture->Reload(Renderer, FullPath);
     }
 
@@ -158,8 +173,17 @@ namespace TextureImporter
             }
         }
 
+        const FVector4& BaseColor = Material->GetBaseColor();
+        const FVector2D& UVScrollSpeed = Material->GetUVScrollSpeed();
+
+        if (!std::isfinite(BaseColor.x) || !std::isfinite(BaseColor.y) || !std::isfinite(BaseColor.z) || !std::isfinite(BaseColor.w) || !std::isfinite(UVScrollSpeed.x) || !std::isfinite(UVScrollSpeed.y))
+        {
+            return false;
+        }
+
         const std::filesystem::path FilePath = std::filesystem::current_path() / RelativePath;
         std::error_code FileSystemError;
+
         std::filesystem::create_directories(FilePath.parent_path(), FileSystemError);
 
         if (FileSystemError)
@@ -169,6 +193,7 @@ namespace TextureImporter
 
         const UTexture2D* Texture = Material->GetBaseColorTexture();
         const std::string TextureAssetPath = Texture != nullptr ? Texture->GetAssetPath().ToStd() : std::string();
+
         std::filesystem::path TemporaryPath = FilePath;
         TemporaryPath += ".tmp";
 
@@ -180,8 +205,10 @@ namespace TextureImporter
                 return false;
             }
 
-            OutputFile << "KIRBY_MATERIAL 1\n";
+            OutputFile << "KIRBY_MATERIAL 2\n";
             OutputFile << std::quoted(TextureAssetPath) << '\n';
+            OutputFile << BaseColor.x << ' ' << BaseColor.y << ' ' << BaseColor.z << ' ' << BaseColor.w << '\n';
+            OutputFile << UVScrollSpeed.x << ' ' << UVScrollSpeed.y << '\n';
             OutputFile.flush();
 
             if (!OutputFile.good())
@@ -196,6 +223,53 @@ namespace TextureImporter
         {
             std::filesystem::remove(TemporaryPath, FileSystemError);
             return false;
+        }
+
+        return true;
+    }
+
+    inline bool ReadMaterialFile(const std::filesystem::path& FullPath, FAssetManager& AssetManager, URenderer& Renderer, FVector4& OutBaseColor, FVector2D& OutUVScrollSpeed, UTexture2D*& OutTexture)
+    {
+        std::ifstream InputFile(FullPath, std::ios::binary);
+        std::string Magic;
+        int32 Version = 0;
+        std::string SavedTexturePath;
+
+        OutBaseColor = FVector4(1.0f, 1.0f, 1.0f, 1.0f);
+        OutUVScrollSpeed = FVector2D(0.0f, 0.0f);
+        OutTexture = nullptr;
+
+        if (!InputFile.is_open() || !(InputFile >> Magic >> Version) || Magic != "KIRBY_MATERIAL" || (Version != 1 && Version != 2) || !(InputFile >> std::quoted(SavedTexturePath)))
+        {
+            return false;
+        }
+
+        if (Version >= 2)
+        {
+            if (!(InputFile >> OutBaseColor.x >> OutBaseColor.y >> OutBaseColor.z >> OutBaseColor.w))
+            {
+                return false;
+            }
+
+            if (!(InputFile >> OutUVScrollSpeed.x >> OutUVScrollSpeed.y))
+            {
+                return false;
+            }
+
+            if (!std::isfinite(OutBaseColor.x) || !std::isfinite(OutBaseColor.y) || !std::isfinite(OutBaseColor.z) || !std::isfinite(OutBaseColor.w) || !std::isfinite(OutUVScrollSpeed.x) || !std::isfinite(OutUVScrollSpeed.y))
+            {
+                return false;
+            }
+        }
+
+        if (!SavedTexturePath.empty())
+        {
+            OutTexture = LoadTextureAsset(FString(SavedTexturePath), AssetManager, Renderer);
+
+            if (OutTexture == nullptr)
+            {
+                return false;
+            }
         }
 
         return true;
@@ -220,26 +294,13 @@ namespace TextureImporter
 
         return AssetManager.Load<UMaterial>(MaterialAssetPath, [&]() -> UMaterial*
         {
-            std::ifstream InputFile(FullPath, std::ios::binary);
-            std::string Magic;
-            int32 Version = 0;
-            std::string SavedTexturePath;
-
-            if (!InputFile.is_open() || !(InputFile >> Magic >> Version) || Magic != "KIRBY_MATERIAL" || Version != 1 || !(InputFile >> std::quoted(SavedTexturePath)))
-            {
-                return nullptr;
-            }
-
+            FVector4 BaseColor;
+            FVector2D UVScrollSpeed;
             UTexture2D* Texture = nullptr;
 
-            if (!SavedTexturePath.empty())
+            if (!ReadMaterialFile(FullPath, AssetManager, Renderer, BaseColor, UVScrollSpeed, Texture))
             {
-                Texture = LoadTextureAsset(FString(SavedTexturePath), AssetManager, Renderer);
-
-                if (Texture == nullptr)
-                {
-                    return nullptr;
-                }
+                return nullptr;
             }
 
             UMaterial* NewMaterial = NewObject<UMaterial>();
@@ -250,31 +311,40 @@ namespace TextureImporter
             }
 
             NewMaterial->SetBaseColorTexture(Texture);
+            NewMaterial->SetBaseColor(BaseColor);
+            NewMaterial->SetUVScrollSpeed(UVScrollSpeed);
+
             return NewMaterial;
         });
     }
 
     inline bool ReloadMaterialAsset(UMaterial* Material, FAssetManager& AssetManager, URenderer& Renderer)
     {
-        if (Material == nullptr || Material->GetAssetPath().IsEmpty()) return false;
+        if (Material == nullptr || Material->GetAssetPath().IsEmpty())
+        {
+            return false;
+        }
 
         std::filesystem::path RelativePath;
-        if (!IsValidContentAssetPath(Material->GetAssetPath(), RelativePath) || PathToUTF8(RelativePath.extension()) != ".kmat" || !PathToUTF8(RelativePath).starts_with("Content/Materials/")) return false;
 
-        std::ifstream InputFile(std::filesystem::current_path() / RelativePath, std::ios::binary);
-        std::string Magic;
-        int32 Version = 0;
-        std::string SavedTexturePath;
-        if (!InputFile.is_open() || !(InputFile >> Magic >> Version) || Magic != "KIRBY_MATERIAL" || Version != 1 || !(InputFile >> std::quoted(SavedTexturePath))) return false;
-
-        UTexture2D* Texture = nullptr;
-        if (!SavedTexturePath.empty())
+        if (!IsValidContentAssetPath(Material->GetAssetPath(), RelativePath) || PathToUTF8(RelativePath.extension()) != ".kmat" || !PathToUTF8(RelativePath).starts_with("Content/Materials/"))
         {
-            Texture = LoadTextureAsset(FString(SavedTexturePath), AssetManager, Renderer);
-            if (Texture == nullptr) return false;
+            return false;
+        }
+
+        FVector4 BaseColor;
+        FVector2D UVScrollSpeed;
+        UTexture2D* Texture = nullptr;
+
+        if (!ReadMaterialFile(std::filesystem::current_path() / RelativePath, AssetManager, Renderer, BaseColor, UVScrollSpeed, Texture))
+        {
+            return false;
         }
 
         Material->SetBaseColorTexture(Texture);
+        Material->SetBaseColor(BaseColor);
+        Material->SetUVScrollSpeed(UVScrollSpeed);
+
         return true;
     }
 
@@ -342,6 +412,7 @@ namespace TextureImporter
         }
 
         AssetManager.RefreshAssetRegistry();
+
         TArray<FAssetRegistryEntry> Entries;
         AssetManager.GetAssetRegistryEntries(Entries);
 
@@ -411,6 +482,7 @@ namespace TextureImporter
         }
 
         AssetManager.RefreshAssetRegistry();
+
         return ImportedMaterial;
     }
 }

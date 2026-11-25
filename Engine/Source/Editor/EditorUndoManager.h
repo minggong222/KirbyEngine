@@ -12,9 +12,11 @@
 #include "EditorTransformGizmo.h"
 #include "Core/Math/MathUtility.h"
 #include "Resources/Material.h"
+
 #include "Actors/Actor.h"
 #include "Actors/StaticMeshActor.h"
 #include "Actors/CameraActor.h"
+
 #include "World/World.h"
 #include "World/Level.h"
 
@@ -69,8 +71,11 @@ private:
         FName Name;
         EObjectType Type = EObjectType::Actor;
         FTransform Transform;
+
         UStaticMesh* StaticMesh = nullptr;
-        UMaterial* Material = nullptr;
+        TArray<UMaterial*> MaterialOverrides;
+        TArray<uint8> MaterialOverrideMask;
+
         std::vector<FPropertySnapshot> CameraProperties;
     };
 
@@ -83,8 +88,11 @@ private:
         EComponentSnapshotType Type = EComponentSnapshotType::Scene;
         FTransform RelativeTransform;
         bool bWasRoot = false;
+
         UStaticMesh* StaticMesh = nullptr;
-        UMaterial* Material = nullptr;
+        TArray<UMaterial*> MaterialOverrides;
+        TArray<uint8> MaterialOverrideMask;
+
         std::vector<FPropertySnapshot> Properties;
         std::vector<uint32> ChildComponentUUIDs;
     };
@@ -92,6 +100,7 @@ private:
     struct FHistoryEntry
     {
         EHistoryType Type = EHistoryType::Transform;
+
         FObjectSnapshot Object;
         FComponentSnapshot Component;
 
@@ -101,9 +110,17 @@ private:
         UStaticMesh* BeforeStaticMesh = nullptr;
         UStaticMesh* AfterStaticMesh = nullptr;
 
+        TArray<UMaterial*> BeforeMaterialOverrides;
+        TArray<uint8> BeforeMaterialOverrideMask;
+        TArray<UMaterial*> AfterMaterialOverrides;
+        TArray<uint8> AfterMaterialOverrideMask;
+
+        int32 MaterialIndex = 0;
         UMaterial* BeforeMaterial = nullptr;
         UMaterial* AfterMaterial = nullptr;
-        
+        bool bBeforeMaterialOverride = false;
+        bool bAfterMaterialOverride = false;
+
         FString PropertyName;
         EPropertyType PropertyType = EPropertyType::Unknown;
         FPropertyValue BeforePropertyValue;
@@ -123,7 +140,7 @@ private:
         EPropertyType PropertyType = EPropertyType::Unknown;
         FPropertyValue BeforeValue;
     };
-    
+
 public:
     void Clear()
     {
@@ -143,7 +160,7 @@ public:
     {
         return !RedoStack.empty();
     }
-    
+
     bool CanPaste() const
     {
         return ClipboardSnapshot.has_value();
@@ -201,7 +218,7 @@ public:
 
         return NewActor;
     }
-    
+
     bool BeginPropertyEdit(const FEditorObjectContext& Context, UObject* Object, const FProperty* Property)
     {
         if (Object == nullptr || Property == nullptr || !Property->IsEditable())
@@ -300,34 +317,49 @@ public:
     void RecordComponentCreate(const FEditorObjectContext& Context, AActor* Owner, UActorComponent* Component, uint32 PreviousSelectedUUID)
     {
         CommitPendingPropertyEdit(Context);
+
         FHistoryEntry Entry;
-        if (Owner == nullptr || Component == nullptr || Component->GetOwner() != Owner || !CaptureComponent(Context, Component, Entry.Component)) return;
+
+        if (Owner == nullptr || Component == nullptr || Component->GetOwner() != Owner || !CaptureComponent(Context, Component, Entry.Component))
+        {
+            return;
+        }
+
         Entry.Type = EHistoryType::ComponentPresence;
         Entry.Object.UUID = Component->GetUUID();
         Entry.bBeforePresent = false;
         Entry.bAfterPresent = true;
         Entry.BeforeSelectedUUID = PreviousSelectedUUID;
         Entry.AfterSelectedUUID = Component->GetUUID();
+
         PushEntry(std::move(Entry));
     }
 
     void RecordComponentDelete(const FEditorObjectContext& Context, AActor* Owner, UActorComponent* Component)
     {
         CommitPendingPropertyEdit(Context);
+
         FHistoryEntry Entry;
-        if (Owner == nullptr || Component == nullptr || Component->GetOwner() != Owner || !CaptureComponent(Context, Component, Entry.Component)) return;
+
+        if (Owner == nullptr || Component == nullptr || Component->GetOwner() != Owner || !CaptureComponent(Context, Component, Entry.Component))
+        {
+            return;
+        }
+
         Entry.Type = EHistoryType::ComponentPresence;
         Entry.Object.UUID = Component->GetUUID();
         Entry.bBeforePresent = true;
         Entry.bAfterPresent = false;
         Entry.BeforeSelectedUUID = Component->GetUUID();
         Entry.AfterSelectedUUID = Owner->GetUUID();
+
         PushEntry(std::move(Entry));
     }
 
     void RecordTransform(const FEditorObjectContext& Context, uint32 UUID, const FTransform& Before, const FTransform& After)
     {
         CommitPendingPropertyEdit(Context);
+
         if (!IsTransformDifferent(Before, After))
         {
             return;
@@ -343,8 +375,8 @@ public:
 
         PushEntry(std::move(Entry));
     }
-    
-    void RecordStaticMeshChange(const FEditorObjectContext& Context, UStaticMeshComponent* Component, UStaticMesh* Before, UStaticMesh* After)
+
+    void RecordStaticMeshChange(const FEditorObjectContext& Context, UStaticMeshComponent* Component, UStaticMesh* Before, UStaticMesh* After, const TArray<UMaterial*>& BeforeOverrides, const TArray<uint8>& BeforeOverrideMask, const TArray<UMaterial*>& AfterOverrides, const TArray<uint8>& AfterOverrideMask)
     {
         CommitPendingPropertyEdit(Context);
 
@@ -356,19 +388,31 @@ public:
         FHistoryEntry Entry;
         Entry.Type = EHistoryType::StaticMesh;
         Entry.Object.UUID = Component->GetUUID();
+
         Entry.BeforeStaticMesh = Before;
         Entry.AfterStaticMesh = After;
+
+        Entry.BeforeMaterialOverrides = BeforeOverrides;
+        Entry.BeforeMaterialOverrideMask = BeforeOverrideMask;
+        Entry.AfterMaterialOverrides = AfterOverrides;
+        Entry.AfterMaterialOverrideMask = AfterOverrideMask;
+
         Entry.BeforeSelectedUUID = Component->GetUUID();
         Entry.AfterSelectedUUID = Component->GetUUID();
 
         PushEntry(std::move(Entry));
     }
 
-    void RecordMaterialChange(const FEditorObjectContext& Context, UStaticMeshComponent* Component, UMaterial* Before, UMaterial* After)
+    void RecordMaterialChange(const FEditorObjectContext& Context, UStaticMeshComponent* Component, int32 MaterialIndex, UMaterial* Before, bool bBeforeOverride, UMaterial* After, bool bAfterOverride)
     {
         CommitPendingPropertyEdit(Context);
 
-        if (Component == nullptr || Before == After || !IsComponentInWorld(Context, Component))
+        if (Component == nullptr || MaterialIndex < 0 || MaterialIndex >= 4096 || !IsComponentInWorld(Context, Component))
+        {
+            return;
+        }
+
+        if (Before == After && bBeforeOverride == bAfterOverride)
         {
             return;
         }
@@ -376,23 +420,28 @@ public:
         FHistoryEntry Entry;
         Entry.Type = EHistoryType::Material;
         Entry.Object.UUID = Component->GetUUID();
+
+        Entry.MaterialIndex = MaterialIndex;
         Entry.BeforeMaterial = Before;
         Entry.AfterMaterial = After;
+        Entry.bBeforeMaterialOverride = bBeforeOverride;
+        Entry.bAfterMaterialOverride = bAfterOverride;
+
         Entry.BeforeSelectedUUID = Component->GetUUID();
         Entry.AfterSelectedUUID = Component->GetUUID();
 
         PushEntry(std::move(Entry));
     }
-    
+
     void Undo(FEditorObjectContext& Context)
     {
         CommitPendingPropertyEdit(Context);
-        
+
         if (Context.TransformGizmo != nullptr)
         {
             Context.TransformGizmo->CancelDrag();
         }
-        
+
         if (UndoStack.empty())
         {
             return;
@@ -413,12 +462,12 @@ public:
     void Redo(FEditorObjectContext& Context)
     {
         CommitPendingPropertyEdit(Context);
-        
+
         if (Context.TransformGizmo != nullptr)
         {
             Context.TransformGizmo->CancelDrag();
         }
-        
+
         if (RedoStack.empty())
         {
             return;
@@ -452,7 +501,7 @@ private:
             std::fabs(A.Scale3D.y - B.Scale3D.y) > Tolerance ||
             std::fabs(A.Scale3D.z - B.Scale3D.z) > Tolerance;
     }
-    
+
     static bool ReadPropertyValue(EPropertyType Type, const void* ValuePtr, FPropertyValue& OutValue)
     {
         if (ValuePtr == nullptr)
@@ -602,7 +651,7 @@ private:
 
         return true;
     }
-    
+
     static UObject* FindObject(const FEditorObjectContext& Context, uint32 UUID)
     {
         if (Context.World == nullptr || UUID == 0)
@@ -640,12 +689,12 @@ private:
 
         return nullptr;
     }
-    
+
     static AActor* FindActor(const FEditorObjectContext& Context, uint32 UUID)
     {
         return Cast<AActor>(FindObject(Context, UUID));
     }
-    
+
     static bool IsComponentInWorld(const FEditorObjectContext& Context, const UActorComponent* Component)
     {
         if (Context.World == nullptr || Component == nullptr || Component->GetOwner() == nullptr)
@@ -689,7 +738,8 @@ private:
 
             OutSnapshot.Type = EObjectType::StaticMeshActor;
             OutSnapshot.StaticMesh = Component->GetStaticMesh();
-            OutSnapshot.Material = Component->GetMaterial();
+            OutSnapshot.MaterialOverrides = Component->GetMaterialOverrides();
+            OutSnapshot.MaterialOverrideMask = Component->GetMaterialOverrideMask();
 
             return true;
         }
@@ -710,7 +760,7 @@ private:
 
             for (const FProperty* Property : Properties)
             {
-                if (Property->GetName().ToStd() == "Transform")
+                if (Property == nullptr || Property->GetName().ToStd() == "Transform")
                 {
                     continue;
                 }
@@ -726,45 +776,8 @@ private:
                 PropertySnapshot.Name = Property->GetName();
                 PropertySnapshot.Type = Property->GetType();
 
-                switch (Property->GetType())
+                if (!ReadPropertyValue(Property->GetType(), ValuePtr, PropertySnapshot.Value))
                 {
-                case EPropertyType::Bool:
-                    PropertySnapshot.Value = *static_cast<const bool*>(ValuePtr);
-                    break;
-
-                case EPropertyType::Int32:
-                    PropertySnapshot.Value = *static_cast<const int32*>(ValuePtr);
-                    break;
-
-                case EPropertyType::UInt32:
-                    PropertySnapshot.Value = *static_cast<const uint32*>(ValuePtr);
-                    break;
-
-                case EPropertyType::Float:
-                    PropertySnapshot.Value = *static_cast<const float*>(ValuePtr);
-                    break;
-
-                case EPropertyType::Double:
-                    PropertySnapshot.Value = *static_cast<const double*>(ValuePtr);
-                    break;
-
-                case EPropertyType::String:
-                    PropertySnapshot.Value = *static_cast<const FString*>(ValuePtr);
-                    break;
-
-                case EPropertyType::Vector:
-                    PropertySnapshot.Value = *static_cast<const FVector*>(ValuePtr);
-                    break;
-
-                case EPropertyType::Rotator:
-                    PropertySnapshot.Value = *static_cast<const FRotator*>(ValuePtr);
-                    break;
-
-                case EPropertyType::Transform:
-                    PropertySnapshot.Value = *static_cast<const FTransform*>(ValuePtr);
-                    break;
-
-                default:
                     return false;
                 }
 
@@ -785,77 +798,133 @@ private:
 
     static bool CaptureComponent(const FEditorObjectContext& Context, UActorComponent* Component, FComponentSnapshot& OutSnapshot)
     {
-        if (Component == nullptr || !IsComponentInWorld(Context, Component)) return false;
+        if (Component == nullptr || !IsComponentInWorld(Context, Component))
+        {
+            return false;
+        }
+
         AActor* Owner = Component->GetOwner();
-        if (Owner == nullptr) return false;
+
+        if (Owner == nullptr)
+        {
+            return false;
+        }
+
         OutSnapshot.OwnerUUID = Owner->GetUUID();
         OutSnapshot.UUID = Component->GetUUID();
         OutSnapshot.Name = Component->GetFName();
+
         if (USceneComponent* SceneComponent = Cast<USceneComponent>(Component))
         {
             OutSnapshot.RelativeTransform = SceneComponent->GetRelativeTransform();
             OutSnapshot.ParentUUID = SceneComponent->GetAttachParent() != nullptr ? SceneComponent->GetAttachParent()->GetUUID() : 0;
             OutSnapshot.bWasRoot = Owner->GetRootComponent() == SceneComponent;
+
             for (USceneComponent* Child : SceneComponent->GetAttachChildren())
             {
-                if (Child != nullptr) OutSnapshot.ChildComponentUUIDs.push_back(Child->GetUUID());
+                if (Child != nullptr)
+                {
+                    OutSnapshot.ChildComponentUUIDs.push_back(Child->GetUUID());
+                }
             }
         }
+
         if (UCameraComponent* Camera = Cast<UCameraComponent>(Component))
         {
             OutSnapshot.Type = EComponentSnapshotType::Camera;
+
             TArray<const FProperty*> Properties;
             Camera->GetClass()->GetProperties(Properties, true);
+
             for (const FProperty* Property : Properties)
             {
-                if (Property == nullptr || Property->GetName().ToStd() == "Transform") continue;
+                if (Property == nullptr || Property->GetName().ToStd() == "Transform")
+                {
+                    continue;
+                }
+
                 FPropertySnapshot PropertySnapshot;
                 PropertySnapshot.Name = Property->GetName();
                 PropertySnapshot.Type = Property->GetType();
-                if (!ReadPropertyValue(Property->GetType(), Property->GetValuePtr(Camera), PropertySnapshot.Value)) return false;
+
+                if (!ReadPropertyValue(Property->GetType(), Property->GetValuePtr(Camera), PropertySnapshot.Value))
+                {
+                    return false;
+                }
+
                 OutSnapshot.Properties.push_back(std::move(PropertySnapshot));
             }
+
             return true;
         }
+
         if (UStaticMeshComponent* MeshComponent = Cast<UStaticMeshComponent>(Component))
         {
             OutSnapshot.Type = EComponentSnapshotType::StaticMesh;
             OutSnapshot.StaticMesh = MeshComponent->GetStaticMesh();
-            OutSnapshot.Material = MeshComponent->GetMaterial();
+            OutSnapshot.MaterialOverrides = MeshComponent->GetMaterialOverrides();
+            OutSnapshot.MaterialOverrideMask = MeshComponent->GetMaterialOverrideMask();
+
             return true;
         }
+
         if (Cast<USceneComponent>(Component) != nullptr)
         {
             OutSnapshot.Type = EComponentSnapshotType::Scene;
             return true;
         }
+
         return false;
     }
 
     static UActorComponent* RestoreComponent(FEditorObjectContext& Context, const FComponentSnapshot& Snapshot)
     {
         AActor* Owner = FindActor(Context, Snapshot.OwnerUUID);
-        if (Owner == nullptr || FindObject(Context, Snapshot.UUID) != nullptr) return nullptr;
+
+        if (Owner == nullptr || FindObject(Context, Snapshot.UUID) != nullptr)
+        {
+            return nullptr;
+        }
+
         UActorComponent* Component = nullptr;
+
         switch (Snapshot.Type)
         {
-        case EComponentSnapshotType::Scene: Component = Owner->CreateComponent<USceneComponent>(Snapshot.Name); break;
-        case EComponentSnapshotType::StaticMesh: Component = Owner->CreateComponent<UStaticMeshComponent>(Snapshot.Name); break;
-        case EComponentSnapshotType::Camera: Component = Owner->CreateComponent<UCameraComponent>(Snapshot.Name); break;
-        default: return nullptr;
+        case EComponentSnapshotType::Scene:
+            Component = Owner->CreateComponent<USceneComponent>(Snapshot.Name);
+            break;
+
+        case EComponentSnapshotType::StaticMesh:
+            Component = Owner->CreateComponent<UStaticMeshComponent>(Snapshot.Name);
+            break;
+
+        case EComponentSnapshotType::Camera:
+            Component = Owner->CreateComponent<UCameraComponent>(Snapshot.Name);
+            break;
+
+        default:
+            return nullptr;
         }
-        if (Component == nullptr) return nullptr;
+
+        if (Component == nullptr)
+        {
+            return nullptr;
+        }
+
         Component->SetUUID(Snapshot.UUID);
+
         if (UStaticMeshComponent* MeshComponent = Cast<UStaticMeshComponent>(Component))
         {
             MeshComponent->SetStaticMesh(Snapshot.StaticMesh);
-            MeshComponent->SetMaterial(Snapshot.Material);
+            MeshComponent->SetMaterialOverrides(Snapshot.MaterialOverrides, Snapshot.MaterialOverrideMask);
         }
+
         if (UCameraComponent* Camera = Cast<UCameraComponent>(Component))
         {
             for (const FPropertySnapshot& PropertySnapshot : Snapshot.Properties)
             {
                 const FProperty* Property = Camera->GetClass()->FindProperty(PropertySnapshot.Name.c_str());
+
                 if (Property == nullptr || !std::visit([&](const auto& Value) { return Property->SetValue(Camera, PropertySnapshot.Type, &Value); }, PropertySnapshot.Value))
                 {
                     Owner->DestroyComponent(Component);
@@ -863,24 +932,37 @@ private:
                 }
             }
         }
+
         if (USceneComponent* SceneComponent = Cast<USceneComponent>(Component))
         {
             SceneComponent->SetRelativeTransform(Snapshot.RelativeTransform);
+
             if (Snapshot.bWasRoot)
             {
-                if (!Owner->SetRootComponent(SceneComponent)) { Owner->DestroyComponent(Component); return nullptr; }
+                if (!Owner->SetRootComponent(SceneComponent))
+                {
+                    Owner->DestroyComponent(Component);
+                    return nullptr;
+                }
             }
             else if (Snapshot.ParentUUID != 0)
             {
                 USceneComponent* Parent = Cast<USceneComponent>(FindObject(Context, Snapshot.ParentUUID));
-                if (Parent == nullptr || !SceneComponent->AttachToComponent(Parent, false)) { Owner->DestroyComponent(Component); return nullptr; }
+
+                if (Parent == nullptr || !SceneComponent->AttachToComponent(Parent, false))
+                {
+                    Owner->DestroyComponent(Component);
+                    return nullptr;
+                }
             }
         }
+
         if (USceneComponent* SceneComponent = Cast<USceneComponent>(Component))
         {
             for (uint32 ChildUUID : Snapshot.ChildComponentUUIDs)
             {
                 USceneComponent* Child = Cast<USceneComponent>(FindObject(Context, ChildUUID));
+
                 if (Child != nullptr && !Child->AttachToComponent(SceneComponent, true))
                 {
                     Owner->DestroyComponent(Component);
@@ -888,17 +970,36 @@ private:
                 }
             }
         }
-        if (Snapshot.UUID < (std::numeric_limits<uint32>::max)() && FEngineStatics::NextUUID <= Snapshot.UUID) FEngineStatics::NextUUID = Snapshot.UUID + 1;
+
+        if (Snapshot.UUID < (std::numeric_limits<uint32>::max)() && FEngineStatics::NextUUID <= Snapshot.UUID)
+        {
+            FEngineStatics::NextUUID = Snapshot.UUID + 1;
+        }
+
         return Component;
     }
 
     static bool RemoveComponent(FEditorObjectContext& Context, uint32 ComponentUUID)
     {
         UActorComponent* Component = Cast<UActorComponent>(FindObject(Context, ComponentUUID));
-        if (Component == nullptr) return true;
+
+        if (Component == nullptr)
+        {
+            return true;
+        }
+
         AActor* Owner = Component->GetOwner();
-        if (Owner == nullptr) return false;
-        if (Context.SelectedComponent == Component) Context.SelectActor(Owner);
+
+        if (Owner == nullptr)
+        {
+            return false;
+        }
+
+        if (Context.SelectedComponent == Component)
+        {
+            Context.SelectActor(Owner);
+        }
+
         return Owner->DestroyComponent(Component);
     }
 
@@ -926,7 +1027,7 @@ private:
                 }
 
                 Component->SetStaticMesh(Snapshot.StaticMesh);
-                Component->SetMaterial(Snapshot.Material);
+                Component->SetMaterialOverrides(Snapshot.MaterialOverrides, Snapshot.MaterialOverrideMask);
 
                 if (bPreserveUUID && Snapshot.RootComponentUUID != 0)
                 {
@@ -936,7 +1037,6 @@ private:
                 Actor = StaticMeshActor;
             }
         }
-        
         else if (Snapshot.Type == EObjectType::CameraActor)
         {
             ACameraActor* CameraActor = Context.World->SpawnActor<ACameraActor>(Snapshot.Name, Snapshot.Transform);
@@ -1080,6 +1180,11 @@ private:
             }
 
             Component->SetStaticMesh(bUndo ? Entry.BeforeStaticMesh : Entry.AfterStaticMesh);
+
+            Component->SetMaterialOverrides(
+                bUndo ? Entry.BeforeMaterialOverrides : Entry.AfterMaterialOverrides,
+                bUndo ? Entry.BeforeMaterialOverrideMask : Entry.AfterMaterialOverrideMask
+            );
         }
         else if (Entry.Type == EHistoryType::Material)
         {
@@ -1090,33 +1195,58 @@ private:
                 return false;
             }
 
-            Component->SetMaterial(bUndo ? Entry.BeforeMaterial : Entry.AfterMaterial);
+            const bool bShouldOverride = bUndo ? Entry.bBeforeMaterialOverride : Entry.bAfterMaterialOverride;
+            UMaterial* Material = bUndo ? Entry.BeforeMaterial : Entry.AfterMaterial;
+
+            if (bShouldOverride)
+            {
+                Component->SetMaterial(Entry.MaterialIndex, Material);
+            }
+            else
+            {
+                Component->ClearMaterialOverride(Entry.MaterialIndex);
+            }
         }
         else if (Entry.Type == EHistoryType::ComponentPresence)
         {
             const bool bShouldExist = bUndo ? Entry.bBeforePresent : Entry.bAfterPresent;
             UActorComponent* ExistingComponent = Cast<UActorComponent>(FindObject(Context, Entry.Object.UUID));
+
             if (bShouldExist && ExistingComponent == nullptr)
             {
-                if (RestoreComponent(Context, Entry.Component) == nullptr) return false;
+                if (RestoreComponent(Context, Entry.Component) == nullptr)
+                {
+                    return false;
+                }
             }
             else if (!bShouldExist && ExistingComponent != nullptr)
             {
-                if (!RemoveComponent(Context, Entry.Object.UUID)) return false;
+                if (!RemoveComponent(Context, Entry.Object.UUID))
+                {
+                    return false;
+                }
             }
         }
         else
         {
             const bool bShouldExist = bUndo ? Entry.bBeforePresent : Entry.bAfterPresent;
             UObject* ExistingObject = FindObject(Context, Entry.Object.UUID);
+
             if (bShouldExist && ExistingObject == nullptr)
             {
                 AActor* RestoredActor = RestoreObject(Context, Entry.Object);
-                if (RestoredActor == nullptr) return false;
+
+                if (RestoredActor == nullptr)
+                {
+                    return false;
+                }
             }
             else if (!bShouldExist && ExistingObject != nullptr)
             {
-                if (!RemoveObject(Context, Entry.Object.UUID)) return false;
+                if (!RemoveObject(Context, Entry.Object.UUID))
+                {
+                    return false;
+                }
             }
         }
 
@@ -1142,7 +1272,6 @@ private:
     void PushEntry(FHistoryEntry&& Entry)
     {
         RedoStack.clear();
-
         UndoStack.push_back(std::move(Entry));
 
         constexpr std::size_t MaxHistoryCount = 128;
@@ -1158,6 +1287,6 @@ private:
 
     std::optional<FObjectSnapshot> ClipboardSnapshot;
     uint32 ClipboardPasteCount = 0;
-    
+
     std::optional<FPendingPropertyEdit> PendingPropertyEdit;
 };

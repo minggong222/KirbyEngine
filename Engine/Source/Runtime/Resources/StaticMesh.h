@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include "Asset.h"
 #include "FVertexSimple.h"
@@ -16,7 +16,14 @@ class UStaticMesh : public UAsset
 public:
     bool Initialize(URenderer& Renderer, FStaticMeshBuildData&& SourceData);
     bool Reinitialize(URenderer& Renderer, FStaticMeshBuildData&& SourceData);
-    const FStaticMeshRenderData& GetRenderData() const { return RenderData; }
+
+    const FStaticMeshRenderData& GetRenderData() const
+    {
+        return RenderData;
+    }
+
+    void GetDependencies(TArray<UAsset*>& OutDependencies) const override;
+
     ~UStaticMesh() override;
 
 private:

@@ -15,6 +15,9 @@
 #include "Resources/Material.h"
 #include "Resources/Texture2D.h"
 
+#include <cmath>
+#include <unordered_set>
+
 void FWorldRenderer::Render(UWorld* World, URenderer& Renderer, const FMatrix& View, const FMatrix& Projection, UObject* SelectedObject, const FEngineShowFlags& ShowFlags) const
 {
     if (World == nullptr || !Renderer.IsReady() || !ShowFlags.IsEnabled(EEngineShowFlag::Primitives))
@@ -93,11 +96,67 @@ void FWorldRenderer::RenderStaticMesh(UStaticMeshComponent* Component, URenderer
         WorldMatrix = OutlineScale * WorldMatrix;
     }
 
-    UMaterial* Material = bRenderOutline ? nullptr : Component->GetMaterial();
-    UTexture2D* Texture = Material != nullptr ? Material->GetBaseColorTexture() : nullptr;
+    for (const FStaticMeshSection& Section : RenderData.Sections)
+    {
+        if (Section.IndexCount == 0 || Section.FirstIndex > RenderData.IndexCount || Section.IndexCount > RenderData.IndexCount - Section.FirstIndex)
+        {
+            continue;
+        }
 
-    ID3D11ShaderResourceView* TextureSRV = Texture != nullptr && Texture->IsValid() ? Texture->GetResource().ShaderResourceView : nullptr;
+        UMaterial* Material = bRenderOutline ? nullptr : Component->GetMaterial(static_cast<int32>(Section.MaterialIndex));
+        UTexture2D* Texture = Material != nullptr ? Material->GetBaseColorTexture() : nullptr;
 
-    Renderer.UpdateConstant(WorldMatrix, View, Projection, bRenderOutline, TextureSRV != nullptr && !bRenderOutline);
-    Renderer.RenderPrimitive(RenderData.VertexBuffer, RenderData.IndexBuffer, RenderData.IndexCount, bRenderOutline, bRenderOutline ? nullptr : TextureSRV);
+        ID3D11ShaderResourceView* TextureSRV = Texture != nullptr && Texture->IsValid() ? Texture->GetResource().ShaderResourceView : nullptr;
+
+        const FVector4 MaterialColor = Material != nullptr ? Material->GetBaseColor() : FVector4(1.0f, 1.0f, 1.0f, 1.0f);
+        const FVector2D UVOffset = Material != nullptr ? Material->GetUVOffset() : FVector2D(0.0f, 0.0f);
+
+        Renderer.UpdateConstant(WorldMatrix, View, Projection, bRenderOutline, TextureSRV != nullptr && !bRenderOutline, false, MaterialColor, UVOffset, RenderData.bHasVertexNormals);
+        Renderer.RenderPrimitive(RenderData.VertexBuffer, RenderData.IndexBuffer, Section.IndexCount, bRenderOutline, bRenderOutline ? nullptr : TextureSRV, Section.FirstIndex);
+    }
+}
+
+void FWorldRenderer::TickMaterials(UWorld* World, float DeltaTime) const
+{
+    if (World == nullptr || !std::isfinite(DeltaTime) || DeltaTime <= 0.0f)
+    {
+        return;
+    }
+
+    ULevel* Level = World->GetPersistentLevel();
+
+    if (Level == nullptr)
+    {
+        return;
+    }
+
+    std::unordered_set<UMaterial*> TickedMaterials;
+
+    for (AActor* Actor : Level->GetActors())
+    {
+        if (Actor == nullptr)
+        {
+            continue;
+        }
+
+        for (UActorComponent* ActorComponent : Actor->GetComponents())
+        {
+            UStaticMeshComponent* Component = Cast<UStaticMeshComponent>(ActorComponent);
+
+            if (Component == nullptr)
+            {
+                continue;
+            }
+
+            const TArray<UMaterial*> Materials = Component->GetMaterials();
+
+            for (UMaterial* Material : Materials)
+            {
+                if (Material != nullptr && TickedMaterials.insert(Material).second)
+                {
+                    Material->TickUVScroll(DeltaTime);
+                }
+            }
+        }
+    }
 }
