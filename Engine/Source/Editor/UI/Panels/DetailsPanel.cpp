@@ -481,13 +481,43 @@ static void DrawProperty(FEditorObjectContext* Context, UObject* Object, const F
     {
         FTransform Value = *static_cast<FTransform*>(ValueAddress);
 
+        const auto DrawTransformVector = [](const char* Name, float* Components, float Speed)
+        {
+            ImGui::TextUnformatted(Name);
+            ImGui::PushID(Name);
+
+            const char* AxisLabels[] = {"X", "Y", "Z"};
+            bool bChanged = false;
+
+            if (ImGui::GetContentRegionAvail().x < 260.0f)
+            {
+                for (int32 Axis = 0; Axis < 3; ++Axis)
+                {
+                    ImGui::TextUnformatted(AxisLabels[Axis]);
+                    ImGui::SameLine();
+                    ImGui::SetNextItemWidth(-1.0f);
+                    ImGui::PushID(Axis);
+                    bChanged |= ImGui::DragFloat("##AxisValue", &Components[Axis], Speed);
+                    ImGui::PopID();
+                }
+            }
+            else
+            {
+                ImGui::SetNextItemWidth(-1.0f);
+                bChanged = ImGui::DragFloat3("##VectorValue", Components, Speed);
+            }
+
+            ImGui::PopID();
+            return bChanged;
+        };
+
         if (ImGui::TreeNode(Label.c_str()))
         {
-            const bool bLocationChanged = ImGui::DragFloat3("Location", &Value.Location.x, 0.1f);
+            const bool bLocationChanged = DrawTransformVector("Location", &Value.Location.x, 0.1f);
             CommitValue(bLocationChanged, &Value);
 
             float Rotation[3] = {Value.Rotation.Pitch, Value.Rotation.Yaw, Value.Rotation.Roll};
-            const bool bRotationChanged = ImGui::DragFloat3("Rotation", Rotation, 0.1f);
+            const bool bRotationChanged = DrawTransformVector("Rotation", Rotation, 0.1f);
 
             if (bRotationChanged)
             {
@@ -496,7 +526,7 @@ static void DrawProperty(FEditorObjectContext* Context, UObject* Object, const F
 
             CommitValue(bRotationChanged, &Value);
 
-            const bool bScaleChanged = ImGui::DragFloat3("Scale", &Value.Scale3D.x, 0.1f);
+            const bool bScaleChanged = DrawTransformVector("Scale", &Value.Scale3D.x, 0.1f);
             CommitValue(bScaleChanged, &Value);
 
             ImGui::TreePop();
