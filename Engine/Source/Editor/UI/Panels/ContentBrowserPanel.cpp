@@ -583,7 +583,7 @@ bool FContentBrowserPanel::BuildAssetThumbnail(UAsset* Asset, FAssetThumbnail& O
     const float ExtentZ = (Max.z - Min.z) * 0.5f;
     const float MaxExtent = (std::max)(ExtentX, (std::max)(ExtentY, ExtentZ));
     const float PreviewScale = MaxExtent > 0.0001f ? 1.3f / MaxExtent : 1.0f;
-    const FMatrix World = FMatrix::CreateScale(FVector(PreviewScale, PreviewScale, PreviewScale)) * FMatrix::CreateTranslation(FVector(-Center.x, -Center.y, -Center.z));
+    const FMatrix World = FMatrix::CreateTranslation(FVector(-Center.x, -Center.y, -Center.z)) * FMatrix::CreateScale(FVector(PreviewScale, PreviewScale, PreviewScale));
     const FMatrix View = FMatrix::CreateLookAt(FVector(-4.0f, 0.0f, 0.0f), FVector::Zero, FVector(0.0f, 0.0f, 1.0f));
     const FMatrix Projection = FMatrix::CreatePerspectiveFieldOfView(45.0f * 0.01745329252f, 1.0f, 0.1f, 100.0f);
     UTexture2D* BaseColorTexture = Material != nullptr ? Material->GetBaseColorTexture() : nullptr;
@@ -638,7 +638,7 @@ bool FContentBrowserPanel::BuildAssetThumbnail(UAsset* Asset, FAssetThumbnail& O
     return true;
 }
 
-ID3D11ShaderResourceView* FContentBrowserPanel::GetAssetThumbnail(UAsset* Asset)
+ID3D11ShaderResourceView* FContentBrowserPanel::GetAssetThumbnail(UAsset* Asset, bool bForceGeneration)
 {
     if (Asset == nullptr)
     {
@@ -657,12 +657,15 @@ ID3D11ShaderResourceView* FContentBrowserPanel::GetAssetThumbnail(UAsset* Asset)
         return Existing->second.ShaderResourceView;
     }
 
-    if (ThumbnailGenerationBudget <= 0)
+    if (!bForceGeneration && ThumbnailGenerationBudget <= 0)
     {
         return nullptr;
     }
 
-    --ThumbnailGenerationBudget;
+    if (!bForceGeneration)
+    {
+        --ThumbnailGenerationBudget;
+    }
     FAssetThumbnail Thumbnail;
 
     if (!BuildAssetThumbnail(Asset, Thumbnail))
@@ -718,7 +721,7 @@ void FContentBrowserPanel::DrawAssetEditor()
                 PendingMeshReimport = Mesh;
             }
 
-            if (ID3D11ShaderResourceView* MeshPreview = GetAssetThumbnail(Mesh))
+            if (ID3D11ShaderResourceView* MeshPreview = GetAssetThumbnail(Mesh, true))
             {
                 ImGui::Image((ImTextureID)MeshPreview, ImVec2(320.0f, 320.0f));
             }
@@ -752,7 +755,7 @@ void FContentBrowserPanel::DrawAssetEditor()
                 ImGui::EndCombo();
             }
 
-            if (ID3D11ShaderResourceView* MaterialPreview = GetAssetThumbnail(EditingAsset))
+            if (ID3D11ShaderResourceView* MaterialPreview = GetAssetThumbnail(EditingAsset, true))
             {
                 ImGui::Image((ImTextureID)MaterialPreview, ImVec2(320.0f, 320.0f));
             }
@@ -1515,6 +1518,16 @@ void FContentBrowserPanel::OnRender()
     PruneThumbnailCache(AllAssets);
     ThumbnailGenerationBudget = 3;
 
+    if (SelectedAsset != nullptr)
+    {
+        GetAssetThumbnail(SelectedAsset);
+    }
+
+    if (EditingAsset != nullptr && EditingAsset != SelectedAsset)
+    {
+        GetAssetThumbnail(EditingAsset);
+    }
+
     TArray<std::string> FolderPaths;
     CollectContentFolders(FolderPaths);
     const std::string SearchText = AssetSearchBuffer;
@@ -1856,7 +1869,7 @@ void FContentBrowserPanel::OnRender()
                     const FStaticMeshRenderData& Data = Mesh->GetRenderData();
                     ImGui::Text("Vertices: %u", Data.VertexCount);
                     ImGui::Text("Indices: %u", Data.IndexCount);
-                    if (ID3D11ShaderResourceView* SRV = GetAssetThumbnail(SelectedAsset)) ImGui::Image((ImTextureID)SRV, ImVec2(220.0f, 220.0f));
+                    if (ID3D11ShaderResourceView* SRV = GetAssetThumbnail(SelectedAsset, true)) ImGui::Image((ImTextureID)SRV, ImVec2(220.0f, 220.0f));
                 }
                 else if (UMaterial* Material = Cast<UMaterial>(SelectedAsset))
                 {
@@ -1868,7 +1881,7 @@ void FContentBrowserPanel::OnRender()
                     AssetManager->GetReferencers(Material, Referencers);
                     ImGui::Text("Dependencies: %d", Dependencies.Num());
                     ImGui::Text("Referencers: %d", Referencers.Num());
-                    if (ID3D11ShaderResourceView* Thumbnail = GetAssetThumbnail(SelectedAsset)) ImGui::Image((ImTextureID)Thumbnail, ImVec2(220.0f, 220.0f));
+                    if (ID3D11ShaderResourceView* Thumbnail = GetAssetThumbnail(SelectedAsset, true)) ImGui::Image((ImTextureID)Thumbnail, ImVec2(220.0f, 220.0f));
                     if (ImGui::Button("Open Material Editor"))
                     {
                         EditingAsset = Material;

@@ -41,7 +41,7 @@ private:
     void FlushDeferredThumbnailReleases();
     void ProcessPendingAssetOperations();
     void PruneThumbnailCache(const TArray<UAsset*>& LiveAssets);
-    ID3D11ShaderResourceView* GetAssetThumbnail(UAsset* Asset);
+    ID3D11ShaderResourceView* GetAssetThumbnail(UAsset* Asset, bool bForceGeneration = false);
     bool BuildAssetThumbnail(UAsset* Asset, FAssetThumbnail& OutThumbnail);
     void DrawAssetEditor();
 
