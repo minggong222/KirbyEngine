@@ -488,7 +488,7 @@ void FContentBrowserPanel::ProcessPendingAssetOperations()
         UStaticMesh* Mesh = PendingMeshReimport;
         PendingMeshReimport = nullptr;
 
-        if (AssetManager->FindAny(Mesh->GetAssetPath()) == Mesh && OBJImporter::ReimportOBJAsset(Mesh, *Renderer))
+        if (AssetManager != nullptr && Renderer != nullptr && AssetManager->FindAny(Mesh->GetAssetPath()) == Mesh && OBJImporter::ReimportOBJAsset(Mesh, *AssetManager, *Renderer))
         {
             ReleaseThumbnail(Mesh);
         }
@@ -1256,7 +1256,9 @@ bool FContentBrowserPanel::IsAssetReferencedByWorld(UAsset* Asset) const
                 return true;
             }
 
-            if (Cast<UMaterial>(Asset) != nullptr && MeshComponent->GetMaterial() == Asset)
+            UMaterial* TargetMaterial = Cast<UMaterial>(Asset);
+
+            if (TargetMaterial != nullptr && MeshComponent->GetMaterials().Contains(TargetMaterial))
             {
                 return true;
             }

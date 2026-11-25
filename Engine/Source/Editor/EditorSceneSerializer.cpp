@@ -916,7 +916,7 @@ bool FSceneSerializer::Save(const std::filesystem::path& FilePath, const FEditor
             ActorData.SetStringField("Class", "StaticMeshActor");
             ActorData.SetStringField("AssetPath", AssetPath);
 
-            UMaterial* Material = Component->GetMaterial();
+            UMaterial* Material = Component->GetMaterial(0);
 
             if (Material != nullptr)
             {
@@ -963,15 +963,17 @@ bool FSceneSerializer::Save(const std::filesystem::path& FilePath, const FEditor
                         if (AssetPath.IsEmpty()) return false;
                         ActorData.SetStringField("RootAssetPath", AssetPath);
                     }
-                    if (RootMesh->GetMaterial() != nullptr)
+                    UMaterial* RootMaterial = RootMesh->HasMaterialOverride(0) ? RootMesh->GetMaterial(0) : nullptr;
+
+                    if (RootMaterial != nullptr)
                     {
-                        const FString& MaterialAssetPath = RootMesh->GetMaterial()->GetAssetPath();
+                        const FString& MaterialAssetPath = RootMaterial->GetAssetPath();
                         if (MaterialAssetPath.IsEmpty()) return false;
                         ActorData.SetStringField("RootMaterialAssetPath", MaterialAssetPath);
 
-                        if (RootMesh->GetMaterial()->GetBaseColorTexture() != nullptr)
+                        if (RootMaterial->GetBaseColorTexture() != nullptr)
                         {
-                            const FString& TexturePath = RootMesh->GetMaterial()->GetBaseColorTexture()->GetAssetPath();
+                            const FString& TexturePath = RootMaterial->GetBaseColorTexture()->GetAssetPath();
                             if (TexturePath.IsEmpty()) return false;
                             ActorData.SetStringField("RootTexturePath", TexturePath);
                         }
@@ -1026,15 +1028,17 @@ bool FSceneSerializer::Save(const std::filesystem::path& FilePath, const FEditor
                     if (AssetPath.IsEmpty()) return false;
                     ComponentData.SetStringField("AssetPath", AssetPath);
                 }
-                if (MeshComponent->GetMaterial() != nullptr)
+                UMaterial* Material = MeshComponent->HasMaterialOverride(0) ? MeshComponent->GetMaterial(0) : nullptr;
+
+                if (Material != nullptr)
                 {
-                    const FString& MaterialAssetPath = MeshComponent->GetMaterial()->GetAssetPath();
+                    const FString& MaterialAssetPath = Material->GetAssetPath();
                     if (MaterialAssetPath.IsEmpty()) return false;
                     ComponentData.SetStringField("MaterialAssetPath", MaterialAssetPath);
 
-                    if (MeshComponent->GetMaterial()->GetBaseColorTexture() != nullptr)
+                    if (Material->GetBaseColorTexture() != nullptr)
                     {
-                        const FString& TexturePath = MeshComponent->GetMaterial()->GetBaseColorTexture()->GetAssetPath();
+                        const FString& TexturePath = Material->GetBaseColorTexture()->GetAssetPath();
                         if (TexturePath.IsEmpty()) return false;
                         ComponentData.SetStringField("TexturePath", TexturePath);
                     }
@@ -1354,7 +1358,7 @@ bool FSceneSerializer::Load(const std::filesystem::path& FilePath, FEditorObject
             }
 
             StaticMeshActor->GetStaticMeshComponent()->SetStaticMesh(Record.StaticMesh);
-            StaticMeshActor->GetStaticMeshComponent()->SetMaterial(Record.Material);
+            if (Record.Material != nullptr) StaticMeshActor->GetStaticMeshComponent()->SetMaterial(0, Record.Material);
 
             NewActor = StaticMeshActor;
         }
@@ -1419,7 +1423,7 @@ bool FSceneSerializer::Load(const std::filesystem::path& FilePath, FEditorObject
             if (UStaticMeshComponent* RootMesh = Cast<UStaticMeshComponent>(RootComponent))
             {
                 RootMesh->SetStaticMesh(Record.RootStaticMesh);
-                RootMesh->SetMaterial(Record.RootMaterial);
+                if (Record.RootMaterial != nullptr) RootMesh->SetMaterial(0, Record.RootMaterial);
             }
             if (UCameraComponent* RootCamera = Cast<UCameraComponent>(RootComponent))
             {
@@ -1448,7 +1452,7 @@ bool FSceneSerializer::Load(const std::filesystem::path& FilePath, FEditorObject
             if (UStaticMeshComponent* MeshComponent = Cast<UStaticMeshComponent>(RestoredComponent))
             {
                 MeshComponent->SetStaticMesh(ComponentRecord.StaticMesh);
-                MeshComponent->SetMaterial(ComponentRecord.Material);
+                if (ComponentRecord.Material != nullptr) MeshComponent->SetMaterial(0, ComponentRecord.Material);
             }
             if (UCameraComponent* CameraComponent = Cast<UCameraComponent>(RestoredComponent))
             {

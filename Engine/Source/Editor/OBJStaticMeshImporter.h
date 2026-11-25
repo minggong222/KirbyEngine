@@ -803,7 +803,10 @@ namespace OBJImporter
             const FVector& P1 = RawData.Positions[Face.Vertices[1].PositionIndex];
             const FVector& P2 = RawData.Positions[Face.Vertices[2].PositionIndex];
 
-            FVector FaceNormal = FVector::Cross(P1 - P0, P2 - P0);
+            const FVector EdgeA = P1 - P0;
+            const FVector EdgeB = P2 - P0;
+            FVector FaceNormal;
+            EdgeA.Cross(EdgeB, FaceNormal);
 
             if (FaceNormal.LengthSquared() <= 1.0e-8f)
             {
