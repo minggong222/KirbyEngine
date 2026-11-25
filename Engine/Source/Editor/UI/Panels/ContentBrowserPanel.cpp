@@ -589,14 +589,36 @@ bool FContentBrowserPanel::BuildAssetThumbnail(UAsset* Asset, FAssetThumbnail& O
     UTexture2D* BaseColorTexture = Material != nullptr ? Material->GetBaseColorTexture() : nullptr;
     ID3D11ShaderResourceView* TextureSRV = BaseColorTexture != nullptr && BaseColorTexture->IsValid() ? BaseColorTexture->GetResource().ShaderResourceView : nullptr;
 
-    const FVector4 MaterialColor = Material != nullptr ? Material->GetBaseColor() : FVector4(1.0f, 1.0f, 1.0f, 1.0f);
-    const FVector2D UVOffset = Material != nullptr ? Material->GetUVOffset() : FVector2D(0.0f, 0.0f);
-
+    
     Renderer->BeginAssetPreviewRender();
     Renderer->PrepareShader();
-    Renderer->UpdateConstant(World, View, Projection, false, TextureSRV != nullptr, false, MaterialColor, UVOffset, RenderData.bHasVertexNormals);
-    Renderer->RenderPrimitive(RenderData.VertexBuffer, RenderData.IndexBuffer, RenderData.IndexCount, false, TextureSRV);
+
+    for (const FStaticMeshSection& Section : RenderData.Sections)
+    {
+        if (Section.IndexCount == 0 || Section.FirstIndex > RenderData.IndexCount || Section.IndexCount > RenderData.IndexCount - Section.FirstIndex)
+        {
+            continue;
+        }
+
+        UMaterial* SectionMaterial = Material;
+
+        if (SectionMaterial == nullptr && Section.MaterialIndex < RenderData.Materials.Num())
+        {
+            SectionMaterial = RenderData.Materials[Section.MaterialIndex];
+        }
+
+        UTexture2D* SectionTexture = SectionMaterial != nullptr ? SectionMaterial->GetBaseColorTexture() : nullptr;
+        ID3D11ShaderResourceView* SectionTextureSRV = SectionTexture != nullptr && SectionTexture->IsValid() ? SectionTexture->GetResource().ShaderResourceView : nullptr;
+
+        const FVector4 SectionMaterialColor = SectionMaterial != nullptr ? SectionMaterial->GetBaseColor() : FVector4(1.0f, 1.0f, 1.0f, 1.0f);
+        const FVector2D SectionUVOffset = SectionMaterial != nullptr ? SectionMaterial->GetUVOffset() : FVector2D(0.0f, 0.0f);
+
+        Renderer->UpdateConstant(World, View, Projection, false, SectionTextureSRV != nullptr, false, SectionMaterialColor, SectionUVOffset, RenderData.bHasVertexNormals);
+        Renderer->RenderPrimitive(RenderData.VertexBuffer, RenderData.IndexBuffer, Section.IndexCount, false, SectionTextureSRV, Section.FirstIndex);
+    }
+
     Renderer->EndAssetPreviewRender();
+
 
     ID3D11Device* Device = Renderer->GetDevice();
     ID3D11DeviceContext* DeviceContext = Renderer->GetDeviceContext();
