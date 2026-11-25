@@ -1883,7 +1883,7 @@ void FContentBrowserPanel::OnRender()
 
         ImGui::EndChild();
 
-        if (bShowPreview)
+        if (bDrawPreview)
         {
             ImGui::TableSetColumnIndex(2);
             ImGui::BeginChild("##AssetPreview", ImVec2(0.0f, 0.0f), ImGuiChildFlags_Borders);

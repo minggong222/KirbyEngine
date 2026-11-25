@@ -691,6 +691,7 @@ void FDetailsPanel::OnRender()
 
     if (ObjectClass == nullptr)
     {
+        ImGui::EndChild();
         ImGui::End();
         SetOpen(bIsOpen);
         return;
