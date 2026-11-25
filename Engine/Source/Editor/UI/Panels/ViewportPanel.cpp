@@ -1,10 +1,124 @@
-﻿#include "ViewportPanel.h"
+#include "ViewportPanel.h"
 
 #include "imgui.h"
 #include "EditorSettings.h"
 #include "Core/Math/MathUtility.h"
+#include "Resources/Asset.h"
+#include "Resources/StaticMesh.h"
+#include "Resources/Material.h"
+#include "Actors/StaticMeshActor.h"
+#include "Components/StaticMeshComponent.h"
+#include "World/World.h"
+#include "World/Level.h"
+#include "EditorUndoManager.h"
 
 #include <cmath>
+
+namespace
+{
+    UStaticMeshComponent* GetSelectedStaticMeshComponent(FEditorObjectContext* Context)
+    {
+        if (Context == nullptr)
+        {
+            return nullptr;
+        }
+
+        if (UStaticMeshComponent* SelectedComponent = Cast<UStaticMeshComponent>(Context->SelectedComponent))
+        {
+            return SelectedComponent;
+        }
+
+        if (AStaticMeshActor* SelectedMeshActor = Cast<AStaticMeshActor>(Context->SelectedActor))
+        {
+            return SelectedMeshActor->GetStaticMeshComponent();
+        }
+
+        if (Context->SelectedActor != nullptr)
+        {
+            for (UActorComponent* Component : Context->SelectedActor->GetComponents())
+            {
+                if (UStaticMeshComponent* MeshComponent = Cast<UStaticMeshComponent>(Component))
+                {
+                    return MeshComponent;
+                }
+            }
+        }
+
+        return nullptr;
+    }
+
+    void ApplyContentBrowserDrop(FEditorObjectContext* Context, const ImGuiPayload* Payload)
+    {
+        if (Context == nullptr || Context->World == nullptr || Payload == nullptr || Payload->Data == nullptr || Payload->DataSize != sizeof(UAsset*))
+        {
+            return;
+        }
+
+        UAsset* DroppedAsset = *static_cast<UAsset**>(Payload->Data);
+
+        if (UStaticMesh* DroppedMesh = Cast<UStaticMesh>(DroppedAsset))
+        {
+            if (UStaticMeshComponent* TargetComponent = GetSelectedStaticMeshComponent(Context))
+            {
+                UStaticMesh* PreviousMesh = TargetComponent->GetStaticMesh();
+                TargetComponent->SetStaticMesh(DroppedMesh);
+
+                if (Context->UndoManager != nullptr)
+                {
+                    Context->UndoManager->RecordStaticMeshChange(*Context, TargetComponent, PreviousMesh, DroppedMesh);
+                }
+
+                Context->SelectComponent(TargetComponent);
+                return;
+            }
+
+            ULevel* Level = Context->World->GetPersistentLevel();
+            FTransform Transform;
+            Transform.Location.y = Level != nullptr ? static_cast<float>(Level->GetActors().Num()) * 1.5f : 0.0f;
+            const uint32 PreviousSelectedUUID = Context->GetSelectedObject() != nullptr ? Context->GetSelectedObject()->GetUUID() : 0;
+            AStaticMeshActor* NewActor = Context->World->SpawnActor<AStaticMeshActor>(FName("StaticMeshActor"), Transform);
+
+            if (NewActor == nullptr || NewActor->GetStaticMeshComponent() == nullptr)
+            {
+                if (NewActor != nullptr)
+                {
+                    Context->World->DestroyActor(NewActor);
+                }
+                return;
+            }
+
+            NewActor->GetStaticMeshComponent()->SetStaticMesh(DroppedMesh);
+            Context->SelectActor(NewActor);
+
+            if (Context->UndoManager != nullptr)
+            {
+                Context->UndoManager->RecordCreate(*Context, NewActor, PreviousSelectedUUID);
+            }
+
+            return;
+        }
+
+        if (UMaterial* DroppedMaterial = Cast<UMaterial>(DroppedAsset))
+        {
+            UStaticMeshComponent* TargetComponent = GetSelectedStaticMeshComponent(Context);
+
+            if (TargetComponent == nullptr)
+            {
+                return;
+            }
+
+            UMaterial* PreviousMaterial = TargetComponent->GetMaterial();
+            TargetComponent->SetMaterial(DroppedMaterial);
+
+            if (Context->UndoManager != nullptr)
+            {
+                Context->UndoManager->RecordMaterialChange(*Context, TargetComponent, PreviousMaterial, DroppedMaterial);
+            }
+
+            Context->SelectComponent(TargetComponent);
+        }
+    }
+}
 
 bool FViewportPanel::Init()
 {
@@ -49,63 +163,39 @@ void FViewportPanel::OnRender()
         return;
     }
 
-    
     if (EditorSettings != nullptr)
     {
         int32 ViewMode = static_cast<int32>(EditorSettings->ViewMode);
-        const char* ViewModes[] = {"Lit", "Unlit", "Wireframe"};
+        const char* ViewModes[] = { "Lit", "Unlit", "Wireframe" };
 
-        if (ViewMode < 0 || ViewMode >= IM_ARRAYSIZE(ViewModes))
-        {
-            ViewMode = 0;
-        }
+        if (ViewMode < 0 || ViewMode >= IM_ARRAYSIZE(ViewModes)) ViewMode = 0;
 
         if (ImGui::BeginCombo("##ViewMode", ViewModes[ViewMode]))
         {
             for (int32 Index = 0; Index < IM_ARRAYSIZE(ViewModes); ++Index)
             {
                 const bool bSelected = ViewMode == Index;
-
-                if (ImGui::Selectable(ViewModes[Index], bSelected))
-                {
-                    EditorSettings->ViewMode = static_cast<EViewMode>(Index);
-                }
-
-                if (bSelected)
-                {
-                    ImGui::SetItemDefaultFocus();
-                }
+                if (ImGui::Selectable(ViewModes[Index], bSelected)) EditorSettings->ViewMode = static_cast<EViewMode>(Index);
+                if (bSelected) ImGui::SetItemDefaultFocus();
             }
-
             ImGui::EndCombo();
         }
 
         ImGui::SameLine();
-
-        if (ImGui::Button("Show"))
-        {
-            ImGui::OpenPopup("ViewportShowMenu");
-        }
-
+        if (ImGui::Button("Show")) ImGui::OpenPopup("ViewportShowMenu");
         if (ImGui::BeginPopup("ViewportShowMenu"))
         {
             bool bPrimitives = EditorSettings->ShowFlags.IsEnabled(EEngineShowFlag::Primitives);
             if (ImGui::Checkbox("Primitives", &bPrimitives)) EditorSettings->ShowFlags.SetEnabled(EEngineShowFlag::Primitives, bPrimitives);
-
             bool bGrid = EditorSettings->ShowFlags.IsEnabled(EEngineShowFlag::Grid);
             if (ImGui::Checkbox("Grid", &bGrid)) EditorSettings->ShowFlags.SetEnabled(EEngineShowFlag::Grid, bGrid);
-
             bool bAxes = EditorSettings->ShowFlags.IsEnabled(EEngineShowFlag::Axes);
             if (ImGui::Checkbox("Axes", &bAxes)) EditorSettings->ShowFlags.SetEnabled(EEngineShowFlag::Axes, bAxes);
-
             bool bBounds = EditorSettings->ShowFlags.IsEnabled(EEngineShowFlag::Bounds);
             if (ImGui::Checkbox("Bounds", &bBounds)) EditorSettings->ShowFlags.SetEnabled(EEngineShowFlag::Bounds, bBounds);
-
             bool bBillboardText = EditorSettings->ShowFlags.IsEnabled(EEngineShowFlag::BillboardText);
             if (ImGui::Checkbox("UUID Labels", &bBillboardText)) EditorSettings->ShowFlags.SetEnabled(EEngineShowFlag::BillboardText, bBillboardText);
-
             ImGui::Separator();
-
             if (ImGui::BeginMenu("Grid Settings"))
             {
                 ImGui::DragFloat("Grid Extent", &EditorSettings->GridExtent, 1.0f, 1.0f, 10000.0f);
@@ -113,17 +203,11 @@ void FViewportPanel::OnRender()
                 ImGui::DragInt("Major Interval", &EditorSettings->MajorGridInterval, 1.0f, 1, 100);
                 ImGui::EndMenu();
             }
-
             ImGui::EndPopup();
         }
 
         ImGui::SameLine();
-
-        if (ImGui::Button("Camera"))
-        {
-            ImGui::OpenPopup("ViewportCameraMenu");
-        }
-
+        if (ImGui::Button("Camera")) ImGui::OpenPopup("ViewportCameraMenu");
         if (ImGui::BeginPopup("ViewportCameraMenu"))
         {
             ImGui::Text("Camera Settings");
@@ -138,26 +222,11 @@ void FViewportPanel::OnRender()
     ImGui::SameLine();
 
     ETransformGizmoMode CurrentMode = TransformGizmo.GetMode();
-
-    if (ImGui::RadioButton("Move", CurrentMode == ETransformGizmoMode::Translate))
-    {
-        TransformGizmo.SetMode(ETransformGizmoMode::Translate);
-    }
-
+    if (ImGui::RadioButton("Move", CurrentMode == ETransformGizmoMode::Translate)) TransformGizmo.SetMode(ETransformGizmoMode::Translate);
     ImGui::SameLine();
-
-    if (ImGui::RadioButton("Rotate", CurrentMode == ETransformGizmoMode::Rotate))
-    {
-        TransformGizmo.SetMode(ETransformGizmoMode::Rotate);
-    }
-
+    if (ImGui::RadioButton("Rotate", CurrentMode == ETransformGizmoMode::Rotate)) TransformGizmo.SetMode(ETransformGizmoMode::Rotate);
     ImGui::SameLine();
-
-    if (ImGui::RadioButton("Scale", CurrentMode == ETransformGizmoMode::Scale))
-    {
-        TransformGizmo.SetMode(ETransformGizmoMode::Scale);
-    }
-
+    if (ImGui::RadioButton("Scale", CurrentMode == ETransformGizmoMode::Scale)) TransformGizmo.SetMode(ETransformGizmoMode::Scale);
     CurrentMode = TransformGizmo.GetMode();
 
     ImGui::SameLine();
@@ -167,18 +236,9 @@ void FViewportPanel::OnRender()
     if (CurrentMode != ETransformGizmoMode::Scale)
     {
         const ETransformCoordinateSpace CurrentSpace = TransformGizmo.GetCoordinateSpace();
-
-        if (ImGui::RadioButton("World", CurrentSpace == ETransformCoordinateSpace::World))
-        {
-            TransformGizmo.SetCoordinateSpace(ETransformCoordinateSpace::World);
-        }
-
+        if (ImGui::RadioButton("World", CurrentSpace == ETransformCoordinateSpace::World)) TransformGizmo.SetCoordinateSpace(ETransformCoordinateSpace::World);
         ImGui::SameLine();
-
-        if (ImGui::RadioButton("Local", CurrentSpace == ETransformCoordinateSpace::Local))
-        {
-            TransformGizmo.SetCoordinateSpace(ETransformCoordinateSpace::Local);
-        }
+        if (ImGui::RadioButton("Local", CurrentSpace == ETransformCoordinateSpace::Local)) TransformGizmo.SetCoordinateSpace(ETransformCoordinateSpace::Local);
     }
     else
     {
@@ -190,73 +250,58 @@ void FViewportPanel::OnRender()
     ImGui::SameLine();
 
     bool bSnapEnabled = TransformGizmo.IsSnapEnabled();
-
-    if (ImGui::Checkbox("Snap", &bSnapEnabled))
-    {
-        TransformGizmo.SetSnapEnabled(bSnapEnabled);
-    }
+    if (ImGui::Checkbox("Snap", &bSnapEnabled)) TransformGizmo.SetSnapEnabled(bSnapEnabled);
 
     if (bSnapEnabled)
     {
         ImGui::SameLine();
-
         if (CurrentMode == ETransformGizmoMode::Translate)
         {
             float SnapValue = TransformGizmo.GetTranslationSnap();
-
-            if (ImGui::DragFloat("Move Step", &SnapValue, 0.1f, 0.1f, 100.0f, "%.1f"))
-            {
-                TransformGizmo.SetTranslationSnap(SnapValue);
-            }
+            if (ImGui::DragFloat("Move Step", &SnapValue, 0.1f, 0.1f, 100.0f, "%.1f")) TransformGizmo.SetTranslationSnap(SnapValue);
         }
         else if (CurrentMode == ETransformGizmoMode::Rotate)
         {
             float SnapValue = TransformGizmo.GetRotationSnap();
-
-            if (ImGui::DragFloat("Rotation Step", &SnapValue, 1.0f, 1.0f, 90.0f, "%.0f"))
-            {
-                TransformGizmo.SetRotationSnap(SnapValue);
-            }
+            if (ImGui::DragFloat("Rotation Step", &SnapValue, 1.0f, 1.0f, 90.0f, "%.0f")) TransformGizmo.SetRotationSnap(SnapValue);
         }
         else if (CurrentMode == ETransformGizmoMode::Scale)
         {
             float SnapValue = TransformGizmo.GetScaleSnap();
-
-            if (ImGui::DragFloat("Scale Step", &SnapValue, 0.01f, 0.01f, 10.0f, "%.2f"))
-            {
-                TransformGizmo.SetScaleSnap(SnapValue);
-            }
+            if (ImGui::DragFloat("Scale Step", &SnapValue, 0.01f, 0.01f, 10.0f, "%.2f")) TransformGizmo.SetScaleSnap(SnapValue);
         }
     }
-    
+
     const ImVec2 AvailableSize = ImGui::GetContentRegionAvail();
 
     if (AvailableSize.x > 0.0f && AvailableSize.y > 0.0f)
     {
         const ImVec2 FramebufferScale = ImGui::GetIO().DisplayFramebufferScale;
-
         const float ScaleX = FramebufferScale.x > 0.0f ? FramebufferScale.x : 1.0f;
         const float ScaleY = FramebufferScale.y > 0.0f ? FramebufferScale.y : 1.0f;
-
         const uint32 Width = static_cast<uint32>(AvailableSize.x * ScaleX + 0.5f);
         const uint32 Height = static_cast<uint32>(AvailableSize.y * ScaleY + 0.5f);
-
         SetDesiredSize(Width, Height);
 
         if (SRV != nullptr)
         {
             ImGui::Image((ImTextureID)SRV, AvailableSize);
-
             const ImVec2 ImageMin = ImGui::GetItemRectMin();
             const ImVec2 ImageMax = ImGui::GetItemRectMax();
-
             const ImVec2 ImageSize(ImageMax.x - ImageMin.x, ImageMax.y - ImageMin.y);
-
             const bool bImageHovered = ImGui::IsItemHovered();
             bViewportHovered = bImageHovered;
 
-            bool bGizmoConsumed = false;
+            if (ImGui::BeginDragDropTarget())
+            {
+                if (const ImGuiPayload* Payload = ImGui::AcceptDragDropPayload("KIRBY_ASSET"))
+                {
+                    ApplyContentBrowserDrop(ObjectContext, Payload);
+                }
+                ImGui::EndDragDropTarget();
+            }
 
+            bool bGizmoConsumed = false;
             if (ObjectContext != nullptr)
             {
                 ImDrawList* DrawList = ImGui::GetWindowDrawList();
@@ -268,12 +313,10 @@ void FViewportPanel::OnRender()
             if (bImageHovered && ImGui::IsMouseClicked(ImGuiMouseButton_Left) && !bGizmoConsumed)
             {
                 const ImVec2 MousePos = ImGui::GetIO().MousePos;
-
                 if (ImageSize.x > 0.0f && ImageSize.y > 0.0f)
                 {
                     ClickU = (MousePos.x - ImageMin.x) / ImageSize.x;
                     ClickV = (MousePos.y - ImageMin.y) / ImageSize.y;
-
                     bHasPendingClick = true;
                 }
             }
@@ -287,27 +330,17 @@ void FViewportPanel::OnRender()
         EditorSettings->RotationSnap = TransformGizmo.GetRotationSnap();
         EditorSettings->ScaleSnap = TransformGizmo.GetScaleSnap();
     }
-    
+
     ImGui::End();
 
-    if (!bIsOpen)
-    {
-        TransformGizmo.CancelDrag();
-    }
-
+    if (!bIsOpen) TransformGizmo.CancelDrag();
     SetOpen(bIsOpen);
 }
 
 void FViewportPanel::SetDesiredSize(uint32 Width, uint32 Height)
 {
-    if (Width == 0 || Height == 0)
-    {
-        return;
-    }
-    if (DesiredWidth == Width && DesiredHeight == Height)
-    {
-        return;
-    }
+    if (Width == 0 || Height == 0) return;
+    if (DesiredWidth == Width && DesiredHeight == Height) return;
     DesiredWidth = Width;
     DesiredHeight = Height;
     bHasPendingSize = true;
@@ -315,10 +348,7 @@ void FViewportPanel::SetDesiredSize(uint32 Width, uint32 Height)
 
 bool FViewportPanel::ConsumeDesiredSize(uint32& OutWidth, uint32& OutHeight)
 {
-    if (!bHasPendingSize)
-    {
-        return false;
-    }
+    if (!bHasPendingSize) return false;
     OutWidth = DesiredWidth;
     OutHeight = DesiredHeight;
     bHasPendingSize = false;
@@ -327,10 +357,7 @@ bool FViewportPanel::ConsumeDesiredSize(uint32& OutWidth, uint32& OutHeight)
 
 bool FViewportPanel::ConsumeClick(float& OutU, float& OutV)
 {
-    if (!bHasPendingClick)
-    {
-        return false;
-    }
+    if (!bHasPendingClick) return false;
     OutU = ClickU;
     OutV = ClickV;
     bHasPendingClick = false;

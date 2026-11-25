@@ -23,6 +23,5 @@ public:
 
 private:
     friend class FAssetManager;
-
     FString AssetPath;
 };

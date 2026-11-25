@@ -40,9 +40,9 @@ namespace
         HRESULT Result = E_FAIL;
         bool bShouldUninitialize = false;
     };
-    
+
     constexpr uint64 MaxDecodedTextureBytes = 256ull * 1024ull * 1024ull;
-    
+
     bool DecodeImage(const std::filesystem::path& FilePath, TArray<uint8>& OutPixels, uint32& OutWidth, uint32& OutHeight)
     {
         OutPixels.Reset();
@@ -62,9 +62,7 @@ namespace
         }
 
         using Microsoft::WRL::ComPtr;
-
         ComPtr<IWICImagingFactory> Factory;
-
         HRESULT hr = CoCreateInstance(CLSID_WICImagingFactory, nullptr, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&Factory));
 
         if (FAILED(hr))
@@ -73,7 +71,6 @@ namespace
         }
 
         ComPtr<IWICBitmapDecoder> Decoder;
-
         hr = Factory->CreateDecoderFromFilename(FilePath.c_str(), nullptr, GENERIC_READ, WICDecodeMetadataCacheOnLoad, &Decoder);
 
         if (FAILED(hr))
@@ -82,7 +79,6 @@ namespace
         }
 
         ComPtr<IWICBitmapFrameDecode> Frame;
-
         hr = Decoder->GetFrame(0, &Frame);
 
         if (FAILED(hr))
@@ -92,7 +88,6 @@ namespace
 
         UINT Width = 0;
         UINT Height = 0;
-
         hr = Frame->GetSize(&Width, &Height);
 
         if (FAILED(hr) || Width == 0 || Height == 0 || Width > D3D11_REQ_TEXTURE2D_U_OR_V_DIMENSION || Height > D3D11_REQ_TEXTURE2D_U_OR_V_DIMENSION)
@@ -109,7 +104,6 @@ namespace
         }
 
         ComPtr<IWICFormatConverter> Converter;
-
         hr = Factory->CreateFormatConverter(&Converter);
 
         if (FAILED(hr))
@@ -126,7 +120,6 @@ namespace
 
         TArray<uint8> Pixels;
         Pixels.SetNum(static_cast<int32>(PixelByteWidth));
-
         hr = Converter->CopyPixels(nullptr, static_cast<UINT>(RowPitch), static_cast<UINT>(PixelByteWidth), Pixels.GetData());
 
         if (FAILED(hr))
@@ -137,7 +130,6 @@ namespace
         OutPixels = std::move(Pixels);
         OutWidth = Width;
         OutHeight = Height;
-
         return true;
     }
 }
@@ -150,7 +142,6 @@ bool UTexture2D::Initialize(URenderer& Renderer, const std::filesystem::path& So
     }
 
     TArray<uint8> Pixels;
-
     uint32 Width = 0;
     uint32 Height = 0;
 
@@ -159,11 +150,36 @@ bool UTexture2D::Initialize(URenderer& Renderer, const std::filesystem::path& So
         return false;
     }
 
-    if (!Renderer.CreateTexture2D(Pixels.GetData(), Width, Height, Resource))
+    return Renderer.CreateTexture2D(Pixels.GetData(), Width, Height, Resource);
+}
+
+bool UTexture2D::Reload(URenderer& Renderer, const std::filesystem::path& SourcePath)
+{
+    TArray<uint8> Pixels;
+    uint32 Width = 0;
+    uint32 Height = 0;
+
+    if (!DecodeImage(SourcePath, Pixels, Width, Height))
     {
         return false;
     }
 
+    FTexture2DResource NewResource;
+
+    if (!Renderer.CreateTexture2D(Pixels.GetData(), Width, Height, NewResource))
+    {
+        return false;
+    }
+
+    Resource.Release();
+    Resource.Texture = NewResource.Texture;
+    Resource.ShaderResourceView = NewResource.ShaderResourceView;
+    Resource.Width = NewResource.Width;
+    Resource.Height = NewResource.Height;
+    NewResource.Texture = nullptr;
+    NewResource.ShaderResourceView = nullptr;
+    NewResource.Width = 0;
+    NewResource.Height = 0;
     return true;
 }
 

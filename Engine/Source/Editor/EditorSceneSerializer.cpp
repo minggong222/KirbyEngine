@@ -541,9 +541,16 @@ namespace
                         Record.RootStaticMesh = OBJImporter::LoadOBJAsset(AssetPath, AssetManager, Renderer);
                         if (Record.RootStaticMesh == nullptr) return false;
                     }
-                    FString TexturePath;
-                    if (ActorData->HasField("RootTexturePath"))
+                    FString MaterialAssetPath;
+                    if (ActorData->HasField("RootMaterialAssetPath"))
                     {
+                        if (!ActorData->TryGetStringField("RootMaterialAssetPath", MaterialAssetPath) || MaterialAssetPath.IsEmpty()) return false;
+                        Record.RootMaterial = TextureImporter::LoadMaterialAsset(MaterialAssetPath, AssetManager, Renderer);
+                        if (Record.RootMaterial == nullptr) return false;
+                    }
+                    else if (ActorData->HasField("RootTexturePath"))
+                    {
+                        FString TexturePath;
                         if (!ActorData->TryGetStringField("RootTexturePath", TexturePath) || TexturePath.IsEmpty()) return false;
                         Record.RootMaterial = TextureImporter::LoadTextureMaterial(TexturePath, AssetManager, Renderer);
                         if (Record.RootMaterial == nullptr) return false;
@@ -588,21 +595,19 @@ namespace
                     return false;
                 }
 
-                if (ActorData->HasField("TexturePath"))
+                if (ActorData->HasField("MaterialAssetPath"))
+                {
+                    FString MaterialAssetPath;
+                    if (!ActorData->TryGetStringField("MaterialAssetPath", MaterialAssetPath) || MaterialAssetPath.IsEmpty()) return false;
+                    Record.Material = TextureImporter::LoadMaterialAsset(MaterialAssetPath, AssetManager, Renderer);
+                    if (Record.Material == nullptr) return false;
+                }
+                else if (ActorData->HasField("TexturePath"))
                 {
                     FString TexturePath;
-
-                    if (!ActorData->TryGetStringField("TexturePath", TexturePath) || TexturePath.IsEmpty())
-                    {
-                        return false;
-                    }
-
+                    if (!ActorData->TryGetStringField("TexturePath", TexturePath) || TexturePath.IsEmpty()) return false;
                     Record.Material = TextureImporter::LoadTextureMaterial(TexturePath, AssetManager, Renderer);
-
-                    if (Record.Material == nullptr)
-                    {
-                        return false;
-                    }
+                    if (Record.Material == nullptr) return false;
                 }
             }
             else if (ClassName == "Actor")
@@ -671,7 +676,14 @@ namespace
                             ComponentRecord.StaticMesh = OBJImporter::LoadOBJAsset(AssetPath, AssetManager, Renderer);
                             if (ComponentRecord.StaticMesh == nullptr) return false;
                         }
-                        if (ComponentData->HasField("TexturePath"))
+                        if (ComponentData->HasField("MaterialAssetPath"))
+                        {
+                            FString MaterialAssetPath;
+                            if (!ComponentData->TryGetStringField("MaterialAssetPath", MaterialAssetPath) || MaterialAssetPath.IsEmpty()) return false;
+                            ComponentRecord.Material = TextureImporter::LoadMaterialAsset(MaterialAssetPath, AssetManager, Renderer);
+                            if (ComponentRecord.Material == nullptr) return false;
+                        }
+                        else if (ComponentData->HasField("TexturePath"))
                         {
                             FString TexturePath;
                             if (!ComponentData->TryGetStringField("TexturePath", TexturePath) || TexturePath.IsEmpty()) return false;
@@ -793,21 +805,19 @@ namespace
                     return false;
                 }
 
-                if (ObjectData->HasField("TexturePath"))
+                if (ObjectData->HasField("MaterialAssetPath"))
+                {
+                    FString MaterialAssetPath;
+                    if (!ObjectData->TryGetStringField("MaterialAssetPath", MaterialAssetPath) || MaterialAssetPath.IsEmpty()) return false;
+                    Record.Material = TextureImporter::LoadMaterialAsset(MaterialAssetPath, AssetManager, Renderer);
+                    if (Record.Material == nullptr) return false;
+                }
+                else if (ObjectData->HasField("TexturePath"))
                 {
                     FString TexturePath;
-
-                    if (!ObjectData->TryGetStringField("TexturePath", TexturePath) || TexturePath.IsEmpty())
-                    {
-                        return false;
-                    }
-
+                    if (!ObjectData->TryGetStringField("TexturePath", TexturePath) || TexturePath.IsEmpty()) return false;
                     Record.Material = TextureImporter::LoadTextureMaterial(TexturePath, AssetManager, Renderer);
-
-                    if (Record.Material == nullptr)
-                    {
-                        return false;
-                    }
+                    if (Record.Material == nullptr) return false;
                 }
             }
 
@@ -908,16 +918,18 @@ bool FSceneSerializer::Save(const std::filesystem::path& FilePath, const FEditor
 
             UMaterial* Material = Component->GetMaterial();
 
-            if (Material != nullptr && Material->GetBaseColorTexture() != nullptr)
+            if (Material != nullptr)
             {
-                const FString& TexturePath = Material->GetBaseColorTexture()->GetAssetPath();
+                const FString& MaterialAssetPath = Material->GetAssetPath();
+                if (MaterialAssetPath.IsEmpty()) return false;
+                ActorData.SetStringField("MaterialAssetPath", MaterialAssetPath);
 
-                if (TexturePath.IsEmpty())
+                if (Material->GetBaseColorTexture() != nullptr)
                 {
-                    return false;
+                    const FString& TexturePath = Material->GetBaseColorTexture()->GetAssetPath();
+                    if (TexturePath.IsEmpty()) return false;
+                    ActorData.SetStringField("TexturePath", TexturePath);
                 }
-
-                ActorData.SetStringField("TexturePath", TexturePath);
             }
         }
         else if (ACameraActor* CameraActor = Cast<ACameraActor>(Actor))
@@ -951,11 +963,18 @@ bool FSceneSerializer::Save(const std::filesystem::path& FilePath, const FEditor
                         if (AssetPath.IsEmpty()) return false;
                         ActorData.SetStringField("RootAssetPath", AssetPath);
                     }
-                    if (RootMesh->GetMaterial() != nullptr && RootMesh->GetMaterial()->GetBaseColorTexture() != nullptr)
+                    if (RootMesh->GetMaterial() != nullptr)
                     {
-                        const FString& TexturePath = RootMesh->GetMaterial()->GetBaseColorTexture()->GetAssetPath();
-                        if (TexturePath.IsEmpty()) return false;
-                        ActorData.SetStringField("RootTexturePath", TexturePath);
+                        const FString& MaterialAssetPath = RootMesh->GetMaterial()->GetAssetPath();
+                        if (MaterialAssetPath.IsEmpty()) return false;
+                        ActorData.SetStringField("RootMaterialAssetPath", MaterialAssetPath);
+
+                        if (RootMesh->GetMaterial()->GetBaseColorTexture() != nullptr)
+                        {
+                            const FString& TexturePath = RootMesh->GetMaterial()->GetBaseColorTexture()->GetAssetPath();
+                            if (TexturePath.IsEmpty()) return false;
+                            ActorData.SetStringField("RootTexturePath", TexturePath);
+                        }
                     }
                 }
                 else if (UCameraComponent* RootCamera = Cast<UCameraComponent>(RootComponent))
@@ -1007,11 +1026,18 @@ bool FSceneSerializer::Save(const std::filesystem::path& FilePath, const FEditor
                     if (AssetPath.IsEmpty()) return false;
                     ComponentData.SetStringField("AssetPath", AssetPath);
                 }
-                if (MeshComponent->GetMaterial() != nullptr && MeshComponent->GetMaterial()->GetBaseColorTexture() != nullptr)
+                if (MeshComponent->GetMaterial() != nullptr)
                 {
-                    const FString& TexturePath = MeshComponent->GetMaterial()->GetBaseColorTexture()->GetAssetPath();
-                    if (TexturePath.IsEmpty()) return false;
-                    ComponentData.SetStringField("TexturePath", TexturePath);
+                    const FString& MaterialAssetPath = MeshComponent->GetMaterial()->GetAssetPath();
+                    if (MaterialAssetPath.IsEmpty()) return false;
+                    ComponentData.SetStringField("MaterialAssetPath", MaterialAssetPath);
+
+                    if (MeshComponent->GetMaterial()->GetBaseColorTexture() != nullptr)
+                    {
+                        const FString& TexturePath = MeshComponent->GetMaterial()->GetBaseColorTexture()->GetAssetPath();
+                        if (TexturePath.IsEmpty()) return false;
+                        ComponentData.SetStringField("TexturePath", TexturePath);
+                    }
                 }
             }
             else

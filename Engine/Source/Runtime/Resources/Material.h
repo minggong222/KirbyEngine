@@ -1,11 +1,9 @@
-﻿#pragma once
+#pragma once
 
 #include "Asset.h"
+#include "Resources/Texture2D.h"
 #include "UObject/ObjectMacros.h"
-
 #include "Resources/Material.generated.h"
-
-class UTexture2D;
 
 UCLASS()
 class UMaterial : public UAsset
@@ -22,7 +20,7 @@ public:
 
         if (BaseColorTexture != nullptr)
         {
-            OutDependencies.Add(BaseColorTexture);
+            OutDependencies.Add(static_cast<UAsset*>(BaseColorTexture));
         }
     }
 

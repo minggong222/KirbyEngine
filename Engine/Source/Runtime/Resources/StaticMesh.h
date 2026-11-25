@@ -1,4 +1,5 @@
-﻿#pragma once
+#pragma once
+
 #include "Asset.h"
 #include "FVertexSimple.h"
 #include "StaticMeshData.h"
@@ -11,10 +12,13 @@ UCLASS()
 class UStaticMesh : public UAsset
 {
     GENERATED_BODY()
+
 public:
     bool Initialize(URenderer& Renderer, FStaticMeshBuildData&& SourceData);
+    bool Reinitialize(URenderer& Renderer, FStaticMeshBuildData&& SourceData);
     const FStaticMeshRenderData& GetRenderData() const { return RenderData; }
     ~UStaticMesh() override;
+
 private:
     FStaticMeshRenderData RenderData;
 };

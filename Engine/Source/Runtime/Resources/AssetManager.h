@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 
 #include "Asset.h"
 #include "Core/STL.h"
@@ -53,7 +53,6 @@ public:
 
         NewAsset->AssetPath = AssetPath;
         LoadedAssets.Add(AssetPath.ToStd(), NewAsset);
-
         return NewAsset;
     }
 
@@ -73,10 +72,24 @@ public:
     }
 
     template<typename TAsset>
-    void GetAssets(TArray<TAsset*>& OutAssets) const
+    const TAsset* Find(const FString& AssetPath) const
     {
         static_assert(std::is_base_of_v<UAsset, TAsset>, "TAsset must derive from UAsset");
 
+        UAsset* const* FoundAsset = LoadedAssets.Find(AssetPath.ToStd());
+
+        if (FoundAsset == nullptr || *FoundAsset == nullptr || !(*FoundAsset)->IsA<TAsset>())
+        {
+            return nullptr;
+        }
+
+        return static_cast<const TAsset*>(*FoundAsset);
+    }
+
+    template<typename TAsset>
+    void GetAssets(TArray<TAsset*>& OutAssets) const
+    {
+        static_assert(std::is_base_of_v<UAsset, TAsset>, "TAsset must derive from UAsset");
         OutAssets.Reset();
 
         for (const auto& Pair : LoadedAssets)
@@ -104,17 +117,18 @@ public:
     void GetDependencies(UAsset* Asset, TArray<UAsset*>& OutDependencies) const;
     void GetReferencers(UAsset* Asset, TArray<UAsset*>& OutReferencers) const;
 
-    void RefreshAssetRegistry(const std::filesystem::path& RootDirectory = {});
+    void RefreshAssetRegistry(const std::filesystem::path& ContentDirectory = {});
     void GetAssetRegistryEntries(TArray<FAssetRegistryEntry>& OutEntries) const;
-
-    void Shutdown();
+    bool FindAssetRegistryEntry(const std::string& AssetPath, FAssetRegistryEntry& OutEntry) const;
 
     int32 GetLoadedAssetCount() const { return LoadedAssets.Num(); }
     int32 GetRegisteredAssetCount() const { return AssetRegistry.Num(); }
+    void Shutdown();
 
 private:
     bool IsValidContentPath(const std::string& AssetPath) const;
     static std::string GetAssetTypeFromExtension(const std::string& Extension);
+    static std::string PathToUTF8(const std::filesystem::path& Path);
 
     TMap<std::string, UAsset*> LoadedAssets;
     TMap<std::string, FAssetRegistryEntry> AssetRegistry;

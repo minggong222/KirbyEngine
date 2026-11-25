@@ -1,4 +1,5 @@
 #pragma once
+
 #include <d3d11.h>
 #include "FVertexSimple.h"
 #include "Core/STL.h"
@@ -6,12 +7,12 @@
 #include "Renderer/RenderSettings.h"
 
 struct FTexture2DResource;
+
 struct FConstants
 {
     FMatrix World;
     FMatrix View;
     FMatrix Projection;
-
     uint32 IsOutline = 0;
     uint32 IsTextured = 0;
     uint32 IsUnlit = 0;
@@ -40,24 +41,21 @@ public:
     bool DrawDynamicVertices(const FVertexSimple* Vertices, UINT VertexCount, D3D11_PRIMITIVE_TOPOLOGY Topology, const FMatrix& World, const FMatrix& View, const FMatrix& Projection, ID3D11ShaderResourceView* TextureSRV = nullptr, bool bIsTextured = false, bool bAlphaBlend = false);
     bool DrawDynamicIndexedLines(const FVertexSimple* Vertices, UINT VertexCount, const uint32* Indices, UINT IndexCount, const FMatrix& View, const FMatrix& Projection);
     void SetViewMode(EViewMode InViewMode);
-    
+
     ID3D11Buffer* CreateVertexBuffer(FVertexSimple* vertices, UINT byteWidth);
     void ReleaseVertexBuffer(ID3D11Buffer* VertexBuffer);
-    
     ID3D11Buffer* CreateIndexBuffer(const uint32* Indices, UINT IndexCount);
     void ReleaseIndexBuffer(ID3D11Buffer* IndexBuffer);
-
     bool CreateTexture2D(const uint8* Pixels, uint32 Width, uint32 Height, FTexture2DResource& OutResource);
-    
+
     void CreateConstantBuffer();
     void ReleaseConstantBuffer();
     void UpdateConstant(FMatrix World, FMatrix View, FMatrix Projection, bool bIsOutline, bool bIsTextured = false, bool bForceUnlit = false);
 
     ID3D11Device* GetDevice();
     ID3D11DeviceContext* GetDeviceContext();
-    
-    void ResizeBackBuffer(uint32 Width, uint32 Height);
 
+    void ResizeBackBuffer(uint32 Width, uint32 Height);
     void CreateViewportRenderTarget(uint32 Width, uint32 Height);
     void ResizeViewportRenderTarget(uint32 Width, uint32 Height);
     void BeginViewportRender();
@@ -71,32 +69,29 @@ public:
 
     uint32 GetViewportWidth() const { return ViewportWidth; }
     uint32 GetViewportHeight() const { return ViewportHeight; }
-
-    ID3D11ShaderResourceView* GetViewportSRV() const{ return ViewportSRV; }
-    
+    ID3D11ShaderResourceView* GetViewportSRV() const { return ViewportSRV; }
     ID3D11ShaderResourceView* GetAssetPreviewSRV() const { return AssetPreviewSRV; }
-    
+    ID3D11Texture2D* GetAssetPreviewTexture() const { return AssetPreviewTexture; }
+
     bool IsReady() const;
-    
     void Shutdown();
+
 private:
     void ReleaseDynamicVertexBuffer();
     void ReleaseDynamicIndexBuffer();
-    
-    // Direct3D 11 장치(Device)와 장치 컨텍스트(Device Context) 및 스왑 체인(Swap Chain)을 관리하기 위한 포인터들
-    ID3D11Device* mDevice = nullptr; // GPU와 통신하기 위한 Direct3D 장치
-    ID3D11DeviceContext* mDeviceContext = nullptr; // GPU 명령 실행을 담당하는 컨텍스트
-    IDXGISwapChain* mSwapChain = nullptr; // 프레임 버퍼를 교체하는 데 사용되는 스왑 체인
 
-    // 렌더링에 필요한 리소스 및 상태를 관리하기 위한 변수들
-    ID3D11Texture2D* mFrameBuffer = nullptr; // 화면 출력용 텍스처
-    ID3D11RenderTargetView* mFrameBufferRTV = nullptr; // 텍스처를 렌더 타겟으로 사용하는 뷰
-    ID3D11RasterizerState* mRasterizerState = nullptr; // 래스터라이저 상태(컬링, 채우기 모드 등 정의)
+    ID3D11Device* mDevice = nullptr;
+    ID3D11DeviceContext* mDeviceContext = nullptr;
+    IDXGISwapChain* mSwapChain = nullptr;
+
+    ID3D11Texture2D* mFrameBuffer = nullptr;
+    ID3D11RenderTargetView* mFrameBufferRTV = nullptr;
+    ID3D11RasterizerState* mRasterizerState = nullptr;
     ID3D11RasterizerState* mOutlineRasterizerState = nullptr;
-    ID3D11Buffer* mConstantBuffer = nullptr; // 쉐이더에 데이터를 전달하기 위한 상수 버퍼
+    ID3D11Buffer* mConstantBuffer = nullptr;
 
-    FLOAT mClearColor[4] = { 0.025f, 0.025f, 0.025f, 1.0f }; // 화면을 초기화(clear)할 때 사용할 색상 (RGBA)
-    D3D11_VIEWPORT mViewportInfo; // 렌더링 영역을 정의하는 뷰포트 정보
+    FLOAT mClearColor[4] = { 0.025f, 0.025f, 0.025f, 1.0f };
+    D3D11_VIEWPORT mViewportInfo;
 
     ID3D11VertexShader* mSimpleVertexShader = nullptr;
     ID3D11PixelShader* mSimplePixelShader = nullptr;
@@ -104,7 +99,7 @@ private:
     ID3D11SamplerState* mTextureSamplerState = nullptr;
     unsigned int mStride = 0;
     bool bInitializationFailed = false;
-    
+
     ID3D11Texture2D* ViewportTexture = nullptr;
     ID3D11RenderTargetView* ViewportRTV = nullptr;
     ID3D11ShaderResourceView* ViewportSRV = nullptr;
@@ -114,7 +109,7 @@ private:
     ID3D11DepthStencilState* ViewportDepthState = nullptr;
     uint32 ViewportWidth = 0;
     uint32 ViewportHeight = 0;
-    
+
     ID3D11Texture2D* AssetPreviewTexture = nullptr;
     ID3D11RenderTargetView* AssetPreviewRTV = nullptr;
     ID3D11ShaderResourceView* AssetPreviewSRV = nullptr;
@@ -123,7 +118,7 @@ private:
     D3D11_VIEWPORT AssetPreviewRenderInfo = {};
     uint32 AssetPreviewWidth = 0;
     uint32 AssetPreviewHeight = 0;
-    
+
     ID3D11Buffer* mDynamicVertexBuffer = nullptr;
     UINT mDynamicVertexCapacity = 0;
     ID3D11Buffer* mDynamicIndexBuffer = nullptr;
