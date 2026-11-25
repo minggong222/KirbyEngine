@@ -16,6 +16,16 @@ public:
     void SetBaseColorTexture(UTexture2D* InTexture) { BaseColorTexture = InTexture; }
     UTexture2D* GetBaseColorTexture() const { return BaseColorTexture; }
 
+    void GetDependencies(TArray<UAsset*>& OutDependencies) const override
+    {
+        OutDependencies.Reset();
+
+        if (BaseColorTexture != nullptr)
+        {
+            OutDependencies.Add(BaseColorTexture);
+        }
+    }
+
 private:
     UTexture2D* BaseColorTexture = nullptr;
 };

@@ -8,6 +8,9 @@
 #include <algorithm>
 #include <cctype>
 #include <filesystem>
+#include <fstream>
+#include <iomanip>
+#include <string>
 #include <system_error>
 
 namespace TextureImporter
@@ -26,6 +29,11 @@ namespace TextureImporter
         return Extension == ".png" || Extension == ".jpg" || Extension == ".jpeg" || Extension == ".bmp" || Extension == ".tif" || Extension == ".tiff" || Extension == ".gif";
     }
 
+    inline FString GetMaterialAssetPath(const FString& TextureAssetPath)
+    {
+        return FString(std::string("Content/Materials/") + TextureAssetPath.ToStd() + ".kmat");
+    }
+
     inline UTexture2D* LoadTextureAsset(const FString& AssetPath, FAssetManager& AssetManager, URenderer& Renderer)
     {
         if (AssetPath.IsEmpty())
@@ -33,7 +41,7 @@ namespace TextureImporter
             return nullptr;
         }
 
-        const std::filesystem::path RelativePath(AssetPath.ToStd());
+        const std::filesystem::path RelativePath = std::filesystem::u8path(AssetPath.ToStd());
 
         if (RelativePath.empty() || RelativePath.is_absolute() || !HasSupportedTextureExtension(RelativePath))
         {
@@ -92,6 +100,56 @@ namespace TextureImporter
         });
     }
 
+    inline bool SaveMaterialAsset(UMaterial* Material)
+    {
+        if (Material == nullptr || Material->GetAssetPath().IsEmpty())
+        {
+            return false;
+        }
+
+        const std::string MaterialAssetPath = Material->GetAssetPath().ToStd();
+
+        if (!MaterialAssetPath.starts_with("Content/Materials/") || !MaterialAssetPath.ends_with(".kmat"))
+        {
+            return false;
+        }
+
+        const std::filesystem::path FilePath = std::filesystem::current_path() / std::filesystem::u8path(MaterialAssetPath);
+        const std::filesystem::path ParentPath = FilePath.parent_path();
+
+        std::error_code FileSystemError;
+        std::filesystem::create_directories(ParentPath, FileSystemError);
+
+        if (FileSystemError)
+        {
+            return false;
+        }
+
+        const UTexture2D* Texture = Material->GetBaseColorTexture();
+        const std::string TextureAssetPath = Texture != nullptr ? Texture->GetAssetPath().ToStd() : std::string();
+
+        std::ofstream OutputFile(FilePath, std::ios::binary | std::ios::trunc);
+
+        if (!OutputFile.is_open())
+        {
+            return false;
+        }
+
+        OutputFile << "KIRBY_MATERIAL 1\n";
+        OutputFile << std::quoted(TextureAssetPath) << '\n';
+        OutputFile.flush();
+
+        if (!OutputFile.good())
+        {
+            OutputFile.close();
+            return false;
+        }
+
+        OutputFile.close();
+
+        return !OutputFile.fail();
+    }
+
     inline UMaterial* LoadTextureMaterial(const FString& TextureAssetPath, FAssetManager& AssetManager, URenderer& Renderer)
     {
         UTexture2D* Texture = LoadTextureAsset(TextureAssetPath, AssetManager, Renderer);
@@ -101,10 +159,44 @@ namespace TextureImporter
             return nullptr;
         }
 
-        const FString MaterialAssetPath(std::string("/Engine/ImportedMaterials/") + Texture->GetAssetPath().ToStd());
+        const FString MaterialAssetPath = GetMaterialAssetPath(TextureAssetPath);
 
-        return AssetManager.Load<UMaterial>(MaterialAssetPath, [Texture]() -> UMaterial*
+        return AssetManager.Load<UMaterial>(MaterialAssetPath, [&]() -> UMaterial*
         {
+            UTexture2D* MaterialTexture = Texture;
+
+            const std::filesystem::path MaterialFilePath = std::filesystem::current_path() / std::filesystem::u8path(MaterialAssetPath.ToStd());
+
+            std::error_code FileSystemError;
+
+            if (std::filesystem::is_regular_file(MaterialFilePath, FileSystemError) && !FileSystemError)
+            {
+                std::ifstream InputFile(MaterialFilePath, std::ios::binary);
+
+                std::string Magic;
+                int32 Version = 0;
+                std::string SavedTexturePath;
+
+                if (!InputFile.is_open() || !(InputFile >> Magic >> Version) || Magic != "KIRBY_MATERIAL" || Version != 1 || !(InputFile >> std::quoted(SavedTexturePath)))
+                {
+                    return nullptr;
+                }
+
+                if (!SavedTexturePath.empty())
+                {
+                    MaterialTexture = LoadTextureAsset(FString(SavedTexturePath), AssetManager, Renderer);
+
+                    if (MaterialTexture == nullptr)
+                    {
+                        return nullptr;
+                    }
+                }
+                else
+                {
+                    MaterialTexture = nullptr;
+                }
+            }
+
             UMaterial* NewMaterial = NewObject<UMaterial>();
 
             if (NewMaterial == nullptr)
@@ -112,12 +204,12 @@ namespace TextureImporter
                 return nullptr;
             }
 
-            NewMaterial->SetBaseColorTexture(Texture);
+            NewMaterial->SetBaseColorTexture(MaterialTexture);
 
             return NewMaterial;
         });
     }
-    
+
     inline void RegisterImportedTextureMaterials(FAssetManager& AssetManager, URenderer& Renderer)
     {
         const std::filesystem::path ImportDirectory = std::filesystem::current_path() / "Content" / "Imported";
