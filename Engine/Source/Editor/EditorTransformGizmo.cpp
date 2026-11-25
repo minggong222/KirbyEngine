@@ -878,20 +878,6 @@ bool FEditorTransformGizmo::Draw(FEditorObjectContext& Context, const FMatrix& V
     DrawList->AddCircleFilled(Center, 4.0f, IM_COL32(255, 255, 255, 255));
 
     // ============================================================
-    // MODE INDICATOR
-    // ============================================================
-
-    const char* ModeText = DrawMode == ETransformGizmoMode::Translate ? "Translate" : DrawMode == ETransformGizmoMode::Rotate ? "Rotate" : "Scale";
-
-    const char* SpaceText = DrawSpace == ETransformCoordinateSpace::World ? "World" : "Local";
-
-    char Indicator[64] = {};
-
-    std::snprintf(Indicator, sizeof(Indicator), "%s | %s", ModeText, SpaceText);
-
-    DrawList->AddText(ImVec2(ImageMin.x + 12.0f, ImageMin.y + 12.0f), IM_COL32(255, 255, 255, 220), Indicator);
-
-    // ============================================================
     // BEGIN DRAG
     // ============================================================
 

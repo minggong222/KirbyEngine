@@ -26,6 +26,9 @@ struct FEditorViewportPane
     FVector CameraPosition = FVector::Zero;
     FVector CameraRight = FVector::Right;
     FVector CameraUp = FVector::Up;
+
+    FVector OrthoTarget = FVector::Zero;
+    float OrthoHeight = 1000.0f;
 };
 
 class FEditorViewportClient
@@ -58,24 +61,24 @@ public:
             return;
         }
 
-        FVector Position = FVector::Zero;
-        FVector Target = FVector::Zero;
+        FVector Target = Pane.OrthoTarget;
+        FVector Position = Target;
         FVector Up = FVector::Up;
 
         switch (Pane.Type)
         {
         case EEditorViewportType::Front:
-            Position = FVector(1000.0f, 0.0f, 0.0f);
+            Position += FVector(1000.0f, 0.0f, 0.0f);
             Up = FVector(0.0f, 0.0f, 1.0f);
             break;
 
         case EEditorViewportType::Right:
-            Position = FVector(0.0f, 1000.0f, 0.0f);
+            Position += FVector(0.0f, 1000.0f, 0.0f);
             Up = FVector(0.0f, 0.0f, 1.0f);
             break;
 
         case EEditorViewportType::Top:
-            Position = FVector(0.0f, 0.0f, 1000.0f);
+            Position += FVector(0.0f, 0.0f, 1000.0f);
             Up = FVector(0.0f, 1.0f, 0.0f);
             break;
 
@@ -98,7 +101,7 @@ public:
         FVector CameraUp = Direction.Cross(Right);
         CameraUp.Normalize();
 
-        constexpr float OrthoHeight = 1000.0f;
+        const float OrthoHeight = Pane.OrthoHeight < 10.0f ? 10.0f : Pane.OrthoHeight;
         const float OrthoWidth = OrthoHeight * AspectRatio;
 
         Pane.View = FMatrix::CreateLookAt(Position, Target, CameraUp);

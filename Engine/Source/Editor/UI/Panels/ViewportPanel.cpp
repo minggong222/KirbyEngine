@@ -586,6 +586,30 @@ void FViewportPanel::OnRender()
                 MousePosition.y >= ActivePaneMin.y &&
                 MousePosition.y <= ActivePaneMin.y + ActivePaneSize.y;
 
+            if (bFourViewports && bActivePaneHovered && !bClickedSplitter && !bDraggingVerticalSplitter && !bDraggingHorizontalSplitter && Viewports != nullptr)
+            {
+                FEditorViewportPane& ActiveViewport = Viewports[ActiveViewportIndex];
+
+                if (ActiveViewport.Type != EEditorViewportType::Perspective)
+                {
+                    const ImGuiIO& IO = ImGui::GetIO();
+
+                    if (ImGui::IsMouseDragging(ImGuiMouseButton_Middle) && ActivePaneSize.y > 0.0f)
+                    {
+                        const float WorldUnitsPerPixel = ActiveViewport.OrthoHeight / ActivePaneSize.y;
+
+                        ActiveViewport.OrthoTarget -= ActiveViewport.CameraRight * (IO.MouseDelta.x * WorldUnitsPerPixel);
+                        ActiveViewport.OrthoTarget += ActiveViewport.CameraUp * (IO.MouseDelta.y * WorldUnitsPerPixel);
+                    }
+
+                    if (IO.MouseWheel != 0.0f)
+                    {
+                        ActiveViewport.OrthoHeight *= std::pow(0.9f, IO.MouseWheel);
+                        ActiveViewport.OrthoHeight = std::clamp(ActiveViewport.OrthoHeight, 10.0f, 50000.0f);
+                    }
+                }
+            }
+            
             bViewportHovered = bImageHovered || bDraggingVerticalSplitter || bDraggingHorizontalSplitter;
 
             ImDrawList* DrawList = ImGui::GetWindowDrawList();

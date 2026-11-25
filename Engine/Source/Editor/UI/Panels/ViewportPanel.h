@@ -21,7 +21,7 @@ public:
         SRV = InSRV;
     }
 
-    void SetGizmoContext(FEditorObjectContext* InContext, const FEditorViewportPane* InViewports)
+    void SetGizmoContext(FEditorObjectContext* InContext, FEditorViewportPane* InViewports)
     {
         ObjectContext = InContext;
         Viewports = InViewports;
@@ -69,7 +69,7 @@ private:
     FAssetManager* AssetManager = nullptr;
     URenderer* Renderer = nullptr;
 
-    const FEditorViewportPane* Viewports = nullptr;
+    FEditorViewportPane* Viewports = nullptr;
 
     uint32 DesiredWidth = 0;
     uint32 DesiredHeight = 0;

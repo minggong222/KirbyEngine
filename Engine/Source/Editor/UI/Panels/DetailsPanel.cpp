@@ -481,8 +481,13 @@ static void DrawProperty(FEditorObjectContext* Context, UObject* Object, const F
     {
         FTransform Value = *static_cast<FTransform*>(ValueAddress);
 
-        const auto DrawTransformVector = [](const char* Name, float* Components, float Speed)
+        bool bFirstTransformVector = true;
+
+        const auto DrawTransformVector = [&bFirstTransformVector](const char* Name, float* Components, float Speed)
         {
+            if (!bFirstTransformVector) ImGui::Separator();
+            bFirstTransformVector = false;
+
             ImGui::TextUnformatted(Name);
             ImGui::PushID(Name);
 
