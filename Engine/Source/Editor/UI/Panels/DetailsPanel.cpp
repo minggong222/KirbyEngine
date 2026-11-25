@@ -547,7 +547,7 @@ void FDetailsPanel::OnRender()
 
     AActor* SelectedActor = Context->SelectedActor;
 
-    ImGui::Text("Actor: %s", SelectedActor->GetName().c_str());
+    ImGui::TextWrapped("Actor: %s", SelectedActor->GetName().c_str());
     ImGui::Text("Actor UUID: %u", SelectedActor->GetUUID());
 
     if (ImGui::BeginPopup("AddComponentMenu"))
@@ -603,7 +603,7 @@ void FDetailsPanel::OnRender()
         ImGui::OpenPopup("AddComponentMenu");
     }
 
-    ImGui::SameLine();
+    if (ImGui::GetContentRegionAvail().x > 150.0f) ImGui::SameLine();
 
     const bool bCanRemoveSelectedComponent = Context->SelectedComponent != nullptr && Context->SelectedComponent != SelectedActor->GetRootComponent();
 

@@ -58,15 +58,17 @@ void FStatsPanel::RenderOverlay()
         return;
     }
 
+    const ImVec2 DisplaySize = ImGui::GetIO().DisplaySize;
     const ImVec2 Position(12.0f, 12.0f);
-    const ImVec2 TextSize = ImGui::CalcTextSize(Buffer);
+    const float MaxTextWidth = (std::max)(1.0f, DisplaySize.x - 40.0f);
+    const ImVec2 TextSize = ImGui::CalcTextSize(Buffer, nullptr, false, MaxTextWidth);
     const ImVec2 Padding(8.0f, 6.0f);
 
     const ImVec2 BackgroundMax(Position.x + TextSize.x + Padding.x * 2.0f, Position.y + TextSize.y + Padding.y * 2.0f);
     const ImVec2 TextPosition(Position.x + Padding.x, Position.y + Padding.y);
 
     DrawList->AddRectFilled(Position, BackgroundMax, IM_COL32(20, 20, 20, 190), 5.0f);
-    DrawList->AddText(TextPosition, IM_COL32(255, 255, 255, 255), Buffer);
+    DrawList->AddText(ImGui::GetFont(), ImGui::GetFontSize(), TextPosition, IM_COL32(255, 255, 255, 255), Buffer, nullptr, MaxTextWidth);
 }
 
 void FStatsPanel::OnRender()

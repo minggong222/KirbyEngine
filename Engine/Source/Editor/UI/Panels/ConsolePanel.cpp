@@ -118,7 +118,7 @@ void FConsolePanel::OnRender()
         ClearLog();
     }
 
-    ImGui::SameLine();
+    if (ImGui::GetContentRegionAvail().x > 60.0f) ImGui::SameLine();
 
     const bool bCopyToClipboard = ImGui::SmallButton("Copy");
 
@@ -200,6 +200,8 @@ void FConsolePanel::OnRender()
         ImGuiInputTextFlags_EscapeClearsAll |
         ImGuiInputTextFlags_CallbackCompletion |
         ImGuiInputTextFlags_CallbackHistory;
+
+    ImGui::SetNextItemWidth(-1.0f);
 
     if (ImGui::InputText("Input", InputBuf, IM_COUNTOF(InputBuf), InputTextFlags, &TextEditCallbackStub, this))
     {
@@ -508,6 +510,13 @@ void FConsolePanel::AddLog(ELogVerbosity Verbosity, const char* Format, ...)
     default:
         Color = ImVec4(1.0f, 1.0f, 1.0f, 1.0f);
         break;
+    }
+
+    constexpr int32 MaxConsoleLogEntries = 5000;
+
+    if (Items.Num() >= MaxConsoleLogEntries)
+    {
+        Items.RemoveAt(0, 1);
     }
 
     Items.Add({FString(Buffer), Color});

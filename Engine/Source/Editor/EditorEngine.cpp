@@ -327,14 +327,6 @@ void FEditorEngine::Run()
                 LineRenderer.Flush(*Renderer, Viewport.View, Viewport.Projection);
 
                 TextRenderer.BeginFrame();
-
-                static bool bUUIDRenderPathLogged = false;
-
-                if (!bUUIDRenderPathLogged && EditorSettings.ShowFlags.IsEnabled(EEngineShowFlag::BillboardText))
-                {
-                    UE_LOG(Info, "[UUID Labels] Render path entered. LevelValid=%d ActorCount=%d ViewportIndex=%d", Level != nullptr ? 1 : 0, Level != nullptr ? Level->GetActors().Num() : 0, ViewportIndex);
-                    bUUIDRenderPathLogged = true;
-                }
                 
                 if (EditorSettings.ShowFlags.IsEnabled(EEngineShowFlag::BillboardText) && Level != nullptr)
                 {
@@ -383,14 +375,6 @@ void FEditorEngine::Run()
                         const FVector2D TextSize = TextRenderer.MeasureText(Label);
                         const float WorldUnitsPerPixel = FBillboardRenderer::GetWorldUnitsPerPixel(LabelAnchor, CameraPosition, Viewport.Projection, static_cast<uint32>(Viewport.Height));
 
-                        static bool bUUIDMetricsLogged = false;
-
-                        if (!bUUIDMetricsLogged)
-                        {
-                            UE_LOG(Info, "[UUID Labels] Actor=%s UUID=%u TextSize=(%.1f, %.1f) WorldUnitsPerPixel=%.6f", Label.ToStd().c_str(), Actor->GetUUID(), TextSize.x, TextSize.y, WorldUnitsPerPixel);
-                            bUUIDMetricsLogged = true;
-                        }
-
                         if (TextSize.x <= 0.0f || WorldUnitsPerPixel <= 0.0f)
                         {
                             continue;
@@ -404,10 +388,7 @@ void FEditorEngine::Run()
                     }
                 }
 
-                if (!TextRenderer.Flush(*Renderer, Viewport.View, Viewport.Projection))
-                {
-                    UE_LOG(Error, "[UUID Labels] TextRenderer.Flush failed. ViewportIndex=%d", ViewportIndex);
-                }
+                TextRenderer.Flush(*Renderer, Viewport.View, Viewport.Projection);
             }
 
             Renderer->EndViewportRender();

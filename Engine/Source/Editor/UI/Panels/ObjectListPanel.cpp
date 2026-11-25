@@ -26,6 +26,8 @@
 #include <commdlg.h>
 #include <filesystem>
 
+#include "imgui_internal.h"
+
 #pragma comment(lib, "Comdlg32.lib")
 
 namespace
@@ -280,7 +282,7 @@ void FObjectListPanel::OnRender()
         ImGui::EndPopup();
     }
 
-    ImGui::SameLine();
+    if (ImGui::GetContentRegionAvail().x > 60.0f) ImGui::SameLine();
 
     if (ImGui::Button("..."))
     {
@@ -331,13 +333,67 @@ void FObjectListPanel::OnRender()
 
     ImGui::BeginChild("##ActorList", ImVec2(0.0f, 0.0f), ImGuiChildFlags_Borders);
 
+    const std::string SearchText = ActorSearchBuffer;
     ULevel* Level = Context->World != nullptr ? Context->World->GetPersistentLevel() : nullptr;
 
     if (Level != nullptr)
     {
         for (AActor* Actor : Level->GetActors())
         {
-            // 기존 Actor 목록 표시 코드 그대로 유지
+            if (Actor == nullptr)
+            {
+                continue;
+            }
+
+            const FString ActorName = Actor->GetName();
+
+            if (!SearchText.empty() && ActorName.ToStd().find(SearchText) == std::string::npos)
+            {
+                continue;
+            }
+
+            ImGui::PushID(Actor);
+
+            if (ImGui::Selectable(ActorName.c_str(), Context->SelectedActor == Actor, ImGuiSelectableFlags_SpanAvailWidth))
+            {
+                Context->SelectActor(Actor);
+            }
+
+            if (ImGui::IsItemHovered())
+            {
+                ImGui::SetTooltip("%s", ActorName.c_str());
+            }
+
+            if (ImGui::BeginPopupContextItem("ActorContextMenu"))
+            {
+                Context->SelectActor(Actor);
+
+                if (ImGui::MenuItem("Copy", "Ctrl+C"))
+                {
+                    bPendingCopy = true;
+                }
+
+                if (ImGui::MenuItem("Paste", "Ctrl+V", false, bCanPaste))
+                {
+                    bPendingPaste = true;
+                }
+
+                if (ImGui::MenuItem("Duplicate", "Ctrl+W"))
+                {
+                    bPendingDuplicate = true;
+                }
+
+                ImGui::Separator();
+
+                if (ImGui::MenuItem("Delete", "Delete"))
+                {
+                    PendingDeleteActor = Actor;
+                }
+
+                ImGui::EndPopup();
+            }
+
+            ImGui::PopID();
         }
     }
 

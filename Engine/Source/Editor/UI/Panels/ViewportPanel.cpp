@@ -364,7 +364,7 @@ void FViewportPanel::OnRender()
             ImGui::EndPopup();
         }
 
-        ImGui::SameLine();
+        if (ImGui::GetContentRegionAvail().x > 110.0f) ImGui::SameLine();
 
         if (ImGui::Button("Camera"))
         {
@@ -379,7 +379,7 @@ void FViewportPanel::OnRender()
             ImGui::EndPopup();
         }
 
-        ImGui::SameLine();
+        if (ImGui::GetContentRegionAvail().x > 110.0f) ImGui::SameLine();
 
         ImGui::Checkbox("Four Views", &EditorSettings->bFourViewports);
     }
@@ -393,21 +393,18 @@ void FViewportPanel::OnRender()
         TransformGizmo.SetMode(ETransformGizmoMode::Translate);
     }
     if (ImGui::GetContentRegionAvail().x > 90.0f) ImGui::SameLine();
-    ImGui::SameLine();
 
     if (ImGui::RadioButton("Rotate", CurrentMode == ETransformGizmoMode::Rotate))
     {
         TransformGizmo.SetMode(ETransformGizmoMode::Rotate);
     }
     if (ImGui::GetContentRegionAvail().x > 90.0f) ImGui::SameLine();
-    ImGui::SameLine();
 
     if (ImGui::RadioButton("Scale", CurrentMode == ETransformGizmoMode::Scale))
     {
         TransformGizmo.SetMode(ETransformGizmoMode::Scale);
     }
     if (ImGui::GetContentRegionAvail().x > 90.0f) ImGui::SameLine();
-    CurrentMode = TransformGizmo.GetMode();
 
     ImGui::SameLine();
     ImGui::TextDisabled("|");
@@ -422,7 +419,7 @@ void FViewportPanel::OnRender()
             TransformGizmo.SetCoordinateSpace(ETransformCoordinateSpace::World);
         }
 
-        ImGui::SameLine();
+        if (ImGui::GetContentRegionAvail().x > 80.0f) ImGui::SameLine();
 
         if (ImGui::RadioButton("Local", CurrentSpace == ETransformCoordinateSpace::Local))
         {

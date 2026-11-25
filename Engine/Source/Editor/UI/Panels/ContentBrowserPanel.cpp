@@ -748,7 +748,8 @@ void FContentBrowserPanel::DrawAssetEditor()
 
             if (ID3D11ShaderResourceView* MeshPreview = GetAssetThumbnail(Mesh, true))
             {
-                const float PreviewSide = (std::max)(1.0f, (std::min)(320.0f, ImGui::GetContentRegionAvail().x));
+                const ImVec2 AvailableSize = ImGui::GetContentRegionAvail();
+                const float PreviewSide = (std::max)(1.0f, (std::min)(320.0f, (std::min)(AvailableSize.x, AvailableSize.y - 60.0f)));
                 ImGui::Image((ImTextureID)MeshPreview, ImVec2(PreviewSide, PreviewSide));
             }
         }
@@ -783,7 +784,9 @@ void FContentBrowserPanel::DrawAssetEditor()
 
             if (ID3D11ShaderResourceView* MaterialPreview = GetAssetThumbnail(EditingAsset, true))
             {
-                ImGui::Image((ImTextureID)MaterialPreview, ImVec2(320.0f, 320.0f));
+                const ImVec2 AvailableSize = ImGui::GetContentRegionAvail();
+                const float PreviewSide = (std::max)(1.0f, (std::min)(320.0f, (std::min)(AvailableSize.x, AvailableSize.y - 60.0f)));
+                ImGui::Image((ImTextureID)MaterialPreview, ImVec2(PreviewSide, PreviewSide));
             }
 
             if (ImGui::Button("Save Material"))
@@ -1900,9 +1903,13 @@ void FContentBrowserPanel::OnRender()
                 {
                     if (Texture->IsValid())
                     {
-                        const float LongestSide = static_cast<float>((std::max)(Texture->GetSizeX(), Texture->GetSizeY()));
-                        const float Scale = LongestSide > 0.0f ? (std::min)(1.0f, 220.0f / LongestSide) : 1.0f;
-                        ImGui::Image((ImTextureID)Texture->GetResource().ShaderResourceView, ImVec2(Texture->GetSizeX() * Scale, Texture->GetSizeY() * Scale));
+                        const float TextureWidth = (std::max)(static_cast<float>(Texture->GetSizeX()), 1.0f);
+                        const float TextureHeight = (std::max)(static_cast<float>(Texture->GetSizeY()), 1.0f);
+                        const ImVec2 AvailableSize = ImGui::GetContentRegionAvail();
+                        const float MaxWidth = (std::max)(1.0f, (std::min)(220.0f, AvailableSize.x));
+                        const float MaxHeight = (std::max)(1.0f, (std::min)(220.0f, AvailableSize.y - 40.0f));
+                        const float Scale = (std::min)(1.0f, (std::min)(MaxWidth / TextureWidth, MaxHeight / TextureHeight));
+                        ImGui::Image((ImTextureID)Texture->GetResource().ShaderResourceView, ImVec2(TextureWidth * Scale, TextureHeight * Scale));
                         ImGui::Text("Resolution: %u x %u", Texture->GetSizeX(), Texture->GetSizeY());
                     }
                 }
@@ -1927,7 +1934,12 @@ void FContentBrowserPanel::OnRender()
                     AssetManager->GetReferencers(Material, Referencers);
                     ImGui::Text("Dependencies: %d", Dependencies.Num());
                     ImGui::Text("Referencers: %d", Referencers.Num());
-                    if (ID3D11ShaderResourceView* Thumbnail = GetAssetThumbnail(SelectedAsset, true)) ImGui::Image((ImTextureID)Thumbnail, ImVec2(220.0f, 220.0f));
+                    if (ID3D11ShaderResourceView* Thumbnail = GetAssetThumbnail(SelectedAsset, true))
+                    {
+                        const ImVec2 AvailableSize = ImGui::GetContentRegionAvail();
+                        const float PreviewSide = (std::max)(1.0f, (std::min)(220.0f, (std::min)(AvailableSize.x, AvailableSize.y - 30.0f)));
+                        ImGui::Image((ImTextureID)Thumbnail, ImVec2(PreviewSide, PreviewSide));
+                    }
                     if (ImGui::Button("Open Material Editor"))
                     {
                         EditingAsset = Material;
