@@ -79,6 +79,157 @@ namespace
 
         return false;
     }
+    
+    enum class EContentBrowserIcon : uint8
+    {
+        Folder,
+        StaticMesh,
+        Material,
+        Texture,
+        Preview
+    };
+
+    void DrawContentBrowserIcon(ImDrawList* DrawList, EContentBrowserIcon Icon, const ImVec2& Center, float Size)
+    {
+        if (DrawList == nullptr)
+        {
+            return;
+        }
+
+        ImU32 Color = IM_COL32(210, 210, 210, 255);
+
+        switch (Icon)
+        {
+        case EContentBrowserIcon::Folder:
+            Color = IM_COL32(220, 180, 80, 255);
+            DrawList->AddRectFilled(ImVec2(Center.x - Size * 0.42f, Center.y - Size * 0.25f), ImVec2(Center.x - Size * 0.05f, Center.y - Size * 0.08f), Color, 2.0f);
+            DrawList->AddRectFilled(ImVec2(Center.x - Size * 0.45f, Center.y - Size * 0.12f), ImVec2(Center.x + Size * 0.45f, Center.y + Size * 0.30f), Color, 3.0f);
+            break;
+
+        case EContentBrowserIcon::StaticMesh:
+        {
+            Color = IM_COL32(110, 170, 220, 255);
+
+            const ImVec2 Top(Center.x, Center.y - Size * 0.35f);
+            const ImVec2 Left(Center.x - Size * 0.35f, Center.y - Size * 0.15f);
+            const ImVec2 Right(Center.x + Size * 0.35f, Center.y - Size * 0.15f);
+            const ImVec2 Middle(Center.x, Center.y + Size * 0.05f);
+            const ImVec2 Bottom(Center.x, Center.y + Size * 0.35f);
+            const ImVec2 BottomLeft(Center.x - Size * 0.35f, Center.y + Size * 0.15f);
+            const ImVec2 BottomRight(Center.x + Size * 0.35f, Center.y + Size * 0.15f);
+
+            DrawList->AddLine(Top, Left, Color, 2.0f);
+            DrawList->AddLine(Top, Right, Color, 2.0f);
+            DrawList->AddLine(Left, Middle, Color, 2.0f);
+            DrawList->AddLine(Right, Middle, Color, 2.0f);
+            DrawList->AddLine(Left, BottomLeft, Color, 2.0f);
+            DrawList->AddLine(Right, BottomRight, Color, 2.0f);
+            DrawList->AddLine(Middle, Bottom, Color, 2.0f);
+            DrawList->AddLine(BottomLeft, Bottom, Color, 2.0f);
+            DrawList->AddLine(BottomRight, Bottom, Color, 2.0f);
+            break;
+        }
+
+        case EContentBrowserIcon::Material:
+            Color = IM_COL32(180, 145, 220, 255);
+            DrawList->AddCircleFilled(Center, Size * 0.30f, Color, 24);
+            DrawList->AddCircle(Center, Size * 0.30f, IM_COL32(235, 235, 235, 255), 24, 1.5f);
+            DrawList->AddCircleFilled(ImVec2(Center.x - Size * 0.10f, Center.y - Size * 0.12f), Size * 0.08f, IM_COL32(245, 245, 245, 220), 12);
+            break;
+
+        case EContentBrowserIcon::Texture:
+            Color = IM_COL32(120, 190, 150, 255);
+            DrawList->AddRectFilled(ImVec2(Center.x - Size * 0.38f, Center.y - Size * 0.30f), ImVec2(Center.x + Size * 0.38f, Center.y + Size * 0.30f), IM_COL32(55, 65, 65, 255), 2.0f);
+            DrawList->AddRect(ImVec2(Center.x - Size * 0.38f, Center.y - Size * 0.30f), ImVec2(Center.x + Size * 0.38f, Center.y + Size * 0.30f), Color, 2.0f);
+            DrawList->AddCircleFilled(ImVec2(Center.x + Size * 0.19f, Center.y - Size * 0.12f), Size * 0.07f, IM_COL32(235, 200, 100, 255), 12);
+            DrawList->AddLine(ImVec2(Center.x - Size * 0.30f, Center.y + Size * 0.20f), ImVec2(Center.x - Size * 0.04f, Center.y - Size * 0.04f), Color, 2.0f);
+            DrawList->AddLine(ImVec2(Center.x - Size * 0.04f, Center.y - Size * 0.04f), ImVec2(Center.x + Size * 0.10f, Center.y + Size * 0.12f), Color, 2.0f);
+            DrawList->AddLine(ImVec2(Center.x + Size * 0.10f, Center.y + Size * 0.12f), ImVec2(Center.x + Size * 0.25f, Center.y - Size * 0.02f), Color, 2.0f);
+            break;
+
+        case EContentBrowserIcon::Preview:
+        {
+            Color = IM_COL32(210, 210, 210, 255);
+
+            const ImVec2 Left(Center.x - Size * 0.38f, Center.y);
+            const ImVec2 Top(Center.x, Center.y - Size * 0.22f);
+            const ImVec2 Right(Center.x + Size * 0.38f, Center.y);
+            const ImVec2 Bottom(Center.x, Center.y + Size * 0.22f);
+
+            DrawList->AddLine(Left, Top, Color, 2.0f);
+            DrawList->AddLine(Top, Right, Color, 2.0f);
+            DrawList->AddLine(Right, Bottom, Color, 2.0f);
+            DrawList->AddLine(Bottom, Left, Color, 2.0f);
+            DrawList->AddCircleFilled(Center, Size * 0.10f, Color, 16);
+            break;
+        }
+        }
+    }
+
+    bool DrawContentBrowserTile(const char* Label, EContentBrowserIcon Icon, bool bSelected, const ImVec2& TileSize)
+    {
+        const bool bClicked = ImGui::InvisibleButton("##AssetTile", TileSize);
+        const bool bHovered = ImGui::IsItemHovered();
+
+        const ImVec2 Min = ImGui::GetItemRectMin();
+        const ImVec2 Max = ImGui::GetItemRectMax();
+        ImDrawList* DrawList = ImGui::GetWindowDrawList();
+
+        const ImU32 Background = ImGui::GetColorU32(bSelected ? ImGuiCol_HeaderActive : bHovered ? ImGuiCol_HeaderHovered : ImGuiCol_FrameBg);
+
+        DrawList->AddRectFilled(Min, Max, Background, 5.0f);
+
+        if (bSelected)
+        {
+            DrawList->AddRect(Min, Max, ImGui::GetColorU32(ImGuiCol_HeaderActive), 5.0f, 0, 1.5f);
+        }
+
+        DrawContentBrowserIcon(DrawList, Icon, ImVec2((Min.x + Max.x) * 0.5f, Min.y + 34.0f), 38.0f);
+
+        std::string DisplayLabel = Label != nullptr ? Label : "";
+
+        while (!DisplayLabel.empty() && ImGui::CalcTextSize(DisplayLabel.c_str()).x > TileSize.x - 10.0f)
+        {
+            DisplayLabel.pop_back();
+        }
+
+        if (DisplayLabel != (Label != nullptr ? Label : ""))
+        {
+            DisplayLabel += "...";
+        }
+
+        const ImVec2 TextSize = ImGui::CalcTextSize(DisplayLabel.c_str());
+        const ImVec2 TextPosition(Min.x + (TileSize.x - TextSize.x) * 0.5f, Max.y - 22.0f);
+
+        DrawList->PushClipRect(Min, Max, true);
+        DrawList->AddText(TextPosition, ImGui::GetColorU32(ImGuiCol_Text), DisplayLabel.c_str());
+        DrawList->PopClipRect();
+
+        return bClicked;
+    }
+
+    bool DrawPreviewToggleButton(bool bShowPreview)
+    {
+        ImGui::PushID("PreviewToggle");
+
+        const bool bClicked = ImGui::InvisibleButton("##PreviewButton", ImVec2(30.0f, 26.0f));
+        const ImVec2 Min = ImGui::GetItemRectMin();
+        const ImVec2 Max = ImGui::GetItemRectMax();
+        const bool bHovered = ImGui::IsItemHovered();
+
+        const ImU32 Background = ImGui::GetColorU32(bShowPreview ? ImGuiCol_HeaderActive : bHovered ? ImGuiCol_FrameBgHovered : ImGuiCol_FrameBg);
+
+        ImGui::GetWindowDrawList()->AddRectFilled(Min, Max, Background, 4.0f);
+        DrawContentBrowserIcon(ImGui::GetWindowDrawList(), EContentBrowserIcon::Preview, ImVec2((Min.x + Max.x) * 0.5f, (Min.y + Max.y) * 0.5f), 22.0f);
+
+        if (bHovered)
+        {
+            ImGui::SetTooltip("Toggle Preview");
+        }
+
+        ImGui::PopID();
+        return bClicked;
+    }
 
     void DrawContentFolderTree(const std::string& ParentFolder, const TArray<std::string>& Folders, std::string& CurrentFolder)
     {
@@ -109,10 +260,15 @@ namespace
                 Flags |= ImGuiTreeNodeFlags_DefaultOpen;
             }
 
-            ImGui::PushID(Folder.c_str());
-
             const std::string FolderName = GetFolderName(Folder);
-            const bool bExpanded = ImGui::TreeNodeEx("##Folder", Flags, "%s", FolderName.c_str());
+            const std::string TreeLabel = FolderName + "##" + Folder;
+            const ImVec2 IconPosition = ImGui::GetCursorScreenPos();
+
+            ImGui::Dummy(ImVec2(18.0f, 18.0f));
+            DrawContentBrowserIcon(ImGui::GetWindowDrawList(), EContentBrowserIcon::Folder, ImVec2(IconPosition.x + 9.0f, IconPosition.y + 9.0f), 15.0f);
+            ImGui::SameLine(0.0f, 2.0f);
+
+            const bool bExpanded = ImGui::TreeNodeEx(TreeLabel.c_str(), Flags);
 
             if (ImGui::IsItemClicked())
             {
@@ -124,8 +280,6 @@ namespace
                 DrawContentFolderTree(Folder, Folders, CurrentFolder);
                 ImGui::TreePop();
             }
-
-            ImGui::PopID();
         }
     }
 
@@ -135,6 +289,14 @@ namespace
         if (Cast<UMaterial>(Asset) != nullptr) return "Material";
         if (Cast<UTexture2D>(Asset) != nullptr) return "Texture";
         return "Asset";
+    }
+    
+    EContentBrowserIcon GetAssetIcon(UAsset* Asset)
+    {
+        if (Cast<UStaticMesh>(Asset) != nullptr) return EContentBrowserIcon::StaticMesh;
+        if (Cast<UMaterial>(Asset) != nullptr) return EContentBrowserIcon::Material;
+        if (Cast<UTexture2D>(Asset) != nullptr) return EContentBrowserIcon::Texture;
+        return EContentBrowserIcon::Folder;
     }
     
     UStaticMesh* SelectAndImportOBJ(FAssetManager& AssetManager, URenderer& Renderer)
@@ -230,7 +392,7 @@ namespace
         Renderer.RenderPrimitive(RenderData.VertexBuffer, RenderData.IndexBuffer, RenderData.IndexCount, false, TextureSRV);
         Renderer.EndAssetPreviewRender();
 
-        ImGui::Image((ImTextureID)PreviewSRV, ImVec2(192.0f, 192.0f));
+        ImGui::Image((ImTextureID)PreviewSRV, ImVec2(220.0f, 220.0f));
     }
 
     void DrawSelectedAssetPreview(UAsset* Asset, FAssetManager& AssetManager, URenderer& Renderer)
@@ -239,6 +401,13 @@ namespace
         {
             return;
         }
+
+        const std::string DisplayName = GetAssetDisplayName(Asset->GetAssetPath().ToStd());
+
+        ImGui::Text("Asset Details");
+        ImGui::TextWrapped("Name: %s", DisplayName.c_str());
+        ImGui::Text("Type: %s", GetAssetTypeLabel(Asset));
+        ImGui::TextWrapped("Path: %s", Asset->GetAssetPath().c_str());
 
         ImGui::Separator();
         ImGui::TextDisabled("Preview");
@@ -252,7 +421,7 @@ namespace
             }
 
             const float LongestSide = static_cast<float>((std::max)(Texture->GetSizeX(), Texture->GetSizeY()));
-            const float Scale = LongestSide > 0.0f ? 192.0f / LongestSide : 1.0f;
+            const float Scale = LongestSide > 0.0f ? 220.0f / LongestSide : 1.0f;
             const ImVec2 PreviewSize(Texture->GetSizeX() * Scale, Texture->GetSizeY() * Scale);
 
             ImGui::Image((ImTextureID)Texture->GetResource().ShaderResourceView, PreviewSize);
@@ -353,6 +522,13 @@ void FContentBrowserPanel::OnRender()
     ImGui::SetNextItemWidth(260.0f);
     ImGui::InputTextWithHint("##AssetSearch", "Search Assets...", AssetSearchBuffer, IM_ARRAYSIZE(AssetSearchBuffer));
 
+    ImGui::SameLine();
+
+    if (DrawPreviewToggleButton(bShowPreview))
+    {
+        bShowPreview = !bShowPreview;
+    }
+
     const std::string SearchText = AssetSearchBuffer;
 
     ImGui::Separator();
@@ -411,16 +587,36 @@ void FContentBrowserPanel::OnRender()
 
     FolderPaths.Sort();
 
-    if (ImGui::BeginTable("ContentBrowserLayout", 2, ImGuiTableFlags_Resizable | ImGuiTableFlags_BordersInnerV))
+    const int32 LayoutColumnCount = bShowPreview ? 3 : 2;
+    const char* LayoutID = bShowPreview ? "ContentBrowserLayoutWithPreview" : "ContentBrowserLayoutWithoutPreview";
+
+    if (ImGui::BeginTable(LayoutID, LayoutColumnCount, ImGuiTableFlags_Resizable | ImGuiTableFlags_BordersInnerV))
     {
         ImGui::TableSetupColumn("Sources", ImGuiTableColumnFlags_WidthFixed, 180.0f);
         ImGui::TableSetupColumn("Assets", ImGuiTableColumnFlags_WidthStretch);
+
+        if (bShowPreview)
+        {
+            ImGui::TableSetupColumn("Preview", ImGuiTableColumnFlags_WidthFixed, 260.0f);
+        }
 
         ImGui::TableNextRow();
 
         ImGui::TableSetColumnIndex(0);
 
         ImGui::BeginChild("##ContentSources", ImVec2(0.0f, 0.0f), ImGuiChildFlags_Borders);
+
+        const ImVec2 RootIconPosition = ImGui::GetCursorScreenPos();
+
+        ImGui::Dummy(ImVec2(18.0f, 18.0f));
+
+        if (ImGui::IsItemClicked())
+        {
+            CurrentFolder.clear();
+        }
+
+        DrawContentBrowserIcon(ImGui::GetWindowDrawList(), EContentBrowserIcon::Folder, ImVec2(RootIconPosition.x + 9.0f, RootIconPosition.y + 9.0f), 15.0f);
+        ImGui::SameLine(0.0f, 2.0f);
 
         if (ImGui::Selectable("Root", CurrentFolder.empty(), ImGuiSelectableFlags_SpanAvailWidth))
         {
@@ -474,12 +670,17 @@ void FContentBrowserPanel::OnRender()
                 ImGui::TableNextColumn();
                 ImGui::PushID(Folder.c_str());
 
-                const std::string TileLabel = "[Folder]\n" + FolderName;
+                const ImVec2 TileSize(ImGui::GetContentRegionAvail().x, 88.0f);
 
-                if (ImGui::Selectable(TileLabel.c_str(), false, ImGuiSelectableFlags_None, ImVec2(0.0f, 72.0f)))
+                if (DrawContentBrowserTile(FolderName.c_str(), EContentBrowserIcon::Folder, false, TileSize))
                 {
                     CurrentFolder = Folder;
                     SelectedAsset = nullptr;
+                }
+
+                if (ImGui::IsItemHovered())
+                {
+                    ImGui::SetTooltip("%s", Folder.c_str());
                 }
 
                 ImGui::PopID();
@@ -506,15 +707,15 @@ void FContentBrowserPanel::OnRender()
                 }
 
                 const std::string DisplayName = GetAssetDisplayName(AssetPath);
-                const std::string AssetType = GetAssetTypeLabel(Asset);
-                const std::string TileLabel = "[" + AssetType + "]\n" + DisplayName;
+                const EContentBrowserIcon AssetIcon = GetAssetIcon(Asset);
 
                 ImGui::TableNextColumn();
                 ImGui::PushID(Asset);
 
                 const bool bSelected = SelectedAsset == Asset;
+                const ImVec2 TileSize(ImGui::GetContentRegionAvail().x, 88.0f);
 
-                if (ImGui::Selectable(TileLabel.c_str(), bSelected, ImGuiSelectableFlags_None, ImVec2(0.0f, 72.0f)))
+                if (DrawContentBrowserTile(DisplayName.c_str(), AssetIcon, bSelected, TileSize))
                 {
                     SelectedAsset = Asset;
                 }
@@ -536,16 +737,24 @@ void FContentBrowserPanel::OnRender()
             }
         }
 
-        if (SelectedAsset != nullptr)
-        {
-            ImGui::Separator();
-            ImGui::Text("Selected Asset");
-            ImGui::Text("Type: %s", GetAssetTypeLabel(SelectedAsset));
-            ImGui::TextWrapped("Path: %s", SelectedAsset->GetAssetPath().c_str());
-            DrawSelectedAssetPreview(SelectedAsset, *AssetManager, *Renderer);
-        }
-
         ImGui::EndChild();
+
+        if (bShowPreview)
+        {
+            ImGui::TableSetColumnIndex(2);
+            ImGui::BeginChild("##AssetPreview", ImVec2(0.0f, 0.0f), ImGuiChildFlags_Borders);
+
+            if (SelectedAsset != nullptr)
+            {
+                DrawSelectedAssetPreview(SelectedAsset, *AssetManager, *Renderer);
+            }
+            else
+            {
+                ImGui::TextDisabled("Select an asset to preview.");
+            }
+
+            ImGui::EndChild();
+        }
 
         ImGui::EndTable();
     }

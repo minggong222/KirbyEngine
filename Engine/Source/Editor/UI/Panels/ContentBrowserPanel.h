@@ -29,4 +29,6 @@ private:
 
     std::string CurrentFolder;
     UAsset* SelectedAsset = nullptr;
+    
+    bool bShowPreview = true;
 };
