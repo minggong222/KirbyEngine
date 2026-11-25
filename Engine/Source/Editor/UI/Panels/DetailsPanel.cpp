@@ -448,7 +448,9 @@ static void DrawProperty(FEditorObjectContext* Context, UObject* Object, const F
 
         std::memcpy(Buffer, CurrentValue.c_str(), CopySize);
 
-        const bool bChanged = ImGui::InputText(Label.c_str(), Buffer, sizeof(Buffer));
+        ImGui::TextUnformatted(Label.c_str());
+        ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x);
+        const bool bChanged = ImGui::InputText("##StringValue", Buffer, sizeof(Buffer));
         const FString NewValue(Buffer);
 
         CommitValue(bChanged, &NewValue);

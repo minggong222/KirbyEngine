@@ -138,7 +138,18 @@ void FConsolePanel::OnRender()
     }
 
     ImGui::Separator();
-    Filter.Draw("Filter (\"incl,-excl\") (\"error\")", ImGui::GetContentRegionAvail().x);
+    const float FilterLabelWidth = ImGui::CalcTextSize("Filter").x + ImGui::GetStyle().ItemInnerSpacing.x;
+    const float FilterAvailableWidth = ImGui::GetContentRegionAvail().x;
+
+    if (FilterAvailableWidth >= FilterLabelWidth + 120.0f)
+    {
+        Filter.Draw("Filter", FilterAvailableWidth - FilterLabelWidth);
+    }
+    else
+    {
+        ImGui::TextUnformatted("Filter");
+        Filter.Draw("##ConsoleFilter", ImGui::GetContentRegionAvail().x);
+    }
     ImGui::Separator();
 
     ImGuiStyle& Style = ImGui::GetStyle();
@@ -201,9 +212,9 @@ void FConsolePanel::OnRender()
         ImGuiInputTextFlags_CallbackCompletion |
         ImGuiInputTextFlags_CallbackHistory;
 
-    ImGui::SetNextItemWidth(-1.0f);
+    ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x);
 
-    if (ImGui::InputText("Input", InputBuf, IM_COUNTOF(InputBuf), InputTextFlags, &TextEditCallbackStub, this))
+    if (ImGui::InputTextWithHint("##ConsoleInput", "Enter command...", InputBuf, IM_COUNTOF(InputBuf), InputTextFlags, &TextEditCallbackStub, this))
     {
         Strtrim(InputBuf);
 

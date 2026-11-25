@@ -440,13 +440,26 @@ void FViewportPanel::OnRender()
     if (bSnapEnabled)
     {
         ImGui::Separator();
-        ImGui::SetNextItemWidth(-1.0f);
+
+        const char* SnapLabel = CurrentMode == ETransformGizmoMode::Translate ? "Move Step" : CurrentMode == ETransformGizmoMode::Rotate ? "Rotation Step" : "Scale Step";
+        const float SnapLabelWidth = ImGui::CalcTextSize(SnapLabel).x + ImGui::GetStyle().ItemSpacing.x;
+
+        const float AvailableWidth = ImGui::GetContentRegionAvail().x;
+        const bool bShowLabelInline = AvailableWidth >= SnapLabelWidth + 100.0f;
+
+        ImGui::TextUnformatted(SnapLabel);
+
+        if (bShowLabelInline)
+        {
+            ImGui::SameLine();
+        }
 
         if (CurrentMode == ETransformGizmoMode::Translate)
         {
             float SnapValue = TransformGizmo.GetTranslationSnap();
+            ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x);
 
-            if (ImGui::DragFloat("Move Step", &SnapValue, 0.1f, 0.1f, 100.0f, "%.1f"))
+            if (ImGui::DragFloat("##MoveStep", &SnapValue, 0.1f, 0.1f, 100.0f, "%.1f"))
             {
                 TransformGizmo.SetTranslationSnap(SnapValue);
             }
@@ -454,8 +467,9 @@ void FViewportPanel::OnRender()
         else if (CurrentMode == ETransformGizmoMode::Rotate)
         {
             float SnapValue = TransformGizmo.GetRotationSnap();
+            ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x);
 
-            if (ImGui::DragFloat("Rotation Step", &SnapValue, 1.0f, 1.0f, 90.0f, "%.0f"))
+            if (ImGui::DragFloat("##RotationStep", &SnapValue, 1.0f, 1.0f, 90.0f, "%.0f"))
             {
                 TransformGizmo.SetRotationSnap(SnapValue);
             }
@@ -463,8 +477,9 @@ void FViewportPanel::OnRender()
         else if (CurrentMode == ETransformGizmoMode::Scale)
         {
             float SnapValue = TransformGizmo.GetScaleSnap();
+            ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x);
 
-            if (ImGui::DragFloat("Scale Step", &SnapValue, 0.01f, 0.01f, 10.0f, "%.2f"))
+            if (ImGui::DragFloat("##ScaleStep", &SnapValue, 0.01f, 0.01f, 10.0f, "%.2f"))
             {
                 TransformGizmo.SetScaleSnap(SnapValue);
             }
