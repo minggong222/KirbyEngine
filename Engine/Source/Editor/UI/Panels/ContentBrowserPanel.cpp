@@ -3,6 +3,7 @@
 
 #include "imgui.h"
 #include "imgui_internal.h"
+#include "UI/KirbyEditorTheme.h"
 
 #include "Resources/Asset.h"
 #include "Resources/AssetManager.h"
@@ -220,11 +221,13 @@ namespace
         ImDrawList* DrawList = ImGui::GetWindowDrawList();
         const ImU32 Background = ImGui::GetColorU32(bSelected ? ImGuiCol_HeaderActive : bHovered ? ImGuiCol_HeaderHovered : ImGuiCol_FrameBg);
 
-        DrawList->AddRectFilled(Min, Max, Background, 5.0f);
+        DrawList->AddRectFilled(Min, Max, Background, 11.0f);
 
         if (bSelected)
         {
-            DrawList->AddRect(Min, Max, ImGui::GetColorU32(ImGuiCol_HeaderActive), 5.0f, 0, 1.5f);
+            DrawList->AddRect(Min, Max, KirbyEditorTheme::PinkU32(), 11.0f, 0, 2.0f);
+            DrawList->AddRectFilled(ImVec2(Min.x + 2.0f, Min.y + 10.0f), ImVec2(Min.x + 5.0f, Max.y - 10.0f), KirbyEditorTheme::PinkU32(), 2.0f);
+            KirbyEditorTheme::DrawSparkle(DrawList, ImVec2(Max.x - 13.0f, Min.y + 13.0f), 5.0f, KirbyEditorTheme::GoldU32());
         }
 
         const ImVec2 PreviewMin(Min.x + 8.0f, Min.y + 6.0f);
@@ -267,7 +270,13 @@ namespace
         const ImVec2 Max = ImGui::GetItemRectMax();
         const bool bHovered = ImGui::IsItemHovered();
         const ImU32 Background = ImGui::GetColorU32(bShowPreview ? ImGuiCol_HeaderActive : bHovered ? ImGuiCol_FrameBgHovered : ImGuiCol_FrameBg);
-        ImGui::GetWindowDrawList()->AddRectFilled(Min, Max, Background, 4.0f);
+        ImGui::GetWindowDrawList()->AddRectFilled(Min, Max, Background, 8.0f);
+
+        if (bShowPreview)
+        {
+            ImGui::GetWindowDrawList()->AddRect(Min, Max, KirbyEditorTheme::PinkU32(), 8.0f, 0, 1.5f);
+            KirbyEditorTheme::DrawSparkle(ImGui::GetWindowDrawList(), ImVec2(Max.x - 5.0f, Min.y + 5.0f), 3.0f, KirbyEditorTheme::GoldU32());
+        }
         DrawContentBrowserIcon(ImGui::GetWindowDrawList(), EContentBrowserIcon::Preview, ImVec2((Min.x + Max.x) * 0.5f, (Min.y + Max.y) * 0.5f), 22.0f);
 
         if (bHovered)

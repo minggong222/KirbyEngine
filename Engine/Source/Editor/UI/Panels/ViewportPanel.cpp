@@ -1,7 +1,7 @@
 #include "ViewportPanel.h"
 
 #include "imgui.h"
-
+#include "UI/KirbyEditorTheme.h"
 #include "EditorSettings.h"
 #include "EditorUndoManager.h"
 #include "TextureAssetImporter.h"
@@ -616,21 +616,28 @@ void FViewportPanel::OnRender()
 
             if (bFourViewports)
             {
-                const ImU32 SplitterColor = IM_COL32(110, 110, 110, 255);
-                const ImU32 SplitterActiveColor = IM_COL32(230, 180, 70, 255);
+                const ImU32 SplitterColor = KirbyEditorTheme::PinkU32();
+                const ImU32 SplitterActiveColor = KirbyEditorTheme::GoldU32();
 
                 const ImU32 VerticalColor = bDraggingVerticalSplitter ? SplitterActiveColor : SplitterColor;
                 const ImU32 HorizontalColor = bDraggingHorizontalSplitter ? SplitterActiveColor : SplitterColor;
 
                 DrawList->AddRectFilled(ImVec2(SplitterX - 2.0f, ImageMin.y), ImVec2(SplitterX + 2.0f, ImageMax.y), VerticalColor);
                 DrawList->AddRectFilled(ImVec2(ImageMin.x, SplitterY - 2.0f), ImVec2(ImageMax.x, SplitterY + 2.0f), HorizontalColor);
+                KirbyEditorTheme::DrawSparkle(DrawList, ImVec2(SplitterX, SplitterY), 6.0f, KirbyEditorTheme::GoldU32());
             }
 
             if (Viewports != nullptr)
             {
                 const char* ActivePaneName = GetViewportTypeName(Viewports[ActiveViewportIndex].Type);
+                const ImVec2 LabelSize = ImGui::CalcTextSize(ActivePaneName);
+                const ImVec2 LabelMin(ActivePaneMin.x + 8.0f, ActivePaneMin.y + 8.0f);
+                const ImVec2 LabelMax(LabelMin.x + LabelSize.x + 24.0f, LabelMin.y + LabelSize.y + 8.0f);
 
-                DrawList->AddText(ImVec2(ActivePaneMin.x + 8.0f, ActivePaneMin.y + 8.0f), IM_COL32(255, 255, 255, 220), ActivePaneName);
+                DrawList->AddRectFilled(LabelMin, LabelMax, KirbyEditorTheme::BadgeBackgroundU32(), 7.0f);
+                DrawList->AddRect(LabelMin, LabelMax, KirbyEditorTheme::BorderU32(), 7.0f, 0, 1.0f);
+                KirbyEditorTheme::DrawSparkle(DrawList, ImVec2(LabelMin.x + 8.0f, (LabelMin.y + LabelMax.y) * 0.5f), 4.0f, KirbyEditorTheme::GoldU32());
+                DrawList->AddText(ImVec2(LabelMin.x + 17.0f, LabelMin.y + 4.0f), KirbyEditorTheme::CreamU32(), ActivePaneName);
             }
 
             if (bActivePaneHovered && !bClickedSplitter && !bDraggingVerticalSplitter && !bDraggingHorizontalSplitter && ObjectContext != nullptr && Viewports != nullptr)

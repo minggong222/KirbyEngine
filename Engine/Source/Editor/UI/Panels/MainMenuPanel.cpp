@@ -7,6 +7,7 @@
 #include "Components/CameraComponent.h"
 #include "EditorUndoManager.h"
 #include "UI/PanelManager.h"
+#include "UI/KirbyEditorTheme.h"
 
 #include "imgui.h"
 
@@ -111,6 +112,25 @@ void FMainMenuPanel::OnRender()
 {
     if (ImGui::BeginMainMenuBar())
     {
+        ImDrawList* DrawList = ImGui::GetWindowDrawList();
+
+        ImGui::PushStyleColor(ImGuiCol_Text, KirbyEditorTheme::PinkText());
+        ImGui::TextUnformatted("KIRBY");
+
+        const ImVec2 BrandMin = ImGui::GetItemRectMin();
+        const ImVec2 BrandMax = ImGui::GetItemRectMax();
+
+        KirbyEditorTheme::DrawPuffBadge(DrawList, ImVec2(BrandMax.x + 11.0f, (BrandMin.y + BrandMax.y) * 0.5f), 8.0f);
+        ImGui::PopStyleColor();
+
+        ImGui::SameLine(0.0f, 22.0f);
+
+        ImGui::PushStyleColor(ImGuiCol_Text, KirbyEditorTheme::CreamText());
+        ImGui::TextUnformatted("ENGINE");
+        ImGui::PopStyleColor();
+
+        ImGui::SameLine(0.0f, 20.0f);
+
         if (ImGui::BeginMenu("File"))
         {
             if (ImGui::MenuItem("Open Scene...", "Ctrl+O"))
@@ -172,12 +192,22 @@ void FMainMenuPanel::OnRender()
     {
         FEditorUndoManager* UndoManager = Context != nullptr ? Context->UndoManager : nullptr;
 
+        ImGui::PushStyleColor(ImGuiCol_Button, KirbyEditorTheme::PrimaryButton());
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, KirbyEditorTheme::PrimaryButtonHovered());
+        ImGui::PushStyleColor(ImGuiCol_ButtonActive, KirbyEditorTheme::PrimaryButtonActive());
+
         if (ImGui::Button("Save"))
         {
             SaveScene(false);
         }
 
+        ImGui::PopStyleColor(3);
+
         ImGui::SameLine();
+
+        ImGui::PushStyleColor(ImGuiCol_Button, KirbyEditorTheme::BlueButton());
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, KirbyEditorTheme::BlueButtonHovered());
+        ImGui::PushStyleColor(ImGuiCol_ButtonActive, KirbyEditorTheme::BlueButtonActive());
 
         ImGui::BeginDisabled(UndoManager == nullptr || !UndoManager->CanUndo());
 
@@ -198,6 +228,8 @@ void FMainMenuPanel::OnRender()
         }
 
         ImGui::EndDisabled();
+
+        ImGui::PopStyleColor(3);
 
         ImGui::End();
     }

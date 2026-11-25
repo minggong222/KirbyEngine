@@ -1,4 +1,5 @@
 ﻿#include "ConsolePanel.h"
+#include "UI/KirbyEditorTheme.h"
 
 #include "imgui.h"
 #include "Core/Logging/Log.h"
@@ -503,23 +504,23 @@ void FConsolePanel::AddLog(ELogVerbosity Verbosity, const char* Format, ...)
     switch (Verbosity)
     {
     case ELogVerbosity::Info:
-        Color = ImVec4(0.0f, 1.0f, 0.0f, 1.0f);
+        Color = ImVec4(0.57f, 0.91f, 0.75f, 1.0f);
         break;
 
     case ELogVerbosity::Error:
-        Color = ImVec4(1.0f, 1.0f, 0.0f, 1.0f);
+        Color = ImVec4(1.0f, 0.39f, 0.55f, 1.0f);
         break;
 
     case ELogVerbosity::Warning:
-        Color = ImVec4(1.0f, 0.0f, 0.0f, 1.0f);
+        Color = ImVec4(1.0f, 0.79f, 0.38f, 1.0f);
         break;
 
     case ELogVerbosity::Input:
-        Color = ImVec4(1.0f, 1.0f, 1.0f, 1.0f);
+        Color = ImVec4(0.52f, 0.80f, 0.98f, 1.0f);
         break;
 
     default:
-        Color = ImVec4(1.0f, 1.0f, 1.0f, 1.0f);
+        Color = ImVec4(0.95f, 0.90f, 0.96f, 1.0f);
         break;
     }
 

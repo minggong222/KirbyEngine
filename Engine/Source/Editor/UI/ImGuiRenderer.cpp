@@ -1,4 +1,5 @@
 ﻿#include "ImGuiRenderer.h"
+#include "UI/KirbyEditorTheme.h"
 
 #include "imgui.h"
 #include "imgui_impl_dx11.h"
@@ -18,8 +19,8 @@ bool FImGuiRenderer::Init(HWND Hwnd, ID3D11Device* Device, ID3D11DeviceContext* 
     ImGui::CreateContext();
     bContextCreated = true;
 
-    ImGuiStyle& Style = ImGui::GetStyle();
-    Style.WindowMinSize = ImVec2(230.0f, 180.0f);
+    KirbyEditorTheme::Apply();
+    ImGui::GetStyle().WindowMinSize = ImVec2(230.0f, 180.0f);
 
     ImGuiIO& IO = ImGui::GetIO();
     IO.ConfigFlags |= ImGuiConfigFlags_DockingEnable;

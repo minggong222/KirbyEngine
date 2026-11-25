@@ -5,6 +5,7 @@
 
 #include "UObject/Class.h"
 #include "EditorUndoManager.h"
+#include "UI/KirbyEditorTheme.h"
 
 #include "Components/StaticMeshComponent.h"
 #include "Components/SceneComponent.h"
@@ -635,12 +636,18 @@ void FDetailsPanel::OnRender()
         ImGui::EndPopup();
     }
 
-    const float ComponentButtonWidth = (ImGui::GetContentRegionAvail().x - ImGui::GetStyle().ItemSpacing.x) * 0.5f;
+    const float ComponentButtonWidth = (std::min)(96.0f, (ImGui::GetContentRegionAvail().x - ImGui::GetStyle().ItemSpacing.x) * 0.5f);
+
+    ImGui::PushStyleColor(ImGuiCol_Button, KirbyEditorTheme::PrimaryButton());
+    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, KirbyEditorTheme::PrimaryButtonHovered());
+    ImGui::PushStyleColor(ImGuiCol_ButtonActive, KirbyEditorTheme::PrimaryButtonActive());
 
     if (ImGui::Button("Add", ImVec2(ComponentButtonWidth, 0.0f)))
     {
         ImGui::OpenPopup("AddComponentMenu");
     }
+
+    ImGui::PopStyleColor(3);
 
     if (ImGui::IsItemHovered())
     {
@@ -651,8 +658,12 @@ void FDetailsPanel::OnRender()
 
     const bool bCanRemoveSelectedComponent = Context->SelectedComponent != nullptr && Context->SelectedComponent != SelectedActor->GetRootComponent();
 
+    ImGui::PushStyleColor(ImGuiCol_Button, KirbyEditorTheme::PrimaryButton());
+    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, KirbyEditorTheme::PrimaryButtonHovered());
+    ImGui::PushStyleColor(ImGuiCol_ButtonActive, KirbyEditorTheme::PrimaryButtonActive());
+    
     ImGui::BeginDisabled(!bCanRemoveSelectedComponent);
-
+    
     if (ImGui::Button("Remove", ImVec2(ComponentButtonWidth, 0.0f)) && Context->SelectedComponent != nullptr)
     {
         UActorComponent* ComponentToRemove = Context->SelectedComponent;
@@ -666,6 +677,8 @@ void FDetailsPanel::OnRender()
         SelectedActor->DestroyComponent(ComponentToRemove);
     }
 
+    ImGui::PopStyleColor(3);
+    
     ImGui::EndDisabled();
 
     if (ImGui::IsItemHovered())
@@ -673,8 +686,7 @@ void FDetailsPanel::OnRender()
         ImGui::SetTooltip("Remove Component");
     }
 
-    ImGui::Separator();
-    ImGui::Text("Components");
+    ImGui::SeparatorText("COMPONENTS");
 
     const float AvailableHeight = ImGui::GetContentRegionAvail().y;
     const float ComponentsHeight = (std::min)(130.0f, (std::max)(60.0f, AvailableHeight * 0.32f));
@@ -755,7 +767,7 @@ void FDetailsPanel::OnRender()
         DrawStaticMeshSettings(Context, AssetManager, Component);
     }
 
-    ImGui::Separator();
+    ImGui::SeparatorText("PROPERTIES");
 
     TArray<const FProperty*> Properties;
     ObjectClass->GetProperties(Properties, true);

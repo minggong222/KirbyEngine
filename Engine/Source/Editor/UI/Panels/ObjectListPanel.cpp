@@ -4,7 +4,7 @@
 
 #include "Resources/StaticMesh.h"
 #include "Resources/PrimitiveMeshAssets.h"
-
+#include "UI/KirbyEditorTheme.h"
 #include "Components/StaticMeshComponent.h"
 #include "Components/CameraComponent.h"
 #include "Resources/AssetManager.h"
@@ -354,9 +354,21 @@ void FObjectListPanel::OnRender()
 
             ImGui::PushID(Actor);
 
-            if (ImGui::Selectable(ActorName.c_str(), Context->SelectedActor == Actor))
+            const bool bSelected = Context->SelectedActor == Actor;
+
+            if (ImGui::Selectable(ActorName.c_str(), bSelected))
             {
                 Context->SelectActor(Actor);
+            }
+
+            if (bSelected)
+            {
+                const ImVec2 ItemMin = ImGui::GetItemRectMin();
+                const ImVec2 ItemMax = ImGui::GetItemRectMax();
+
+                ImGui::GetWindowDrawList()->AddRectFilled(ImVec2(ItemMin.x + 2.0f, ItemMin.y + 4.0f), ImVec2(ItemMin.x + 5.0f, ItemMax.y - 4.0f), KirbyEditorTheme::PinkU32(), 2.0f);
+
+                KirbyEditorTheme::DrawSparkle(ImGui::GetWindowDrawList(), ImVec2(ItemMax.x - 12.0f, (ItemMin.y + ItemMax.y) * 0.5f), 4.0f, KirbyEditorTheme::GoldU32());
             }
 
             if (ImGui::IsItemHovered())
