@@ -88,36 +88,37 @@ namespace
 
     FStaticMeshBuildData CreateSphereMeshData()
     {
-        constexpr int32 NumStacks = 20;
-        constexpr int32 RowSize = NumSlices + 1;
+        constexpr int32 SphereSlices = 64;
+        constexpr int32 SphereStacks = 40;
+        constexpr int32 RowSize = SphereSlices + 1;
 
         FStaticMeshBuildData Data;
-        Data.Vertices.Reserve((NumStacks + 1) * RowSize);
-        Data.Indices.Reserve(2280);
+        Data.Vertices.Reserve((SphereStacks + 1) * RowSize);
+        Data.Indices.Reserve(SphereSlices * (SphereStacks * 2 - 2) * 3);
 
-        for (int32 Stack = 0; Stack <= NumStacks; ++Stack)
+        for (int32 Stack = 0; Stack <= SphereStacks; ++Stack)
         {
-            const float Phi = PI * static_cast<float>(Stack) / static_cast<float>(NumStacks);
+            const float Phi = PI * static_cast<float>(Stack) / static_cast<float>(SphereStacks);
 
-            for (int32 Slice = 0; Slice <= NumSlices; ++Slice)
+            for (int32 Slice = 0; Slice <= SphereSlices; ++Slice)
             {
-                const float Theta = 2.0f * PI * static_cast<float>(Slice) / static_cast<float>(NumSlices);
+                const float Theta = 2.0f * PI * static_cast<float>(Slice) / static_cast<float>(SphereSlices);
                 const float SinPhi = std::sin(Phi);
 
                 const float X = SinPhi * std::cos(Theta);
                 const float Y = std::cos(Phi);
                 const float Z = SinPhi * std::sin(Theta);
 
-                const float U = static_cast<float>(Slice) / static_cast<float>(NumSlices);
-                const float V = static_cast<float>(Stack) / static_cast<float>(NumStacks);
+                const float U = static_cast<float>(Slice) / static_cast<float>(SphereSlices);
+                const float V = static_cast<float>(Stack) / static_cast<float>(SphereStacks);
 
-                Data.Vertices.Add({X, Y, Z, 1.0f, 1.0f, 1.0f, 1.0f, U, V});
+                Data.Vertices.Add({X, Y, Z, 1.0f, 1.0f, 1.0f, 1.0f, U, V, X, Y, Z});
             }
         }
 
-        for (int32 Stack = 0; Stack < NumStacks; ++Stack)
+        for (int32 Stack = 0; Stack < SphereStacks; ++Stack)
         {
-            for (int32 Slice = 0; Slice < NumSlices; ++Slice)
+            for (int32 Slice = 0; Slice < SphereSlices; ++Slice)
             {
                 const uint32 V00 = static_cast<uint32>(Stack * RowSize + Slice);
                 const uint32 V01 = static_cast<uint32>(Stack * RowSize + Slice + 1);
@@ -130,7 +131,7 @@ namespace
                     Data.Indices.Add(V11);
                     Data.Indices.Add(V10);
                 }
-                else if (Stack == NumStacks - 1)
+                else if (Stack == SphereStacks - 1)
                 {
                     Data.Indices.Add(V00);
                     Data.Indices.Add(V01);
@@ -149,6 +150,7 @@ namespace
             }
         }
 
+        Data.bHasVertexNormals = true;
         return Data;
     }
 
