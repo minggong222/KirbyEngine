@@ -718,7 +718,10 @@ void FContentBrowserPanel::DrawAssetEditor()
             if (Texture->IsValid())
             {
                 const float LongestSide = static_cast<float>((std::max)(Texture->GetSizeX(), Texture->GetSizeY()));
-                const float Scale = LongestSide > 0.0f ? (std::min)(1.0f, 640.0f / LongestSide) : 1.0f;
+                const ImVec2 AvailablePreviewSize = ImGui::GetContentRegionAvail();
+                const float MaxPreviewWidth = (std::max)(1.0f, AvailablePreviewSize.x);
+                const float MaxPreviewHeight = (std::max)(1.0f, AvailablePreviewSize.y - 60.0f);
+                const float Scale = LongestSide > 0.0f ? (std::min)(1.0f, (std::min)(MaxPreviewWidth / Texture->GetSizeX(), MaxPreviewHeight / Texture->GetSizeY())) : 1.0f;
                 ImGui::Image((ImTextureID)Texture->GetResource().ShaderResourceView, ImVec2(Texture->GetSizeX() * Scale, Texture->GetSizeY() * Scale));
                 ImGui::Text("Resolution: %u x %u", Texture->GetSizeX(), Texture->GetSizeY());
                 if (ImGui::Button("Reload Texture From File"))
@@ -745,7 +748,8 @@ void FContentBrowserPanel::DrawAssetEditor()
 
             if (ID3D11ShaderResourceView* MeshPreview = GetAssetThumbnail(Mesh, true))
             {
-                ImGui::Image((ImTextureID)MeshPreview, ImVec2(320.0f, 320.0f));
+                const float PreviewSide = (std::max)(1.0f, (std::min)(320.0f, ImGui::GetContentRegionAvail().x));
+                ImGui::Image((ImTextureID)MeshPreview, ImVec2(PreviewSide, PreviewSide));
             }
         }
         else if (UMaterial* Material = Cast<UMaterial>(EditingAsset))
@@ -1491,7 +1495,7 @@ void FContentBrowserPanel::OnRender()
         ImGui::EndPopup();
     }
 
-    ImGui::SameLine();
+    if (ImGui::GetContentRegionAvail().x > 300.0f) ImGui::SameLine();
 
     if (ImGui::Button("New Folder"))
     {
@@ -1499,16 +1503,27 @@ void FContentBrowserPanel::OnRender()
         bRequestNewFolderPopup = true;
     }
 
-    ImGui::SameLine();
+    if (ImGui::GetContentRegionAvail().x > 180.0f) ImGui::SameLine();
 
     if (ImGui::Button("Refresh")) bRequestRefresh = true;
 
-    ImGui::SameLine();
-    ImGui::SetNextItemWidth(240.0f);
-    ImGui::InputTextWithHint("##AssetSearch", "Search Assets...", AssetSearchBuffer, IM_ARRAYSIZE(AssetSearchBuffer));
+    if (ImGui::GetContentRegionAvail().x > 260.0f) ImGui::SameLine();
 
-    ImGui::SameLine();
-    if (DrawPreviewToggleButton(bShowPreview)) bShowPreview = !bShowPreview;
+    const float SearchRowWidth = ImGui::GetContentRegionAvail().x;
+
+    if (SearchRowWidth >= 140.0f)
+    {
+        ImGui::SetNextItemWidth(SearchRowWidth - 38.0f);
+        ImGui::InputTextWithHint("##AssetSearch", "Search Assets...", AssetSearchBuffer, IM_ARRAYSIZE(AssetSearchBuffer));
+        ImGui::SameLine();
+        if (DrawPreviewToggleButton(bShowPreview)) bShowPreview = !bShowPreview;
+    }
+    else
+    {
+        ImGui::SetNextItemWidth(-1.0f);
+        ImGui::InputTextWithHint("##AssetSearch", "Search Assets...", AssetSearchBuffer, IM_ARRAYSIZE(AssetSearchBuffer));
+        if (DrawPreviewToggleButton(bShowPreview)) bShowPreview = !bShowPreview;
+    }
 
     if (bRequestRefresh) RefreshContent();
 
@@ -1554,14 +1569,19 @@ void FContentBrowserPanel::OnRender()
     CollectContentFolders(FolderPaths);
     const std::string SearchText = AssetSearchBuffer;
 
-    const int32 LayoutColumnCount = bShowPreview ? 3 : 2;
-    const char* LayoutID = bShowPreview ? "ContentBrowserLayoutWithPreview" : "ContentBrowserLayoutWithoutPreview";
+    const float BrowserContentWidth = ImGui::GetContentRegionAvail().x;
+    const bool bDrawPreview = bShowPreview && BrowserContentWidth >= 600.0f;
+    const float SourcesColumnWidth = std::clamp(BrowserContentWidth * 0.22f, 100.0f, 180.0f);
+    const float PreviewColumnWidth = std::clamp(BrowserContentWidth * 0.28f, 150.0f, 270.0f);
+
+    const int32 LayoutColumnCount = bDrawPreview ? 3 : 2;
+    const char* LayoutID = bDrawPreview ? "ContentBrowserLayoutWithPreview" : "ContentBrowserLayoutWithoutPreview";
 
     if (ImGui::BeginTable(LayoutID, LayoutColumnCount, ImGuiTableFlags_Resizable | ImGuiTableFlags_BordersInnerV))
     {
-        ImGui::TableSetupColumn("Sources", ImGuiTableColumnFlags_WidthFixed, 180.0f);
+        ImGui::TableSetupColumn("Sources", ImGuiTableColumnFlags_WidthFixed, SourcesColumnWidth);
         ImGui::TableSetupColumn("Assets", ImGuiTableColumnFlags_WidthStretch);
-        if (bShowPreview) ImGui::TableSetupColumn("Preview", ImGuiTableColumnFlags_WidthFixed, 270.0f);
+        if (bDrawPreview) ImGui::TableSetupColumn("Preview", ImGuiTableColumnFlags_WidthFixed, PreviewColumnWidth);
         ImGui::TableNextRow();
 
         ImGui::TableSetColumnIndex(0);
@@ -1891,7 +1911,11 @@ void FContentBrowserPanel::OnRender()
                     const FStaticMeshRenderData& Data = Mesh->GetRenderData();
                     ImGui::Text("Vertices: %u", Data.VertexCount);
                     ImGui::Text("Indices: %u", Data.IndexCount);
-                    if (ID3D11ShaderResourceView* SRV = GetAssetThumbnail(SelectedAsset, true)) ImGui::Image((ImTextureID)SRV, ImVec2(220.0f, 220.0f));
+                    if (ID3D11ShaderResourceView* SRV = GetAssetThumbnail(SelectedAsset, true))
+                    {
+                        const float PreviewSide = (std::max)(1.0f, (std::min)(220.0f, ImGui::GetContentRegionAvail().x));
+                        ImGui::Image((ImTextureID)SRV, ImVec2(PreviewSide, PreviewSide));
+                    }
                 }
                 else if (UMaterial* Material = Cast<UMaterial>(SelectedAsset))
                 {

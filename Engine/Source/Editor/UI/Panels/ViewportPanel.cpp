@@ -307,7 +307,7 @@ void FViewportPanel::OnRender()
             ImGui::EndCombo();
         }
 
-        ImGui::SameLine();
+        if (ImGui::GetContentRegionAvail().x > 140.0f) ImGui::SameLine();
 
         if (ImGui::Button("Show"))
         {
@@ -384,9 +384,7 @@ void FViewportPanel::OnRender()
         ImGui::Checkbox("Four Views", &EditorSettings->bFourViewports);
     }
 
-    ImGui::SameLine();
-    ImGui::TextDisabled("|");
-    ImGui::SameLine();
+    ImGui::Separator();
 
     ETransformGizmoMode CurrentMode = TransformGizmo.GetMode();
 
@@ -394,21 +392,21 @@ void FViewportPanel::OnRender()
     {
         TransformGizmo.SetMode(ETransformGizmoMode::Translate);
     }
-
+    if (ImGui::GetContentRegionAvail().x > 90.0f) ImGui::SameLine();
     ImGui::SameLine();
 
     if (ImGui::RadioButton("Rotate", CurrentMode == ETransformGizmoMode::Rotate))
     {
         TransformGizmo.SetMode(ETransformGizmoMode::Rotate);
     }
-
+    if (ImGui::GetContentRegionAvail().x > 90.0f) ImGui::SameLine();
     ImGui::SameLine();
 
     if (ImGui::RadioButton("Scale", CurrentMode == ETransformGizmoMode::Scale))
     {
         TransformGizmo.SetMode(ETransformGizmoMode::Scale);
     }
-
+    if (ImGui::GetContentRegionAvail().x > 90.0f) ImGui::SameLine();
     CurrentMode = TransformGizmo.GetMode();
 
     ImGui::SameLine();
@@ -449,7 +447,8 @@ void FViewportPanel::OnRender()
 
     if (bSnapEnabled)
     {
-        ImGui::SameLine();
+        ImGui::Separator();
+        ImGui::SetNextItemWidth(-1.0f);
 
         if (CurrentMode == ETransformGizmoMode::Translate)
         {

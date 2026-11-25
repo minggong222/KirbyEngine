@@ -627,6 +627,10 @@ void FDetailsPanel::OnRender()
     ImGui::Separator();
     ImGui::Text("Components");
 
+    const float ComponentsHeight = (std::min)(150.0f, ImGui::GetContentRegionAvail().y * 0.28f);
+
+    ImGui::BeginChild("##ComponentHierarchy", ImVec2(0.0f, ComponentsHeight), ImGuiChildFlags_Borders);
+
     USceneComponent* RootComponent = SelectedActor->GetRootComponent();
 
     if (RootComponent != nullptr)
@@ -666,13 +670,18 @@ void FDetailsPanel::OnRender()
         ImGui::PopID();
     }
 
+    ImGui::EndChild();
+
     ImGui::Separator();
+
+    ImGui::BeginChild("##ComponentProperties", ImVec2(0.0f, 0.0f), ImGuiChildFlags_Borders);
 
     UObject* SelectedObject = Context->SelectedComponent != nullptr ? Context->SelectedComponent : SelectedActor->GetRootComponent();
 
     if (SelectedObject == nullptr)
     {
         ImGui::TextDisabled("No Component selected.");
+        ImGui::EndChild();
         ImGui::End();
         SetOpen(bIsOpen);
         return;
@@ -733,6 +742,7 @@ void FDetailsPanel::OnRender()
         }
     }
 
+    ImGui::EndChild();
     ImGui::End();
     SetOpen(bIsOpen);
 }

@@ -126,9 +126,9 @@ void FStatsPanel::OnRender()
     const uint64 AllocationCount = FEngineStatics::GetTotalAllocationCount();
     const double AllocationMB = static_cast<double>(AllocationBytes) / (1024.0 * 1024.0);
 
-    ImGui::Text("Tracked C++ Heap: %.2f MB", AllocationMB);
-    ImGui::Text("Tracked Allocations: %llu", static_cast<unsigned long long>(AllocationCount));
-    ImGui::Text("Tracked Bytes: %llu", static_cast<unsigned long long>(AllocationBytes));
+    ImGui::TextWrapped("Tracked C++ Heap: %.2f MB", AllocationMB);
+    ImGui::TextWrapped("Tracked Allocations: %llu", static_cast<unsigned long long>(AllocationCount));
+    ImGui::TextWrapped("Tracked Bytes: %llu", static_cast<unsigned long long>(AllocationBytes));
 
     ImGui::Separator();
 

@@ -62,7 +62,6 @@ bool FTextRenderer::Initialize(const wchar_t* FontFace, int32 InFontHeight)
 
         if (!GetGlyph(Character, Glyph))
         {
-            UE_LOG(Error, "[TextRenderer] Glyph preload failed. CharacterCode=%u Character=0x%02X", Character, Character);
             Shutdown();
             return false;
         }
@@ -170,13 +169,12 @@ bool FTextRenderer::GetGlyph(uint32 Character, FTextGlyph& OutGlyph)
 
     if (BitmapSize == GDI_ERROR)
     {
-        UE_LOG(Error, "[TextRenderer] GetGlyphOutlineW size query failed. CharacterCode=%u", Character);
-
         if (Character != static_cast<uint32>(L'?'))
         {
             return GetGlyph(static_cast<uint32>(L'?'), OutGlyph);
         }
 
+        UE_LOG(Error, "[TextRenderer] GetGlyphOutlineW failed for fallback glyph.");
         return false;
     }
 

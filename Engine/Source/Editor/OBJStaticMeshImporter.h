@@ -786,7 +786,8 @@ namespace OBJImporter
 
         uint32 CurrentMaterialIndex = (std::numeric_limits<uint32>::max)();
         uint32 FaceIndex = 0;
-
+        uint32 SkippedDegenerateFaceCount = 0;
+        
         for (const FObjRawFace& Face : RawData.Faces)
         {
             
@@ -819,7 +820,7 @@ namespace OBJImporter
 
             if (!bHasValidFaceNormal)
             {
-                UE_LOG(Warning, "[OBJ Import] Skipping degenerate face: Index=%u, VertexCount=%zu", FaceIndex, Face.Vertices.size());
+                ++SkippedDegenerateFaceCount;
                 ++FaceIndex;
                 continue;
             }
@@ -937,6 +938,11 @@ namespace OBJImporter
             ++FaceIndex;
         }
 
+        if (SkippedDegenerateFaceCount > 0)
+        {
+            UE_LOG(Warning, "[OBJ Import] Skipped %u degenerate faces.", SkippedDegenerateFaceCount);
+        }
+        
         MeshData.bHasVertexNormals = true;
 
         return !MeshData.Vertices.IsEmpty() &&
@@ -1420,7 +1426,6 @@ namespace OBJImporter
             return false;
         }
 
-        UE_LOG(Info, "[OBJ Import] Geometry built: Vertices=%d, Indices=%d, Sections=%d", OutCookedData.MeshData.Vertices.Num(), OutCookedData.MeshData.Indices.Num(), OutCookedData.MeshData.Sections.Num());
         return true;
     }
 
@@ -1614,9 +1619,6 @@ namespace OBJImporter
             return nullptr;
         }
 
-        UE_LOG(Info, "[OBJ Import] WorkingDirectory: %s", PathToUTF8(WorkingDirectory).c_str());
-        UE_LOG(Info, "[OBJ Import] SourcePath: %s", PathToUTF8(SourcePath).c_str());
-
         FileSystemError.clear();
 
         if (!std::filesystem::is_regular_file(SourcePath, FileSystemError) || FileSystemError)
@@ -1632,8 +1634,6 @@ namespace OBJImporter
             UE_LOG(Error, "[OBJ Import] ParseRawOBJ failed: %s", PathToUTF8(SourcePath).c_str());
             return nullptr;
         }
-
-        UE_LOG(Info, "[OBJ Import] Parsed: Positions=%zu, Faces=%zu, Materials=%zu", RawData.Positions.size(), RawData.Faces.size(), RawData.Materials.size());
 
         const std::filesystem::path AbsoluteSourcePath = std::filesystem::absolute(SourcePath, FileSystemError);
 

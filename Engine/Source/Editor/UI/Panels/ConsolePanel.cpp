@@ -113,25 +113,6 @@ void FConsolePanel::OnRender()
         return;
     }
 
-    ImGui::TextWrapped("This example implements a console with basic coloring, completion (TAB key) and history (Up/Down keys).");
-    ImGui::TextWrapped("Enter 'HELP' for help.");
-
-    if (ImGui::SmallButton("Add Debug Text"))
-    {
-        AddLog(ELogVerbosity::Info, "%d some text", Items.Num());
-        AddLog(ELogVerbosity::Info, "some more text");
-        AddLog(ELogVerbosity::Info, "display very important message here!");
-    }
-
-    ImGui::SameLine();
-
-    if (ImGui::SmallButton("Add Debug Error"))
-    {
-        AddLog(ELogVerbosity::Error, "[error] something went wrong");
-    }
-
-    ImGui::SameLine();
-
     if (ImGui::SmallButton("Clear"))
     {
         ClearLog();
@@ -156,14 +137,14 @@ void FConsolePanel::OnRender()
         ImGui::OpenPopup("Options");
     }
 
-    ImGui::SameLine();
-    Filter.Draw("Filter (\"incl,-excl\") (\"error\")", 180.0f);
+    ImGui::Separator();
+    Filter.Draw("Filter (\"incl,-excl\") (\"error\")", ImGui::GetContentRegionAvail().x);
     ImGui::Separator();
 
     ImGuiStyle& Style = ImGui::GetStyle();
     const float FooterHeightToReserve = Style.SeparatorSize + Style.ItemSpacing.y + ImGui::GetFrameHeightWithSpacing();
 
-    if (ImGui::BeginChild("ScrollingRegion", ImVec2(0.0f, -FooterHeightToReserve), ImGuiChildFlags_NavFlattened, ImGuiWindowFlags_HorizontalScrollbar))
+    if (ImGui::BeginChild("ScrollingRegion", ImVec2(0.0f, -FooterHeightToReserve), ImGuiChildFlags_NavFlattened))
     {
         if (ImGui::BeginPopupContextWindow())
         {
@@ -190,7 +171,7 @@ void FConsolePanel::OnRender()
             }
 
             ImGui::PushStyleColor(ImGuiCol_Text, Item.Color);
-            ImGui::TextUnformatted(Item.Massage.c_str());
+            ImGui::TextWrapped("%s", Item.Massage.c_str());
             ImGui::PopStyleColor();
         }
 
