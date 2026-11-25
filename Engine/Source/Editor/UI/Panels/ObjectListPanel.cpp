@@ -354,7 +354,7 @@ void FObjectListPanel::OnRender()
 
             ImGui::PushID(Actor);
 
-            if (ImGui::Selectable(ActorName.c_str(), Context->SelectedActor == Actor, ImGuiSelectableFlags_SpanAvailWidth))
+            if (ImGui::Selectable(ActorName.c_str(), Context->SelectedActor == Actor))
             {
                 Context->SelectActor(Actor);
             }

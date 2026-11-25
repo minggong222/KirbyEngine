@@ -287,6 +287,8 @@ void FViewportPanel::OnRender()
             ViewMode = 0;
         }
 
+        ImGui::SetNextItemWidth((std::min)(180.0f, ImGui::GetContentRegionAvail().x));
+
         if (ImGui::BeginCombo("##ViewMode", ViewModes[ViewMode]))
         {
             for (int32 Index = 0; Index < IM_ARRAYSIZE(ViewModes); ++Index)
@@ -306,8 +308,6 @@ void FViewportPanel::OnRender()
 
             ImGui::EndCombo();
         }
-
-        if (ImGui::GetContentRegionAvail().x > 140.0f) ImGui::SameLine();
 
         if (ImGui::Button("Show"))
         {
@@ -392,23 +392,20 @@ void FViewportPanel::OnRender()
     {
         TransformGizmo.SetMode(ETransformGizmoMode::Translate);
     }
-    if (ImGui::GetContentRegionAvail().x > 90.0f) ImGui::SameLine();
+    ImGui::SameLine();
 
     if (ImGui::RadioButton("Rotate", CurrentMode == ETransformGizmoMode::Rotate))
     {
         TransformGizmo.SetMode(ETransformGizmoMode::Rotate);
     }
-    if (ImGui::GetContentRegionAvail().x > 90.0f) ImGui::SameLine();
+    ImGui::SameLine();
 
     if (ImGui::RadioButton("Scale", CurrentMode == ETransformGizmoMode::Scale))
     {
         TransformGizmo.SetMode(ETransformGizmoMode::Scale);
     }
-    if (ImGui::GetContentRegionAvail().x > 90.0f) ImGui::SameLine();
-
-    ImGui::SameLine();
-    ImGui::TextDisabled("|");
-    ImGui::SameLine();
+    CurrentMode = TransformGizmo.GetMode();
+    ImGui::Separator();
 
     if (CurrentMode != ETransformGizmoMode::Scale)
     {
@@ -419,7 +416,7 @@ void FViewportPanel::OnRender()
             TransformGizmo.SetCoordinateSpace(ETransformCoordinateSpace::World);
         }
 
-        if (ImGui::GetContentRegionAvail().x > 80.0f) ImGui::SameLine();
+        ImGui::SameLine();
 
         if (ImGui::RadioButton("Local", CurrentSpace == ETransformCoordinateSpace::Local))
         {
@@ -431,8 +428,6 @@ void FViewportPanel::OnRender()
         ImGui::TextDisabled("Local");
     }
 
-    ImGui::SameLine();
-    ImGui::TextDisabled("|");
     ImGui::SameLine();
 
     bool bSnapEnabled = TransformGizmo.IsSnapEnabled();

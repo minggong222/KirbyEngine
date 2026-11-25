@@ -18,6 +18,9 @@ bool FImGuiRenderer::Init(HWND Hwnd, ID3D11Device* Device, ID3D11DeviceContext* 
     ImGui::CreateContext();
     bContextCreated = true;
 
+    ImGuiStyle& Style = ImGui::GetStyle();
+    Style.WindowMinSize = ImVec2(230.0f, 180.0f);
+
     ImGuiIO& IO = ImGui::GetIO();
     IO.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
     IO.IniFilename = "imgui.ini";

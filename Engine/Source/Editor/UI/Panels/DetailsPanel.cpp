@@ -598,18 +598,25 @@ void FDetailsPanel::OnRender()
         ImGui::EndPopup();
     }
 
-    if (ImGui::Button("Add Component"))
+    const float ComponentButtonWidth = (ImGui::GetContentRegionAvail().x - ImGui::GetStyle().ItemSpacing.x) * 0.5f;
+
+    if (ImGui::Button("Add", ImVec2(ComponentButtonWidth, 0.0f)))
     {
         ImGui::OpenPopup("AddComponentMenu");
     }
 
-    if (ImGui::GetContentRegionAvail().x > 150.0f) ImGui::SameLine();
+    if (ImGui::IsItemHovered())
+    {
+        ImGui::SetTooltip("Add Component");
+    }
+
+    ImGui::SameLine();
 
     const bool bCanRemoveSelectedComponent = Context->SelectedComponent != nullptr && Context->SelectedComponent != SelectedActor->GetRootComponent();
 
     ImGui::BeginDisabled(!bCanRemoveSelectedComponent);
 
-    if (ImGui::Button("Remove Component") && Context->SelectedComponent != nullptr)
+    if (ImGui::Button("Remove", ImVec2(ComponentButtonWidth, 0.0f)) && Context->SelectedComponent != nullptr)
     {
         UActorComponent* ComponentToRemove = Context->SelectedComponent;
 
@@ -624,10 +631,16 @@ void FDetailsPanel::OnRender()
 
     ImGui::EndDisabled();
 
+    if (ImGui::IsItemHovered())
+    {
+        ImGui::SetTooltip("Remove Component");
+    }
+
     ImGui::Separator();
     ImGui::Text("Components");
 
-    const float ComponentsHeight = (std::min)(150.0f, ImGui::GetContentRegionAvail().y * 0.28f);
+    const float AvailableHeight = ImGui::GetContentRegionAvail().y;
+    const float ComponentsHeight = (std::min)(130.0f, (std::max)(60.0f, AvailableHeight * 0.32f));
 
     ImGui::BeginChild("##ComponentHierarchy", ImVec2(0.0f, ComponentsHeight), ImGuiChildFlags_Borders);
 
@@ -662,7 +675,7 @@ void FDetailsPanel::OnRender()
         const bool bSelected = Context->SelectedComponent == Component;
         const FString ComponentName = Component->GetName();
 
-        if (ImGui::Selectable(ComponentName.c_str(), bSelected, ImGuiSelectableFlags_SpanAvailWidth))
+        if (ImGui::Selectable(ComponentName.c_str(), bSelected))
         {
             Context->SelectComponent(Component);
         }

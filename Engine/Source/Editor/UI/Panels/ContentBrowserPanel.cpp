@@ -1590,7 +1590,7 @@ void FContentBrowserPanel::OnRender()
         ImGui::TableSetColumnIndex(0);
         ImGui::BeginChild("##ContentSources", ImVec2(0.0f, 0.0f), ImGuiChildFlags_Borders);
         ImGui::PushID("ContentRoot");
-        if (ImGui::Selectable("Content", CurrentFolder == "Content", ImGuiSelectableFlags_SpanAvailWidth)) CurrentFolder = "Content";
+        if (ImGui::Selectable("Content", CurrentFolder == "Content")) CurrentFolder = "Content";
         if (ImGui::BeginDragDropTarget())
         {
             if (const ImGuiPayload* Payload = ImGui::AcceptDragDropPayload(AssetDragDropPayloadType))
