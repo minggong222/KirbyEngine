@@ -71,11 +71,6 @@ bool FEditorEngine::Init(HINSTANCE hInstance)
 
     EditorSettings.Load("Config/EditorSettings.ini");
 
-    if (!TextRenderer.Initialize(L"Malgun Gothic", 32))
-    {
-        UE_LOG(Warning, "TextRenderer initialization failed");
-    }
-
     if (!RegisterBuiltinStaticMeshes(AssetManager, *Renderer))
     {
         UE_LOG(Error, "Failed to register builtin static meshes");
@@ -130,6 +125,15 @@ bool FEditorEngine::Init(HINSTANCE hInstance)
         ConsolePanel = nullptr;
         Shutdown();
         return false;
+    }
+    
+    if (!TextRenderer.Initialize(L"Malgun Gothic", 32))
+    {
+        UE_LOG(Error, "[TextRenderer] Initialize failed.");
+    }
+    else
+    {
+        UE_LOG(Info, "[TextRenderer] Initialize succeeded.");
     }
 
     ObjectListPanel = new FObjectListPanel(&ObjectContext, &AssetManager, ViewportPanel);
@@ -324,6 +328,14 @@ void FEditorEngine::Run()
 
                 TextRenderer.BeginFrame();
 
+                static bool bUUIDRenderPathLogged = false;
+
+                if (!bUUIDRenderPathLogged && EditorSettings.ShowFlags.IsEnabled(EEngineShowFlag::BillboardText))
+                {
+                    UE_LOG(Info, "[UUID Labels] Render path entered. LevelValid=%d ActorCount=%d ViewportIndex=%d", Level != nullptr ? 1 : 0, Level != nullptr ? Level->GetActors().Num() : 0, ViewportIndex);
+                    bUUIDRenderPathLogged = true;
+                }
+                
                 if (EditorSettings.ShowFlags.IsEnabled(EEngineShowFlag::BillboardText) && Level != nullptr)
                 {
                     const FVector CameraPosition = Viewport.CameraPosition;
@@ -371,6 +383,14 @@ void FEditorEngine::Run()
                         const FVector2D TextSize = TextRenderer.MeasureText(Label);
                         const float WorldUnitsPerPixel = FBillboardRenderer::GetWorldUnitsPerPixel(LabelAnchor, CameraPosition, Viewport.Projection, static_cast<uint32>(Viewport.Height));
 
+                        static bool bUUIDMetricsLogged = false;
+
+                        if (!bUUIDMetricsLogged)
+                        {
+                            UE_LOG(Info, "[UUID Labels] Actor=%s UUID=%u TextSize=(%.1f, %.1f) WorldUnitsPerPixel=%.6f", Label.ToStd().c_str(), Actor->GetUUID(), TextSize.x, TextSize.y, WorldUnitsPerPixel);
+                            bUUIDMetricsLogged = true;
+                        }
+
                         if (TextSize.x <= 0.0f || WorldUnitsPerPixel <= 0.0f)
                         {
                             continue;
@@ -384,7 +404,10 @@ void FEditorEngine::Run()
                     }
                 }
 
-                TextRenderer.Flush(*Renderer, Viewport.View, Viewport.Projection);
+                if (!TextRenderer.Flush(*Renderer, Viewport.View, Viewport.Projection))
+                {
+                    UE_LOG(Error, "[UUID Labels] TextRenderer.Flush failed. ViewportIndex=%d", ViewportIndex);
+                }
             }
 
             Renderer->EndViewportRender();

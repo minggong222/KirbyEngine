@@ -19,6 +19,7 @@ bool FTextRenderer::Initialize(const wchar_t* FontFace, int32 InFontHeight)
 
     if (FontDC == nullptr)
     {
+        UE_LOG(Error, "[TextRenderer] CreateCompatibleDC failed.");
         return false;
     }
 
@@ -26,6 +27,7 @@ bool FTextRenderer::Initialize(const wchar_t* FontFace, int32 InFontHeight)
 
     if (Font == nullptr)
     {
+        UE_LOG(Error, "[TextRenderer] CreateFontW failed.");
         Shutdown();
         return false;
     }
@@ -34,6 +36,7 @@ bool FTextRenderer::Initialize(const wchar_t* FontFace, int32 InFontHeight)
 
     if (PreviousFont == nullptr || PreviousFont == HGDI_ERROR)
     {
+        UE_LOG(Error, "[TextRenderer] SelectObject failed.");
         Shutdown();
         return false;
     }
@@ -56,8 +59,10 @@ bool FTextRenderer::Initialize(const wchar_t* FontFace, int32 InFontHeight)
     for (uint32 Character = 32; Character <= 126; ++Character)
     {
         FTextGlyph Glyph;
+
         if (!GetGlyph(Character, Glyph))
         {
+            UE_LOG(Error, "[TextRenderer] Glyph preload failed. CharacterCode=%u Character=0x%02X", Character, Character);
             Shutdown();
             return false;
         }
@@ -165,6 +170,8 @@ bool FTextRenderer::GetGlyph(uint32 Character, FTextGlyph& OutGlyph)
 
     if (BitmapSize == GDI_ERROR)
     {
+        UE_LOG(Error, "[TextRenderer] GetGlyphOutlineW size query failed. CharacterCode=%u", Character);
+
         if (Character != static_cast<uint32>(L'?'))
         {
             return GetGlyph(static_cast<uint32>(L'?'), OutGlyph);
@@ -180,7 +187,12 @@ bool FTextRenderer::GetGlyph(uint32 Character, FTextGlyph& OutGlyph)
     Glyph.BearingY = GlyphMetrics.gmptGlyphOrigin.y;
     Glyph.AdvanceX = GlyphMetrics.gmCellIncX;
 
-    if (Glyph.Width > 0 && Glyph.Height > 0)
+    if (BitmapSize == 0)
+    {
+        Glyph.Width = 0;
+        Glyph.Height = 0;
+    }
+    else if (Glyph.Width > 0 && Glyph.Height > 0)
     {
         if (Glyph.Width + AtlasPadding * 2 > AtlasSize || Glyph.Height + AtlasPadding * 2 > AtlasSize)
         {
@@ -196,7 +208,7 @@ bool FTextRenderer::GetGlyph(uint32 Character, FTextGlyph& OutGlyph)
 
         if (CursorY + Glyph.Height + AtlasPadding > AtlasSize)
         {
-            OutputDebugStringA("[TextRenderer] Glyph atlas is full.\n");
+            UE_LOG(Error, "[TextRenderer] Glyph atlas is full. CharacterCode=%u", Character);
             return false;
         }
 
@@ -206,6 +218,7 @@ bool FTextRenderer::GetGlyph(uint32 Character, FTextGlyph& OutGlyph)
 
         if (ReadSize == GDI_ERROR)
         {
+            UE_LOG(Error, "[TextRenderer] GetGlyphOutlineW bitmap read failed. CharacterCode=%u", Character);
             return false;
         }
 
@@ -213,6 +226,7 @@ bool FTextRenderer::GetGlyph(uint32 Character, FTextGlyph& OutGlyph)
 
         if (Bitmap.size() < static_cast<std::size_t>(SourcePitch * Glyph.Height))
         {
+            UE_LOG(Error, "[TextRenderer] Glyph bitmap size mismatch. CharacterCode=%u BitmapSize=%d RequiredSize=%d", Character, static_cast<int32>(Bitmap.size()), SourcePitch * Glyph.Height);
             return false;
         }
 
@@ -375,10 +389,16 @@ bool FTextRenderer::Flush(URenderer& Renderer, const FMatrix& View, const FMatri
 
     if (!RebuildAtlas(Renderer))
     {
+        UE_LOG(Error, "[TextRenderer] Failed to rebuild glyph atlas.");
         return false;
     }
 
     const bool bDrawn = Renderer.DrawDynamicVertices(PendingVertices.GetData(), static_cast<UINT>(PendingVertices.Num()), D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST, FMatrix::Identity, View, Projection, AtlasResource.ShaderResourceView, true, true);
+
+    if (!bDrawn)
+    {
+        UE_LOG(Error, "[TextRenderer] DrawDynamicVertices failed. VertexCount=%d", PendingVertices.Num());
+    }
 
     PendingVertices.Reset();
 

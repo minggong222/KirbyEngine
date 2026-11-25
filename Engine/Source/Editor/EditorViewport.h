@@ -86,7 +86,7 @@ public:
         FVector Direction = Target - Position;
         Direction.Normalize();
 
-        FVector Right = Direction.Cross(Up);
+        FVector Right = Up.Cross(Direction);
 
         if (Right.LengthSquared() <= 1.0e-8f)
         {
@@ -95,7 +95,7 @@ public:
 
         Right.Normalize();
 
-        FVector CameraUp = Right.Cross(Direction);
+        FVector CameraUp = Direction.Cross(Right);
         CameraUp.Normalize();
 
         constexpr float OrthoHeight = 1000.0f;
