@@ -111,7 +111,7 @@ namespace
                 const float U = static_cast<float>(Slice) / static_cast<float>(NumSlices);
                 const float V = static_cast<float>(Stack) / static_cast<float>(NumStacks);
 
-                Data.Vertices.Add({X, Y, Z, X * 0.5f + 0.5f, Y * 0.5f + 0.5f, Z * 0.5f + 0.5f, 1.0f, U, V});
+                Data.Vertices.Add({X, Y, Z, 1.0f, 1.0f, 1.0f, 1.0f, U, V});
             }
         }
 

@@ -697,7 +697,11 @@ namespace OBJImporter
 
         if (Material != nullptr)
         {
-            TextureImporter::SaveMaterialAsset(Material);
+            if (!TextureImporter::SaveMaterialAsset(Material))
+            {
+                UE_LOG(Error, "[OBJ Import] Failed to save material: %s", OutAssetPath.ToStd().c_str());
+            }
+
             AssetManager.RefreshAssetRegistry();
         }
 

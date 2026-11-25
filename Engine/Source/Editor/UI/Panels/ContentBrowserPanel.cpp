@@ -589,9 +589,12 @@ bool FContentBrowserPanel::BuildAssetThumbnail(UAsset* Asset, FAssetThumbnail& O
     UTexture2D* BaseColorTexture = Material != nullptr ? Material->GetBaseColorTexture() : nullptr;
     ID3D11ShaderResourceView* TextureSRV = BaseColorTexture != nullptr && BaseColorTexture->IsValid() ? BaseColorTexture->GetResource().ShaderResourceView : nullptr;
 
+    const FVector4 MaterialColor = Material != nullptr ? Material->GetBaseColor() : FVector4(1.0f, 1.0f, 1.0f, 1.0f);
+    const FVector2D UVOffset = Material != nullptr ? Material->GetUVOffset() : FVector2D(0.0f, 0.0f);
+
     Renderer->BeginAssetPreviewRender();
     Renderer->PrepareShader();
-    Renderer->UpdateConstant(World, View, Projection, false, TextureSRV != nullptr, true);
+    Renderer->UpdateConstant(World, View, Projection, false, TextureSRV != nullptr, false, MaterialColor, UVOffset, RenderData.bHasVertexNormals);
     Renderer->RenderPrimitive(RenderData.VertexBuffer, RenderData.IndexBuffer, RenderData.IndexCount, false, TextureSRV);
     Renderer->EndAssetPreviewRender();
 
