@@ -2,6 +2,7 @@
 
 #include "Renderer/Renderer.h"
 #include "Core/PathUtils.h"
+#include "Core/Logging/Log.h"
 #include "Resources/AssetManager.h"
 #include "Resources/Material.h"
 #include "Resources/PrimitiveMeshAssets.h"
@@ -784,8 +785,42 @@ namespace OBJImporter
 
         for (const FObjRawFace& Face : RawData.Faces)
         {
+            
             const auto MaterialIterator = MaterialSlots.find(Face.MaterialName);
             const uint32 FaceMaterialIndex = MaterialIterator != MaterialSlots.end() ? MaterialIterator->second : 0u;
+
+            const FVector& P0 = RawData.Positions[Face.Vertices[0].PositionIndex];
+            FVector FaceNormal(0.0f, 0.0f, 0.0f);
+            bool bHasValidFaceNormal = false;
+
+            for (std::size_t TriangleIndex = 1; TriangleIndex + 1 < Face.Vertices.size(); ++TriangleIndex)
+            {
+                const FVector& P1 = RawData.Positions[Face.Vertices[TriangleIndex].PositionIndex];
+                const FVector& P2 = RawData.Positions[Face.Vertices[TriangleIndex + 1].PositionIndex];
+
+                const FVector EdgeA = P1 - P0;
+                const FVector EdgeB = P2 - P0;
+                FVector CandidateNormal;
+                EdgeA.Cross(EdgeB, CandidateNormal);
+
+                const float EdgeScaleSquared = EdgeA.LengthSquared() * EdgeB.LengthSquared();
+
+                if (EdgeScaleSquared > std::numeric_limits<float>::min() && CandidateNormal.LengthSquared() > EdgeScaleSquared * 1.0e-12f)
+                {
+                    FaceNormal = CandidateNormal;
+                    bHasValidFaceNormal = true;
+                    break;
+                }
+            }
+
+            if (!bHasValidFaceNormal)
+            {
+                UE_LOG(Warning, "[OBJ Import] Skipping degenerate face: Index=%u, VertexCount=%zu", FaceIndex, Face.Vertices.size());
+                ++FaceIndex;
+                continue;
+            }
+
+            FaceNormal.Normalize();
 
             if (MeshData.Sections.IsEmpty() || CurrentMaterialIndex != FaceMaterialIndex)
             {
@@ -798,22 +833,6 @@ namespace OBJImporter
                 MeshData.Sections.Add(Section);
                 CurrentMaterialIndex = FaceMaterialIndex;
             }
-
-            const FVector& P0 = RawData.Positions[Face.Vertices[0].PositionIndex];
-            const FVector& P1 = RawData.Positions[Face.Vertices[1].PositionIndex];
-            const FVector& P2 = RawData.Positions[Face.Vertices[2].PositionIndex];
-
-            const FVector EdgeA = P1 - P0;
-            const FVector EdgeB = P2 - P0;
-            FVector FaceNormal;
-            EdgeA.Cross(EdgeB, FaceNormal);
-
-            if (FaceNormal.LengthSquared() <= 1.0e-8f)
-            {
-                return false;
-            }
-
-            FaceNormal.Normalize();
 
             std::vector<uint32> FaceIndices;
             FaceIndices.reserve(Face.Vertices.size());
@@ -876,23 +895,40 @@ namespace OBJImporter
                 VertexMap.emplace(Key, NewVertexIndex);
                 FaceIndices.push_back(NewVertexIndex);
             }
-
-            const std::size_t RequiredIndexCount = (FaceIndices.size() - 2) * 3;
-
-            if (RequiredIndexCount > static_cast<std::size_t>(MaxOBJOutputIndexCount - MeshData.Indices.Num()))
-            {
-                return false;
-            }
+            
+            uint32 AddedIndexCount = 0;
+            const FVector& TriangleP0 = RawData.Positions[Face.Vertices[0].PositionIndex];
 
             for (std::size_t Index = 1; Index + 1 < FaceIndices.size(); ++Index)
             {
+                const FVector& TriangleP1 = RawData.Positions[Face.Vertices[Index].PositionIndex];
+                const FVector& TriangleP2 = RawData.Positions[Face.Vertices[Index + 1].PositionIndex];
+
+                const FVector EdgeA = TriangleP1 - TriangleP0;
+                const FVector EdgeB = TriangleP2 - TriangleP0;
+                FVector TriangleNormal;
+                EdgeA.Cross(EdgeB, TriangleNormal);
+
+                const float EdgeScaleSquared = EdgeA.LengthSquared() * EdgeB.LengthSquared();
+
+                if (EdgeScaleSquared <= std::numeric_limits<float>::min() || TriangleNormal.LengthSquared() <= EdgeScaleSquared * 1.0e-12f)
+                {
+                    continue;
+                }
+
+                if (MeshData.Indices.Num() > static_cast<int32>(MaxOBJOutputIndexCount) - 3)
+                {
+                    return false;
+                }
+
                 MeshData.Indices.Add(FaceIndices[0]);
                 MeshData.Indices.Add(FaceIndices[Index]);
                 MeshData.Indices.Add(FaceIndices[Index + 1]);
+                AddedIndexCount += 3u;
             }
 
             FStaticMeshSection& Section = MeshData.Sections[MeshData.Sections.Num() - 1];
-            Section.IndexCount += static_cast<uint32>(RequiredIndexCount);
+            Section.IndexCount += AddedIndexCount;
 
             ++FaceIndex;
         }
@@ -1363,10 +1399,25 @@ namespace OBJImporter
 
         if (!ParseRawOBJ(OBJPath, RawData))
         {
+            UE_LOG(Error, "[OBJ Import] BuildOBJ: ParseRawOBJ failed: %s", PathToUTF8(OBJPath).c_str());
             return false;
         }
 
-        return BuildCookedGeometry(RawData, OBJPath, AssetManager, Renderer, OutCookedData) && ValidateCookedData(OutCookedData.MeshData);
+        if (!BuildCookedGeometry(RawData, OBJPath, AssetManager, Renderer, OutCookedData))
+        {
+            UE_LOG(Error, "[OBJ Import] BuildOBJ: BuildCookedGeometry failed: %s", PathToUTF8(OBJPath).c_str());
+            return false;
+        }
+
+        if (!ValidateCookedData(OutCookedData.MeshData))
+        {
+            const FStaticMeshBuildData& MeshData = OutCookedData.MeshData;
+            UE_LOG(Error, "[OBJ Import] ValidateCookedData failed: Vertices=%d, Indices=%d, Sections=%d, Materials=%d, MaterialPaths=%d", MeshData.Vertices.Num(), MeshData.Indices.Num(), MeshData.Sections.Num(), MeshData.Materials.Num(), MeshData.MaterialAssetPaths.Num());
+            return false;
+        }
+
+        UE_LOG(Info, "[OBJ Import] Geometry built: Vertices=%d, Indices=%d, Sections=%d", OutCookedData.MeshData.Vertices.Num(), OutCookedData.MeshData.Indices.Num(), OutCookedData.MeshData.Sections.Num());
+        return true;
     }
 
     inline bool ResolveOBJAssetPath(const FString& AssetPath, std::filesystem::path& OutRelativePath, std::filesystem::path& OutFullPath)
@@ -1436,6 +1487,7 @@ namespace OBJImporter
 
             if (!NewMesh->Initialize(Renderer, std::move(MeshData)))
             {
+                UE_LOG(Error, "[OBJ Import] UStaticMesh::Initialize failed: %s", AssetPath.ToStd().c_str());
                 delete NewMesh;
                 return nullptr;
             }
@@ -1550,9 +1602,22 @@ namespace OBJImporter
         }
 
         std::error_code FileSystemError;
+        const std::filesystem::path WorkingDirectory = std::filesystem::current_path(FileSystemError);
+
+        if (FileSystemError)
+        {
+            UE_LOG(Error, "[OBJ Import] Failed to get working directory: %s", FileSystemError.message().c_str());
+            return nullptr;
+        }
+
+        UE_LOG(Info, "[OBJ Import] WorkingDirectory: %s", PathToUTF8(WorkingDirectory).c_str());
+        UE_LOG(Info, "[OBJ Import] SourcePath: %s", PathToUTF8(SourcePath).c_str());
+
+        FileSystemError.clear();
 
         if (!std::filesystem::is_regular_file(SourcePath, FileSystemError) || FileSystemError)
         {
+            UE_LOG(Error, "[OBJ Import] Source OBJ does not exist: %s", PathToUTF8(SourcePath).c_str());
             return nullptr;
         }
 
@@ -1560,8 +1625,11 @@ namespace OBJImporter
 
         if (!ParseRawOBJ(SourcePath, RawData))
         {
+            UE_LOG(Error, "[OBJ Import] ParseRawOBJ failed: %s", PathToUTF8(SourcePath).c_str());
             return nullptr;
         }
+
+        UE_LOG(Info, "[OBJ Import] Parsed: Positions=%zu, Faces=%zu, Materials=%zu", RawData.Positions.size(), RawData.Faces.size(), RawData.Materials.size());
 
         const std::filesystem::path AbsoluteSourcePath = std::filesystem::absolute(SourcePath, FileSystemError);
 
@@ -1631,9 +1699,12 @@ namespace OBJImporter
 
         if (ImportedMesh == nullptr)
         {
+            UE_LOG(Error, "[OBJ Import] LoadOBJAsset failed: %s", AssetPath.ToStd().c_str());
             std::filesystem::remove_all(DestinationRoot, FileSystemError);
             return nullptr;
         }
+
+        UE_LOG(Info, "[OBJ Import] Success: %s", AssetPath.ToStd().c_str());
 
         AssetManager.RefreshAssetRegistry();
         return ImportedMesh;
