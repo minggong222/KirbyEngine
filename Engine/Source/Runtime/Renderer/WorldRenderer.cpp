@@ -36,18 +36,35 @@ void FWorldRenderer::Render(const FScene& Scene, FRHI& Renderer, const FMatrix& 
             continue;
         }
 
-        Proxy->Draw(Renderer, View, Projection, false);
+        const bool bSelected = SelectedObject != nullptr && (Proxy->GetPrimitiveId() == SelectedObject || Proxy->GetOwnerId() == SelectedObject);
 
-        if (SelectedObject != nullptr && (Proxy->GetPrimitiveId() == SelectedObject || Proxy->GetOwnerId() == SelectedObject))
+        if (bSelected)
         {
+            // Mark the selected silhouette in the stencil so the outline stays outside it.
+            Renderer.SetOutlineStencilMode(EOutlineStencilMode::WriteMask);
+            Proxy->Draw(Renderer, View, Projection, false);
+            Renderer.SetOutlineStencilMode(EOutlineStencilMode::None);
             OutlineProxies.Add(Proxy);
         }
+        else
+        {
+            Proxy->Draw(Renderer, View, Projection, false);
+        }
     }
+
+    if (OutlineProxies.Num() == 0)
+    {
+        return;
+    }
+
+    Renderer.SetOutlineStencilMode(EOutlineStencilMode::MaskedOutline);
 
     for (const FPrimitiveSceneProxy* Proxy : OutlineProxies)
     {
         Proxy->Draw(Renderer, View, Projection, true);
     }
+
+    Renderer.SetOutlineStencilMode(EOutlineStencilMode::None);
 }
 
 void FWorldRenderer::TickMaterials(UWorld* World, float DeltaTime) const

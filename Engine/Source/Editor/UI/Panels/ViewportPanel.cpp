@@ -7,6 +7,7 @@
 #include "Importers/TextureAssetImporter.h"
 
 #include "Core/Math/MathUtility.h"
+#include "Renderer/BatchLineRenderer.h"
 
 #include "Resources/Asset.h"
 #include "Resources/AssetManager.h"
@@ -24,6 +25,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <iterator>
 
 namespace
 {
@@ -205,6 +207,75 @@ namespace
         }
 
         return bRight ? 3 : 2;
+    }
+
+    ImU32 ToImU32(const FVector4& Color)
+    {
+        return ImGui::ColorConvertFloat4ToU32(ImVec4(Color.x, Color.y, Color.z, Color.w));
+    }
+
+    // Unreal-style world axis indicator in the bottom-left corner of a viewport pane.
+    void DrawWorldAxisIndicator(ImDrawList* DrawList, const FEditorViewportPane& Pane, const ImVec2& PaneMin, const ImVec2& PaneSize)
+    {
+        if (DrawList == nullptr || PaneSize.x < 60.0f || PaneSize.y < 60.0f)
+        {
+            return;
+        }
+
+        const FSimpleMathMatrix View = Pane.View.ToSimpleMath();
+        const FSimpleMathMatrix Projection = Pane.Projection.ToSimpleMath();
+
+        // Follow the projection's screen-axis signs and handedness so the indicator matches the image.
+        const float SignX = Projection._11 < 0.0f ? -1.0f : 1.0f;
+        const float SignY = Projection._22 < 0.0f ? -1.0f : 1.0f;
+        const bool bRightHanded = Projection._34 != 0.0f ? Projection._34 < 0.0f : Projection._33 < 0.0f;
+
+        constexpr float AxisLength = 26.0f;
+        const ImVec2 Center(PaneMin.x + 42.0f, PaneMin.y + PaneSize.y - 42.0f);
+
+        struct FAxisDraw
+        {
+            int32 Axis;
+            ImVec2 Tip;
+            float Closeness;
+        };
+
+        FAxisDraw Axes[3];
+
+        for (int32 Axis = 0; Axis < 3; ++Axis)
+        {
+            const FVector Direction(Axis == 0 ? 1.0f : 0.0f, Axis == 1 ? 1.0f : 0.0f, Axis == 2 ? 1.0f : 0.0f);
+            const FVector ViewDirection = FVector::TransformNormal(Direction, View);
+
+            Axes[Axis].Axis = Axis;
+            Axes[Axis].Tip = ImVec2(Center.x + ViewDirection.x * SignX * AxisLength, Center.y - ViewDirection.y * SignY * AxisLength);
+            Axes[Axis].Closeness = bRightHanded ? ViewDirection.z : -ViewDirection.z;
+        }
+
+        // Farther axes first so the nearer ones draw on top.
+        std::sort(std::begin(Axes), std::end(Axes), [](const FAxisDraw& A, const FAxisDraw& B) { return A.Closeness < B.Closeness; });
+
+        static const char* const AxisLabels[3] = {"X", "Y", "Z"};
+
+        for (const FAxisDraw& Entry : Axes)
+        {
+            const ImU32 Color = ToImU32(FBatchLineRenderer::GetAxisColor(Entry.Axis));
+            const float DX = Entry.Tip.x - Center.x;
+            const float DY = Entry.Tip.y - Center.y;
+            const float Length = std::sqrt(DX * DX + DY * DY);
+
+            DrawList->AddLine(Center, Entry.Tip, Color, 2.0f);
+
+            // An axis pointing straight at / away from the camera collapses to a dot; skip its label.
+            if (Length < 4.0f)
+            {
+                continue;
+            }
+
+            const ImVec2 LabelSize = ImGui::CalcTextSize(AxisLabels[Entry.Axis]);
+            const ImVec2 LabelCenter(Entry.Tip.x + DX / Length * 8.0f, Entry.Tip.y + DY / Length * 8.0f);
+            DrawList->AddText(ImVec2(LabelCenter.x - LabelSize.x * 0.5f, LabelCenter.y - LabelSize.y * 0.5f), Color, AxisLabels[Entry.Axis]);
+        }
     }
 
     const char* GetViewportTypeName(EEditorViewportType Type)
@@ -625,6 +696,20 @@ void FViewportPanel::OnRender()
                 DrawList->AddRectFilled(ImVec2(SplitterX - 2.0f, ImageMin.y), ImVec2(SplitterX + 2.0f, ImageMax.y), VerticalColor);
                 DrawList->AddRectFilled(ImVec2(ImageMin.x, SplitterY - 2.0f), ImVec2(ImageMax.x, SplitterY + 2.0f), HorizontalColor);
                 KirbyEditorTheme::DrawSparkle(DrawList, ImVec2(SplitterX, SplitterY), 6.0f, KirbyEditorTheme::GoldU32());
+            }
+
+            if (Viewports != nullptr && (EditorSettings == nullptr || EditorSettings->ShowFlags.IsEnabled(EEngineShowFlag::Axes)))
+            {
+                const int32 PaneCount = bFourViewports ? 4 : 1;
+
+                for (int32 PaneIndex = 0; PaneIndex < PaneCount; ++PaneIndex)
+                {
+                    const ImVec2 PaneMax(PaneMins[PaneIndex].x + PaneSizes[PaneIndex].x, PaneMins[PaneIndex].y + PaneSizes[PaneIndex].y);
+
+                    DrawList->PushClipRect(PaneMins[PaneIndex], PaneMax, true);
+                    DrawWorldAxisIndicator(DrawList, Viewports[PaneIndex], PaneMins[PaneIndex], PaneSizes[PaneIndex]);
+                    DrawList->PopClipRect();
+                }
             }
 
             if (Viewports != nullptr)

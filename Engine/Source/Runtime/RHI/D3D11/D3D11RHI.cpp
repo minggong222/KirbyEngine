@@ -899,6 +899,48 @@ void FD3D11RHI::CreateViewportRenderTarget(uint32 Width, uint32 Height)
         return;
     }
 
+    // Selected object: normal depth test, but mark its whole silhouette in the stencil
+    // (also where it is occluded) so the outline never draws over the object itself.
+    D3D11_DEPTH_STENCIL_DESC MaskWriteDesc = StateDesc;
+    MaskWriteDesc.StencilEnable = TRUE;
+    MaskWriteDesc.StencilReadMask = 0xFF;
+    MaskWriteDesc.StencilWriteMask = 0xFF;
+    MaskWriteDesc.FrontFace.StencilFunc = D3D11_COMPARISON_ALWAYS;
+    MaskWriteDesc.FrontFace.StencilPassOp = D3D11_STENCIL_OP_REPLACE;
+    MaskWriteDesc.FrontFace.StencilDepthFailOp = D3D11_STENCIL_OP_REPLACE;
+    MaskWriteDesc.FrontFace.StencilFailOp = D3D11_STENCIL_OP_KEEP;
+    MaskWriteDesc.BackFace = MaskWriteDesc.FrontFace;
+
+    hr = mDevice->CreateDepthStencilState(&MaskWriteDesc, &OutlineMaskWriteDepthState);
+
+    if (FAILED(hr))
+    {
+        Fail();
+        return;
+    }
+
+    // Outline hull: drawn only outside the marked silhouette, on top of everything.
+    D3D11_DEPTH_STENCIL_DESC MaskedDesc = {};
+    MaskedDesc.DepthEnable = FALSE;
+    MaskedDesc.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ZERO;
+    MaskedDesc.DepthFunc = D3D11_COMPARISON_ALWAYS;
+    MaskedDesc.StencilEnable = TRUE;
+    MaskedDesc.StencilReadMask = 0xFF;
+    MaskedDesc.StencilWriteMask = 0x00;
+    MaskedDesc.FrontFace.StencilFunc = D3D11_COMPARISON_NOT_EQUAL;
+    MaskedDesc.FrontFace.StencilPassOp = D3D11_STENCIL_OP_KEEP;
+    MaskedDesc.FrontFace.StencilDepthFailOp = D3D11_STENCIL_OP_KEEP;
+    MaskedDesc.FrontFace.StencilFailOp = D3D11_STENCIL_OP_KEEP;
+    MaskedDesc.BackFace = MaskedDesc.FrontFace;
+
+    hr = mDevice->CreateDepthStencilState(&MaskedDesc, &OutlineMaskedDepthState);
+
+    if (FAILED(hr))
+    {
+        Fail();
+        return;
+    }
+
     ViewportRenderInfo = {0.0f, 0.0f, static_cast<float>(Width), static_cast<float>(Height), 0.0f, 1.0f};
     ViewportWidth = Width;
     ViewportHeight = Height;
@@ -1157,6 +1199,18 @@ void FD3D11RHI::ReleaseViewportRenderTarget()
     {
         ViewportOverlayDepthState->Release();
         ViewportOverlayDepthState = nullptr;
+    }
+
+    if (OutlineMaskWriteDepthState != nullptr)
+    {
+        OutlineMaskWriteDepthState->Release();
+        OutlineMaskWriteDepthState = nullptr;
+    }
+
+    if (OutlineMaskedDepthState != nullptr)
+    {
+        OutlineMaskedDepthState->Release();
+        OutlineMaskedDepthState = nullptr;
     }
 
     ViewportWidth = 0;
@@ -1484,6 +1538,40 @@ bool FD3D11RHI::DrawDynamicVerticesNative(const FVertexSimple* Vertices, UINT Ve
 // ----------------------------------------------------------------------------
 // FRHI interface: convert backend-neutral handles to D3D11 and forward
 // ----------------------------------------------------------------------------
+
+void FD3D11RHI::SetOutlineStencilMode(EOutlineStencilMode Mode)
+{
+    if (mDeviceContext == nullptr)
+    {
+        return;
+    }
+
+    constexpr UINT OutlineStencilRef = 1;
+
+    switch (Mode)
+    {
+    case EOutlineStencilMode::WriteMask:
+        if (OutlineMaskWriteDepthState != nullptr)
+        {
+            mDeviceContext->OMSetDepthStencilState(OutlineMaskWriteDepthState, OutlineStencilRef);
+            return;
+        }
+        break;
+
+    case EOutlineStencilMode::MaskedOutline:
+        if (OutlineMaskedDepthState != nullptr)
+        {
+            mDeviceContext->OMSetDepthStencilState(OutlineMaskedDepthState, OutlineStencilRef);
+            return;
+        }
+        break;
+
+    default:
+        break;
+    }
+
+    mDeviceContext->OMSetDepthStencilState(ViewportDepthState, 0);
+}
 
 void FD3D11RHI::RenderPrimitive(FRHIBuffer* VertexBuffer, FRHIBuffer* IndexBuffer, uint32 IndexCount, bool bRenderOutline, FRHIShaderResourceView* TextureSRV, uint32 StartIndexLocation)
 {

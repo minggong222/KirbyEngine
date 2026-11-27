@@ -8,6 +8,18 @@
 
 struct FTexture2DResource;
 
+// Stencil usage for the selection outline.
+//  None          : regular depth test, stencil untouched.
+//  WriteMask     : regular depth test, and every covered pixel (even depth-failed) is marked in the stencil.
+//  MaskedOutline : no depth test, draws only where the stencil is NOT marked, so the outline
+//                  appears outside the selected silhouette only.
+enum class EOutlineStencilMode : uint8
+{
+    None,
+    WriteMask,
+    MaskedOutline,
+};
+
 // Rendering Hardware Interface: everything the engine needs from the graphics API.
 // Engine and editor code talk only to this interface; the graphics API lives in
 // one backend (RHI/D3D11). Counterpart of Unreal's FDynamicRHI.
@@ -39,6 +51,7 @@ public:
     virtual void PrepareShader() = 0;
 
     // Drawing
+    virtual void SetOutlineStencilMode(EOutlineStencilMode Mode) = 0;
     virtual void RenderPrimitive(FRHIBuffer* VertexBuffer, FRHIBuffer* IndexBuffer, uint32 IndexCount, bool bRenderOutline = false, FRHIShaderResourceView* TextureSRV = nullptr, uint32 StartIndexLocation = 0) = 0;
     virtual bool DrawDynamicVertices(const FVertexSimple* Vertices, uint32 VertexCount, ERHIPrimitiveTopology Topology, const FMatrix& World, const FMatrix& View, const FMatrix& Projection, FRHIShaderResourceView* TextureSRV = nullptr, bool bIsTextured = false, bool bAlphaBlend = false) = 0;
     virtual bool DrawDynamicIndexedLines(const FVertexSimple* Vertices, uint32 VertexCount, const uint32* Indices, uint32 IndexCount, const FMatrix& View, const FMatrix& Projection) = 0;

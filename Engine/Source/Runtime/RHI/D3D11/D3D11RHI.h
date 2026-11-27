@@ -43,6 +43,7 @@ public:
     void Prepare() override;
     void PrepareShader() override;
 
+    void SetOutlineStencilMode(EOutlineStencilMode Mode) override;
     void RenderPrimitive(FRHIBuffer* VertexBuffer, FRHIBuffer* IndexBuffer, uint32 IndexCount, bool bRenderOutline = false, FRHIShaderResourceView* TextureSRV = nullptr, uint32 StartIndexLocation = 0) override;
     bool DrawDynamicVertices(const FVertexSimple* Vertices, uint32 VertexCount, ERHIPrimitiveTopology Topology, const FMatrix& World, const FMatrix& View, const FMatrix& Projection, FRHIShaderResourceView* TextureSRV = nullptr, bool bIsTextured = false, bool bAlphaBlend = false) override;
     bool DrawDynamicIndexedLines(const FVertexSimple* Vertices, uint32 VertexCount, const uint32* Indices, uint32 IndexCount, const FMatrix& View, const FMatrix& Projection) override;
@@ -149,6 +150,8 @@ private:
     ID3D11RasterizerState* mWireframeRasterizerState = nullptr;
     ID3D11BlendState* mAlphaBlendState = nullptr;
     ID3D11DepthStencilState* ViewportOverlayDepthState = nullptr;
+    ID3D11DepthStencilState* OutlineMaskWriteDepthState = nullptr;
+    ID3D11DepthStencilState* OutlineMaskedDepthState = nullptr;
 
     bool bWireframeEnabled = false;
     bool bUnlitEnabled = false;

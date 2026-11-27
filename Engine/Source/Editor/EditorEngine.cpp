@@ -435,9 +435,51 @@ void FEditorEngine::RenderFrame(const FFrameRenderData& Data)
             }
         }
 
-        if (Data.ShowFlags.IsEnabled(EEngineShowFlag::Grid) || Data.ShowFlags.IsEnabled(EEngineShowFlag::Axes))
+        if (Data.ShowFlags.IsEnabled(EEngineShowFlag::Grid))
         {
-            LineRenderer.AddGrid(Data.GridExtent, Data.GridSpacing, Data.MajorGridInterval, Data.ShowFlags.IsEnabled(EEngineShowFlag::Grid), Data.ShowFlags.IsEnabled(EEngineShowFlag::Axes));
+            FGridDrawParams GridParams;
+            GridParams.BaseSpacing = Data.GridSpacing;
+            GridParams.MajorInterval = Data.MajorGridInterval;
+            GridParams.MaxExtent = Data.GridExtent;
+
+            if (Viewport.Type == EEditorViewportType::Perspective)
+            {
+                GridParams.Plane = EGridPlane::XY;
+                GridParams.PlaneOffset = 0.0f;
+                GridParams.ViewOrigin = Viewport.CameraPosition;
+                GridParams.bPerspective = true;
+            }
+            else
+            {
+                // Ortho grids sit far behind the view target so they always read as a backdrop.
+                constexpr float OrthoGridDepth = 5000.0f;
+                const float OrthoHeight = Viewport.OrthoHeight < 10.0f ? 10.0f : Viewport.OrthoHeight;
+                const float OrthoWidth = OrthoHeight * (Viewport.Width / Viewport.Height);
+
+                GridParams.bPerspective = false;
+                GridParams.ViewOrigin = Viewport.OrthoTarget;
+                GridParams.OrthoVisibleSize = OrthoWidth > OrthoHeight ? OrthoWidth : OrthoHeight;
+
+                switch (Viewport.Type)
+                {
+                case EEditorViewportType::Front:
+                    GridParams.Plane = EGridPlane::YZ;
+                    GridParams.PlaneOffset = Viewport.OrthoTarget.x - OrthoGridDepth;
+                    break;
+
+                case EEditorViewportType::Right:
+                    GridParams.Plane = EGridPlane::XZ;
+                    GridParams.PlaneOffset = Viewport.OrthoTarget.y - OrthoGridDepth;
+                    break;
+
+                default:
+                    GridParams.Plane = EGridPlane::XY;
+                    GridParams.PlaneOffset = Viewport.OrthoTarget.z - OrthoGridDepth;
+                    break;
+                }
+            }
+
+            LineRenderer.AddGrid(GridParams);
         }
 
         LineRenderer.Flush(*Renderer, Viewport.View, Viewport.Projection);

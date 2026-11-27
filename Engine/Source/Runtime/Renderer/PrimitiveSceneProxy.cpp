@@ -92,7 +92,22 @@ void FStaticMeshSceneProxy::Draw(FRHI& RHI, const FMatrix& View, const FMatrix& 
 
     if (bRenderOutline)
     {
-        WorldMatrix = FMatrix::CreateScale(FVector(1.03f, 1.03f, 1.03f)) * WorldMatrix;
+        // Grow the hull around the bounds center (not the pivot) so the rim is even on every side.
+        // The stencil mask hides the part that overlaps the object, leaving only the edge.
+        constexpr float OutlineScale = 1.03f;
+
+        if (Bounds.IsValid())
+        {
+            const FVector Center = (Bounds.GetMin() + Bounds.GetMax()) * 0.5f;
+            WorldMatrix = WorldMatrix
+                * FMatrix::CreateTranslation(-Center)
+                * FMatrix::CreateScale(FVector(OutlineScale, OutlineScale, OutlineScale))
+                * FMatrix::CreateTranslation(Center);
+        }
+        else
+        {
+            WorldMatrix = FMatrix::CreateScale(FVector(OutlineScale, OutlineScale, OutlineScale)) * WorldMatrix;
+        }
     }
 
     for (const FSectionDrawInfo& Section : Sections)
