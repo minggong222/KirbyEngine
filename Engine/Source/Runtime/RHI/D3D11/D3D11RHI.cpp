@@ -1,7 +1,7 @@
 #include <d3d11.h>
 #include <d3dcompiler.h>
 
-#include "Engine/Source/Runtime/Renderer/Renderer.h"
+#include "RHI/D3D11/D3D11RHI.h"
 #include "Resources/TextureResource.h"
 #include "Core/Math/Math.h"
 
@@ -10,7 +10,7 @@
 #include <limits>
 
 // 렌더러 초기화 함수
-void URenderer::Create(HWND hWindow)
+void FD3D11RHI::Create(HWND hWindow)
 {
     bInitializationFailed = false;
 
@@ -32,7 +32,7 @@ void URenderer::Create(HWND hWindow)
 }
 
 // Direct3D 장치 및 스왑 체인을 생성하는 함수
-void URenderer::CreateDeviceAndSwapChain(HWND hWindow)
+void FD3D11RHI::CreateDeviceAndSwapChain(HWND hWindow)
 {
     if (hWindow == nullptr)
     {
@@ -110,7 +110,7 @@ void URenderer::CreateDeviceAndSwapChain(HWND hWindow)
 }
 
 // Direct3D 장치 및 스왑 체인을 해제하는 함수
-void URenderer::ReleaseDeviceAndSwapChain()
+void FD3D11RHI::ReleaseDeviceAndSwapChain()
 {
     if (mDeviceContext != nullptr)
     {
@@ -133,7 +133,7 @@ void URenderer::ReleaseDeviceAndSwapChain()
 }
 
 // 프레임 버퍼를 생성하는 함수
-void URenderer::CreateFrameBuffer()
+void FD3D11RHI::CreateFrameBuffer()
 {
     if (mDevice == nullptr || mSwapChain == nullptr)
     {
@@ -165,7 +165,7 @@ void URenderer::CreateFrameBuffer()
 }
 
 // 프레임 버퍼를 해제하는 함수
-void URenderer::ReleaseFrameBuffer()
+void FD3D11RHI::ReleaseFrameBuffer()
 {
     if (mFrameBufferRTV != nullptr)
     {
@@ -181,7 +181,7 @@ void URenderer::ReleaseFrameBuffer()
 }
 
 // 래스터라이저 상태를 생성하는 함수
-void URenderer::CreateRasterizerState()
+void FD3D11RHI::CreateRasterizerState()
 {
     if (mDevice == nullptr)
     {
@@ -251,7 +251,7 @@ void URenderer::CreateRasterizerState()
 }
 
 // 래스터라이저 상태를 해제하는 함수
-void URenderer::ReleaseRasterizerState()
+void FD3D11RHI::ReleaseRasterizerState()
 {
     if (mAlphaBlendState != nullptr)
     {
@@ -279,7 +279,7 @@ void URenderer::ReleaseRasterizerState()
 }
 
 // 렌더러에 사용된 모든 리소스를 해제하는 함수
-void URenderer::Release()
+void FD3D11RHI::Release()
 {
     if (mDeviceContext != nullptr)
     {
@@ -294,7 +294,7 @@ void URenderer::Release()
 }
 
 // 스왑 체인의 백 버퍼와 프론트 버퍼를 교체하여 화면에 출력
-void URenderer::SwapBuffer()
+void FD3D11RHI::SwapBuffer()
 {
     if (mSwapChain == nullptr)
     {
@@ -309,7 +309,7 @@ void URenderer::SwapBuffer()
     }
 }
 
-void URenderer::CreateShader()
+void FD3D11RHI::CreateShader()
 {
     if (mDevice == nullptr)
     {
@@ -426,7 +426,7 @@ void URenderer::CreateShader()
     mStride = sizeof(FVertexSimple);
 }
 
-void URenderer::ReleaseShader()
+void FD3D11RHI::ReleaseShader()
 {
     if (mSimpleInputLayout != nullptr)
     {
@@ -453,7 +453,7 @@ void URenderer::ReleaseShader()
     }
 }
 
-void URenderer::Prepare()
+void FD3D11RHI::Prepare()
 {
     if (mDeviceContext == nullptr || mFrameBufferRTV == nullptr || mRasterizerState == nullptr)
     {
@@ -468,7 +468,7 @@ void URenderer::Prepare()
     mDeviceContext->OMSetBlendState(nullptr, nullptr, 0xffffffff);
 }
 
-void URenderer::PrepareShader()
+void FD3D11RHI::PrepareShader()
 {
     if (mDeviceContext == nullptr || mSimpleVertexShader == nullptr || mSimplePixelShader == nullptr || mSimpleInputLayout == nullptr)
     {
@@ -486,7 +486,7 @@ void URenderer::PrepareShader()
     }
 }
 
-void URenderer::RenderPrimitive(ID3D11Buffer* VertexBuffer, ID3D11Buffer* IndexBuffer, UINT IndexCount, bool bRenderOutline, ID3D11ShaderResourceView* TextureSRV, UINT StartIndexLocation)
+void FD3D11RHI::RenderPrimitiveNative(ID3D11Buffer* VertexBuffer, ID3D11Buffer* IndexBuffer, UINT IndexCount, bool bRenderOutline, ID3D11ShaderResourceView* TextureSRV, UINT StartIndexLocation)
 {
     if (mDeviceContext == nullptr || VertexBuffer == nullptr || IndexBuffer == nullptr || IndexCount == 0 || mRasterizerState == nullptr || (bRenderOutline && mOutlineRasterizerState == nullptr))
     {
@@ -513,7 +513,7 @@ void URenderer::RenderPrimitive(ID3D11Buffer* VertexBuffer, ID3D11Buffer* IndexB
     }
 }
 
-void URenderer::SetViewMode(EViewMode InViewMode)
+void FD3D11RHI::SetViewMode(EViewMode InViewMode)
 {
     bWireframeEnabled = InViewMode == EViewMode::Wireframe;
     bUnlitEnabled = InViewMode == EViewMode::Unlit;
@@ -524,7 +524,7 @@ void URenderer::SetViewMode(EViewMode InViewMode)
     }
 }
 
-ID3D11Buffer* URenderer::CreateVertexBuffer(FVertexSimple* vertices, UINT byteWidth)
+ID3D11Buffer* FD3D11RHI::CreateVertexBufferNative(FVertexSimple* vertices, UINT byteWidth)
 {
     if (mDevice == nullptr || vertices == nullptr || byteWidth == 0)
     {
@@ -551,7 +551,7 @@ ID3D11Buffer* URenderer::CreateVertexBuffer(FVertexSimple* vertices, UINT byteWi
     return vertexBuffer;
 }
 
-void URenderer::ReleaseVertexBuffer(ID3D11Buffer* VertexBuffer)
+void FD3D11RHI::ReleaseVertexBufferNative(ID3D11Buffer* VertexBuffer)
 {
     if (VertexBuffer != nullptr)
     {
@@ -559,7 +559,7 @@ void URenderer::ReleaseVertexBuffer(ID3D11Buffer* VertexBuffer)
     }
 }
 
-ID3D11Buffer* URenderer::CreateIndexBuffer(const uint32* Indices, UINT IndexCount)
+ID3D11Buffer* FD3D11RHI::CreateIndexBufferNative(const uint32* Indices, UINT IndexCount)
 {
     if (mDevice == nullptr || Indices == nullptr || IndexCount == 0)
     {
@@ -593,7 +593,7 @@ ID3D11Buffer* URenderer::CreateIndexBuffer(const uint32* Indices, UINT IndexCoun
     return IndexBuffer;
 }
 
-void URenderer::ReleaseIndexBuffer(ID3D11Buffer* IndexBuffer)
+void FD3D11RHI::ReleaseIndexBufferNative(ID3D11Buffer* IndexBuffer)
 {
     if (IndexBuffer != nullptr)
     {
@@ -601,7 +601,7 @@ void URenderer::ReleaseIndexBuffer(ID3D11Buffer* IndexBuffer)
     }
 }
 
-bool URenderer::CreateTexture2D(const uint8* Pixels, uint32 Width, uint32 Height, FTexture2DResource& OutResource)
+bool FD3D11RHI::CreateTexture2D(const uint8* Pixels, uint32 Width, uint32 Height, FTexture2DResource& OutResource)
 {
     if (mDevice == nullptr || Pixels == nullptr || Width == 0 || Height == 0 || OutResource.Texture != nullptr || OutResource.ShaderResourceView != nullptr)
     {
@@ -654,15 +654,15 @@ bool URenderer::CreateTexture2D(const uint8* Pixels, uint32 Width, uint32 Height
         return false;
     }
 
-    OutResource.Texture = NewTexture;
-    OutResource.ShaderResourceView = NewShaderResourceView;
+    OutResource.Texture = reinterpret_cast<FRHITexture*>(NewTexture);
+    OutResource.ShaderResourceView = reinterpret_cast<FRHIShaderResourceView*>(NewShaderResourceView);
     OutResource.Width = Width;
     OutResource.Height = Height;
 
     return true;
 }
 
-void URenderer::CreateConstantBuffer()
+void FD3D11RHI::CreateConstantBuffer()
 {
     if (mDevice == nullptr)
     {
@@ -685,7 +685,7 @@ void URenderer::CreateConstantBuffer()
     }
 }
 
-void URenderer::ReleaseConstantBuffer()
+void FD3D11RHI::ReleaseConstantBuffer()
 {
     if (mConstantBuffer != nullptr)
     {
@@ -694,7 +694,7 @@ void URenderer::ReleaseConstantBuffer()
     }
 }
 
-void URenderer::UpdateConstant(FMatrix World, FMatrix View, FMatrix Projection, bool bIsOutline, bool bIsTextured, bool bForceUnlit, const FVector4& InMaterialColor, const FVector2D& InUVOffset, bool bUseVertexNormals)
+void FD3D11RHI::UpdateConstant(FMatrix World, FMatrix View, FMatrix Projection, bool bIsOutline, bool bIsTextured, bool bForceUnlit, const FVector4& InMaterialColor, const FVector2D& InUVOffset, bool bUseVertexNormals)
 {
     if (mConstantBuffer == nullptr || mDeviceContext == nullptr)
     {
@@ -728,17 +728,17 @@ void URenderer::UpdateConstant(FMatrix World, FMatrix View, FMatrix Projection, 
     mDeviceContext->Unmap(mConstantBuffer, 0);
 }
 
-ID3D11Device* URenderer::GetDevice()
+ID3D11Device* FD3D11RHI::GetDeviceNative()
 {
     return mDevice;
 }
 
-ID3D11DeviceContext* URenderer::GetDeviceContext()
+ID3D11DeviceContext* FD3D11RHI::GetDeviceContextNative()
 {
     return mDeviceContext;
 }
 
-void URenderer::ResizeBackBuffer(uint32 Width, uint32 Height)
+void FD3D11RHI::ResizeBackBuffer(uint32 Width, uint32 Height)
 {
     if (Width == 0 || Height == 0 || mDeviceContext == nullptr || mSwapChain == nullptr)
     {
@@ -776,7 +776,7 @@ void URenderer::ResizeBackBuffer(uint32 Width, uint32 Height)
     }
 }
 
-void URenderer::SetViewportRegion(float X, float Y, float Width, float Height)
+void FD3D11RHI::SetViewportRegion(float X, float Y, float Width, float Height)
 {
     if (mDeviceContext == nullptr || ViewportWidth == 0 || ViewportHeight == 0 || !std::isfinite(X) || !std::isfinite(Y) || !std::isfinite(Width) || !std::isfinite(Height) || Width <= 0.0f || Height <= 0.0f)
     {
@@ -799,7 +799,7 @@ void URenderer::SetViewportRegion(float X, float Y, float Width, float Height)
     mDeviceContext->RSSetViewports(1, &Viewport);
 }
 
-void URenderer::CreateViewportRenderTarget(uint32 Width, uint32 Height)
+void FD3D11RHI::CreateViewportRenderTarget(uint32 Width, uint32 Height)
 {
     auto Fail = [this]()
     {
@@ -904,7 +904,7 @@ void URenderer::CreateViewportRenderTarget(uint32 Width, uint32 Height)
     ViewportHeight = Height;
 }
 
-void URenderer::ResizeViewportRenderTarget(uint32 Width, uint32 Height)
+void FD3D11RHI::ResizeViewportRenderTarget(uint32 Width, uint32 Height)
 {
     if (Width == 0 || Height == 0)
     {
@@ -920,7 +920,7 @@ void URenderer::ResizeViewportRenderTarget(uint32 Width, uint32 Height)
     CreateViewportRenderTarget(Width, Height);
 }
 
-void URenderer::CreateAssetPreviewRenderTarget(uint32 Width, uint32 Height)
+void FD3D11RHI::CreateAssetPreviewRenderTarget(uint32 Width, uint32 Height)
 {
     if (AssetPreviewTexture != nullptr || mDevice == nullptr || mDeviceContext == nullptr || Width == 0 || Height == 0)
     {
@@ -1004,7 +1004,7 @@ void URenderer::CreateAssetPreviewRenderTarget(uint32 Width, uint32 Height)
     AssetPreviewHeight = Height;
 }
 
-void URenderer::BeginAssetPreviewRender()
+void FD3D11RHI::BeginAssetPreviewRender()
 {
     if (mDeviceContext == nullptr || AssetPreviewRTV == nullptr || AssetPreviewDSV == nullptr || ViewportDepthState == nullptr || mRasterizerState == nullptr)
     {
@@ -1026,12 +1026,12 @@ void URenderer::BeginAssetPreviewRender()
     mDeviceContext->OMSetDepthStencilState(ViewportDepthState, 0);
 }
 
-void URenderer::EndAssetPreviewRender()
+void FD3D11RHI::EndAssetPreviewRender()
 {
     EndViewportRender();
 }
 
-void URenderer::ReleaseAssetPreviewRenderTarget()
+void FD3D11RHI::ReleaseAssetPreviewRenderTarget()
 {
     if (mDeviceContext != nullptr)
     {
@@ -1076,7 +1076,7 @@ void URenderer::ReleaseAssetPreviewRenderTarget()
     AssetPreviewRenderInfo = {};
 }
 
-void URenderer::BeginViewportRender()
+void FD3D11RHI::BeginViewportRender()
 {
     if (mDeviceContext == nullptr || ViewportRTV == nullptr || ViewportDSV == nullptr || ViewportDepthState == nullptr || mRasterizerState == nullptr)
     {
@@ -1095,7 +1095,7 @@ void URenderer::BeginViewportRender()
     mDeviceContext->OMSetDepthStencilState(ViewportDepthState, 0);
 }
 
-void URenderer::EndViewportRender()
+void FD3D11RHI::EndViewportRender()
 {
     if (mDeviceContext == nullptr || mFrameBufferRTV == nullptr)
     {
@@ -1107,7 +1107,7 @@ void URenderer::EndViewportRender()
     mDeviceContext->OMSetDepthStencilState(nullptr, 0);
 }
 
-void URenderer::ReleaseViewportRenderTarget()
+void FD3D11RHI::ReleaseViewportRenderTarget()
 {
     if (mDeviceContext != nullptr)
     {
@@ -1164,7 +1164,7 @@ void URenderer::ReleaseViewportRenderTarget()
     ViewportRenderInfo = {};
 }
 
-bool URenderer::IsReady() const
+bool FD3D11RHI::IsReady() const
 {
     return !bInitializationFailed &&
         mDevice != nullptr &&
@@ -1189,7 +1189,7 @@ bool URenderer::IsReady() const
         ViewportOverlayDepthState != nullptr;
 }
 
-void URenderer::Shutdown()
+void FD3D11RHI::Shutdown()
 {
     ReleaseAssetPreviewRenderTarget();
     ReleaseViewportRenderTarget();
@@ -1198,7 +1198,7 @@ void URenderer::Shutdown()
     Release();
 }
 
-void URenderer::ReleaseDynamicVertexBuffer()
+void FD3D11RHI::ReleaseDynamicVertexBuffer()
 {
     if (mDynamicVertexBuffer != nullptr)
     {
@@ -1209,7 +1209,7 @@ void URenderer::ReleaseDynamicVertexBuffer()
     mDynamicVertexCapacity = 0;
 }
 
-void URenderer::ReleaseDynamicIndexBuffer()
+void FD3D11RHI::ReleaseDynamicIndexBuffer()
 {
     if (mDynamicIndexBuffer != nullptr)
     {
@@ -1220,7 +1220,7 @@ void URenderer::ReleaseDynamicIndexBuffer()
     mDynamicIndexCapacity = 0;
 }
 
-bool URenderer::DrawDynamicIndexedLines(const FVertexSimple* Vertices, UINT VertexCount, const uint32* Indices, UINT IndexCount, const FMatrix& View, const FMatrix& Projection)
+bool FD3D11RHI::DrawDynamicIndexedLines(const FVertexSimple* Vertices, UINT VertexCount, const uint32* Indices, UINT IndexCount, const FMatrix& View, const FMatrix& Projection)
 {
     if (mDevice == nullptr || mDeviceContext == nullptr || Vertices == nullptr || Indices == nullptr || VertexCount == 0 || IndexCount == 0 || IndexCount % 2 != 0 || mSimpleVertexShader == nullptr || mSimplePixelShader == nullptr || mSimpleInputLayout == nullptr || mConstantBuffer == nullptr || mRasterizerState == nullptr || mAlphaBlendState == nullptr || ViewportDepthState == nullptr || ViewportOverlayDepthState == nullptr)
     {
@@ -1372,7 +1372,7 @@ bool URenderer::DrawDynamicIndexedLines(const FVertexSimple* Vertices, UINT Vert
     return true;
 }
 
-bool URenderer::DrawDynamicVertices(const FVertexSimple* Vertices, UINT VertexCount, D3D11_PRIMITIVE_TOPOLOGY Topology, const FMatrix& World, const FMatrix& View, const FMatrix& Projection, ID3D11ShaderResourceView* TextureSRV, bool bIsTextured, bool bAlphaBlend)
+bool FD3D11RHI::DrawDynamicVerticesNative(const FVertexSimple* Vertices, UINT VertexCount, D3D11_PRIMITIVE_TOPOLOGY Topology, const FMatrix& World, const FMatrix& View, const FMatrix& Projection, ID3D11ShaderResourceView* TextureSRV, bool bIsTextured, bool bAlphaBlend)
 {
     if (mDevice == nullptr || mDeviceContext == nullptr || Vertices == nullptr || VertexCount == 0 || mSimpleVertexShader == nullptr || mSimplePixelShader == nullptr || mSimpleInputLayout == nullptr || (bIsTextured && TextureSRV == nullptr) || mRasterizerState == nullptr || mAlphaBlendState == nullptr || ViewportDepthState == nullptr || ViewportOverlayDepthState == nullptr)
     {
@@ -1480,4 +1480,117 @@ bool URenderer::DrawDynamicVertices(const FVertexSimple* Vertices, UINT VertexCo
     mDeviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
     return true;
+}
+// ----------------------------------------------------------------------------
+// FRHI interface: convert backend-neutral handles to D3D11 and forward
+// ----------------------------------------------------------------------------
+
+void FD3D11RHI::RenderPrimitive(FRHIBuffer* VertexBuffer, FRHIBuffer* IndexBuffer, uint32 IndexCount, bool bRenderOutline, FRHIShaderResourceView* TextureSRV, uint32 StartIndexLocation)
+{
+    RenderPrimitiveNative(ToD3D(VertexBuffer), ToD3D(IndexBuffer), IndexCount, bRenderOutline, ToD3D(TextureSRV), StartIndexLocation);
+}
+
+bool FD3D11RHI::DrawDynamicVertices(const FVertexSimple* Vertices, uint32 VertexCount, ERHIPrimitiveTopology Topology, const FMatrix& World, const FMatrix& View, const FMatrix& Projection, FRHIShaderResourceView* TextureSRV, bool bIsTextured, bool bAlphaBlend)
+{
+    const D3D11_PRIMITIVE_TOPOLOGY NativeTopology = Topology == ERHIPrimitiveTopology::LineList ? D3D11_PRIMITIVE_TOPOLOGY_LINELIST : D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
+    return DrawDynamicVerticesNative(Vertices, VertexCount, NativeTopology, World, View, Projection, ToD3D(TextureSRV), bIsTextured, bAlphaBlend);
+}
+
+FRHIBuffer* FD3D11RHI::CreateVertexBuffer(FVertexSimple* Vertices, uint32 ByteWidth)
+{
+    return reinterpret_cast<FRHIBuffer*>(CreateVertexBufferNative(Vertices, ByteWidth));
+}
+
+void FD3D11RHI::ReleaseVertexBuffer(FRHIBuffer* VertexBuffer)
+{
+    ReleaseVertexBufferNative(ToD3D(VertexBuffer));
+}
+
+FRHIBuffer* FD3D11RHI::CreateIndexBuffer(const uint32* Indices, uint32 IndexCount)
+{
+    return reinterpret_cast<FRHIBuffer*>(CreateIndexBufferNative(Indices, IndexCount));
+}
+
+void FD3D11RHI::ReleaseIndexBuffer(FRHIBuffer* IndexBuffer)
+{
+    ReleaseIndexBufferNative(ToD3D(IndexBuffer));
+}
+
+void FD3D11RHI::ReleaseTexture2D(FTexture2DResource& Resource)
+{
+    if (ID3D11ShaderResourceView* View = ToD3D(Resource.ShaderResourceView))
+    {
+        View->Release();
+    }
+
+    if (ID3D11Texture2D* Texture = ToD3D(Resource.Texture))
+    {
+        Texture->Release();
+    }
+
+    Resource.ShaderResourceView = nullptr;
+    Resource.Texture = nullptr;
+}
+
+bool FD3D11RHI::CopyAssetPreviewToTexture(FTexture2DResource& OutResource)
+{
+    if (mDevice == nullptr || mDeviceContext == nullptr || AssetPreviewTexture == nullptr || OutResource.IsValid())
+    {
+        return false;
+    }
+
+    D3D11_TEXTURE2D_DESC TextureDesc = {};
+    AssetPreviewTexture->GetDesc(&TextureDesc);
+    TextureDesc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
+    TextureDesc.MiscFlags = 0;
+    TextureDesc.CPUAccessFlags = 0;
+    TextureDesc.Usage = D3D11_USAGE_DEFAULT;
+
+    ID3D11Texture2D* NewTexture = nullptr;
+
+    if (FAILED(mDevice->CreateTexture2D(&TextureDesc, nullptr, &NewTexture)) || NewTexture == nullptr)
+    {
+        return false;
+    }
+
+    mDeviceContext->CopyResource(NewTexture, AssetPreviewTexture);
+
+    D3D11_SHADER_RESOURCE_VIEW_DESC ViewDesc = {};
+    ViewDesc.Format = TextureDesc.Format;
+    ViewDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
+    ViewDesc.Texture2D.MipLevels = TextureDesc.MipLevels;
+
+    ID3D11ShaderResourceView* NewView = nullptr;
+
+    if (FAILED(mDevice->CreateShaderResourceView(NewTexture, &ViewDesc, &NewView)) || NewView == nullptr)
+    {
+        NewTexture->Release();
+        return false;
+    }
+
+    OutResource.Texture = reinterpret_cast<FRHITexture*>(NewTexture);
+    OutResource.ShaderResourceView = reinterpret_cast<FRHIShaderResourceView*>(NewView);
+    OutResource.Width = TextureDesc.Width;
+    OutResource.Height = TextureDesc.Height;
+    return true;
+}
+
+// ----------------------------------------------------------------------------
+// Backend creation
+// ----------------------------------------------------------------------------
+
+FRHI* RHICreate()
+{
+    if (GRHI == nullptr)
+    {
+        GRHI = new FD3D11RHI();
+    }
+
+    return GRHI;
+}
+
+void RHIDestroy()
+{
+    delete GRHI;
+    GRHI = nullptr;
 }

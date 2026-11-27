@@ -1,6 +1,6 @@
 ﻿#include "Core/Precompiled.h"
 #include "Renderer/BatchLineRenderer.h"
-#include "Renderer/Renderer.h"
+#include "RHI/RHI.h"
 
 void FBatchLineRenderer::BeginFrame()
 {
@@ -60,7 +60,7 @@ void FBatchLineRenderer::AddGrid(float GridExtent, float GridSpacing, int32 Majo
     }
 }
 
-bool FBatchLineRenderer::Flush(URenderer& Renderer, const FMatrix& View, const FMatrix& Projection)
+bool FBatchLineRenderer::Flush(FRHI& Renderer, const FMatrix& View, const FMatrix& Projection)
 {
     if (Vertices.IsEmpty() || Indices.IsEmpty()) return true;
     const bool bDrawn = Renderer.DrawDynamicIndexedLines(Vertices.GetData(), static_cast<UINT>(Vertices.Num()), Indices.GetData(), static_cast<UINT>(Indices.Num()), View, Projection);

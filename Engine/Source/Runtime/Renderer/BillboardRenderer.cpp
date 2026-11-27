@@ -2,7 +2,7 @@
 #include "Renderer/BillboardRenderer.h"
 
 #include "Core/Math/MathUtility.h"
-#include "Renderer/Renderer.h"
+#include "RHI/RHI.h"
 
 float FBillboardRenderer::GetWorldUnitsPerPixel(const FVector& WorldPosition, const FVector& CameraPosition, const FMatrix& Projection, uint32 ViewportHeight)
 {
@@ -33,7 +33,7 @@ float FBillboardRenderer::GetWorldUnitsPerPixel(const FVector& WorldPosition, co
     return (2.0f * Distance) / (ProjectionScale * static_cast<float>(ViewportHeight));
 }
 
-void FBillboardRenderer::DrawWorldBillboard(URenderer& Renderer, const FVector& Center, const FVector& CameraRight, const FVector& CameraUp, const FVector2D& WorldSize, const FVector4& Color, const FMatrix& View, const FMatrix& Projection, ID3D11ShaderResourceView* Texture) const
+void FBillboardRenderer::DrawWorldBillboard(FRHI& Renderer, const FVector& Center, const FVector& CameraRight, const FVector& CameraUp, const FVector2D& WorldSize, const FVector4& Color, const FMatrix& View, const FMatrix& Projection, FRHIShaderResourceView* Texture) const
 {
     if (WorldSize.x <= 0.0f || WorldSize.y <= 0.0f)
     {
@@ -70,10 +70,10 @@ void FBillboardRenderer::DrawWorldBillboard(URenderer& Renderer, const FVector& 
         {BottomLeft.x, BottomLeft.y, BottomLeft.z, Color.x, Color.y, Color.z, Color.w, 0.0f, 1.0f}
     };
 
-    Renderer.DrawDynamicVertices(Vertices, ARRAYSIZE(Vertices), D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST, FMatrix::Identity, View, Projection, Texture, Texture != nullptr, true);
+    Renderer.DrawDynamicVertices(Vertices, ARRAYSIZE(Vertices), ERHIPrimitiveTopology::TriangleList, FMatrix::Identity, View, Projection, Texture, Texture != nullptr, true);
 }
 
-void FBillboardRenderer::DrawScreenAlignedQuad(URenderer& Renderer, const FVector& Center, const FVector& CameraPosition, const FVector& CameraRight, const FVector& CameraUp, const FVector2D& PixelSize, uint32 ViewportHeight, const FVector4& Color, const FMatrix& View, const FMatrix& Projection) const
+void FBillboardRenderer::DrawScreenAlignedQuad(FRHI& Renderer, const FVector& Center, const FVector& CameraPosition, const FVector& CameraRight, const FVector& CameraUp, const FVector2D& PixelSize, uint32 ViewportHeight, const FVector4& Color, const FMatrix& View, const FMatrix& Projection) const
 {
     const float WorldUnitsPerPixel = GetWorldUnitsPerPixel(Center, CameraPosition, Projection, ViewportHeight);
 

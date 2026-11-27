@@ -8,7 +8,7 @@
 #include "Components/StaticMeshComponent.h"
 #include "Components/CameraComponent.h"
 #include "Resources/AssetManager.h"
-#include "TextureAssetImporter.h"
+#include "Importers/TextureAssetImporter.h"
 #include "Resources/Material.h"
 #include "Components/SceneComponent.h"
 #include "UObject/Class.h"
@@ -16,7 +16,7 @@
 #include "Core/Math/MathUtility.h"
 #include "UObject/Object.h"
 #include "EditorUndoManager.h"
-#include "OBJStaticMeshImporter.h"
+#include "Importers/OBJStaticMeshImporter.h"
 #include "Actors/Actor.h"
 #include "Actors/StaticMeshActor.h"
 #include "Actors/CameraActor.h"
@@ -217,7 +217,7 @@ void FObjectListPanel::OnRender()
 
     bool bIsOpen = IsOpen();
 
-    if (!ImGui::Begin("World Outliner", &bIsOpen))
+    if (!ImGui::Begin(GetPanelName(), &bIsOpen))
     {
         SetOpen(bIsOpen);
         ImGui::End();

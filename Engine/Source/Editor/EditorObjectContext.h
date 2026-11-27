@@ -1,6 +1,7 @@
 ﻿#pragma once
 
 #include "Core/STL.h"
+#include "UObject/WeakObjectPtr.h"
 
 class UWorld;
 class AActor;
@@ -14,8 +15,9 @@ struct FEditorObjectContext
 {
     UWorld* World = nullptr;
 
-    AActor* SelectedActor = nullptr;
-    UActorComponent* SelectedComponent = nullptr;
+    // Weak so the selection clears itself when the selected object is destroyed or deleted.
+    TWeakObjectPtr<AActor> SelectedActor;
+    TWeakObjectPtr<UActorComponent> SelectedComponent;
 
     FEditorUndoManager* UndoManager = nullptr;
     FEditorTransformGizmo* TransformGizmo = nullptr;

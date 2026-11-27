@@ -228,7 +228,8 @@ void AActor::EndPlay()
 
 void AActor::Tick(float DeltaTime)
 {
-    if (!bHasBegunPlay)
+    // Editor worlds never call BeginPlay; opted-in actors still tick there.
+    if (!bHasBegunPlay && !ShouldTickIfViewportsOnly())
     {
         return;
     }

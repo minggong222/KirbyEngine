@@ -3,7 +3,7 @@
 #include "Resources/AssetManager.h"
 #include "Resources/Material.h"
 #include "Resources/Texture2D.h"
-#include "Renderer/Renderer.h"
+#include "RHI/RHI.h"
 #include "Core/PathUtils.h"
 
 #include <algorithm>
@@ -75,7 +75,7 @@ namespace TextureImporter
         return FString(std::string("Content/Materials/") + TextureAssetPath.ToStd() + ".kmat");
     }
 
-    inline UTexture2D* LoadTextureAsset(const FString& AssetPath, FAssetManager& AssetManager, URenderer& Renderer)
+    inline UTexture2D* LoadTextureAsset(const FString& AssetPath, FAssetManager& AssetManager, FRHI& Renderer)
     {
         std::filesystem::path RelativePath;
 
@@ -118,7 +118,7 @@ namespace TextureImporter
         });
     }
 
-    inline bool ReloadTextureAsset(UTexture2D* Texture, URenderer& Renderer)
+    inline bool ReloadTextureAsset(UTexture2D* Texture, FRHI& Renderer)
     {
         if (Texture == nullptr)
         {
@@ -228,7 +228,7 @@ namespace TextureImporter
         return true;
     }
 
-    inline bool ReadMaterialFile(const std::filesystem::path& FullPath, FAssetManager& AssetManager, URenderer& Renderer, FVector4& OutBaseColor, FVector2D& OutUVScrollSpeed, UTexture2D*& OutTexture)
+    inline bool ReadMaterialFile(const std::filesystem::path& FullPath, FAssetManager& AssetManager, FRHI& Renderer, FVector4& OutBaseColor, FVector2D& OutUVScrollSpeed, UTexture2D*& OutTexture)
     {
         std::ifstream InputFile(FullPath, std::ios::binary);
         std::string Magic;
@@ -275,7 +275,7 @@ namespace TextureImporter
         return true;
     }
 
-    inline UMaterial* LoadMaterialAsset(const FString& MaterialAssetPath, FAssetManager& AssetManager, URenderer& Renderer)
+    inline UMaterial* LoadMaterialAsset(const FString& MaterialAssetPath, FAssetManager& AssetManager, FRHI& Renderer)
     {
         std::filesystem::path RelativePath;
 
@@ -318,7 +318,7 @@ namespace TextureImporter
         });
     }
 
-    inline bool ReloadMaterialAsset(UMaterial* Material, FAssetManager& AssetManager, URenderer& Renderer)
+    inline bool ReloadMaterialAsset(UMaterial* Material, FAssetManager& AssetManager, FRHI& Renderer)
     {
         if (Material == nullptr || Material->GetAssetPath().IsEmpty())
         {
@@ -348,7 +348,7 @@ namespace TextureImporter
         return true;
     }
 
-    inline UMaterial* LoadTextureMaterial(const FString& TextureAssetPath, FAssetManager& AssetManager, URenderer& Renderer)
+    inline UMaterial* LoadTextureMaterial(const FString& TextureAssetPath, FAssetManager& AssetManager, FRHI& Renderer)
     {
         UTexture2D* Texture = LoadTextureAsset(TextureAssetPath, AssetManager, Renderer);
 
@@ -388,7 +388,7 @@ namespace TextureImporter
         return Material;
     }
 
-    inline void RegisterImportedTextureMaterials(FAssetManager& AssetManager, URenderer& Renderer)
+    inline void RegisterImportedTextureMaterials(FAssetManager& AssetManager, FRHI& Renderer)
     {
         const std::filesystem::path ContentDirectory = std::filesystem::current_path() / "Content";
         std::error_code DirectoryError;
@@ -427,7 +427,7 @@ namespace TextureImporter
         AssetManager.RefreshAssetRegistry();
     }
 
-    inline UMaterial* ImportExternalTexture(const std::filesystem::path& SourcePath, FAssetManager& AssetManager, URenderer& Renderer)
+    inline UMaterial* ImportExternalTexture(const std::filesystem::path& SourcePath, FAssetManager& AssetManager, FRHI& Renderer)
     {
         if (SourcePath.empty() || !HasSupportedTextureExtension(SourcePath))
         {

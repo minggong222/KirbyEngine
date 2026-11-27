@@ -1,9 +1,9 @@
 ﻿#pragma once
 
 #include "EditorPanel.h"
-#include "EditorTransformGizmo.h"
-#include "EditorViewport.h"
-#include "Renderer/Renderer.h"
+#include "Viewport/EditorTransformGizmo.h"
+#include "Viewport/EditorViewport.h"
+#include "RHI/RHI.h"
 
 class FEditorSettings;
 class FAssetManager;
@@ -16,7 +16,7 @@ public:
     const char* GetPanelName() const override { return "Viewport"; }
     void OnRender() override;
 
-    void SetViewportTexture(ID3D11ShaderResourceView* InSRV)
+    void SetViewportTexture(FRHIShaderResourceView* InSRV)
     {
         SRV = InSRV;
     }
@@ -32,7 +32,7 @@ public:
         }
     }
 
-    void SetAssetContext(FAssetManager* InAssetManager, URenderer* InRenderer)
+    void SetAssetContext(FAssetManager* InAssetManager, FRHI* InRenderer)
     {
         AssetManager = InAssetManager;
         Renderer = InRenderer;
@@ -60,14 +60,14 @@ public:
     void SetEditorSettings(FEditorSettings* InSettings);
 
 private:
-    ID3D11ShaderResourceView* SRV = nullptr;
+    FRHIShaderResourceView* SRV = nullptr;
 
     FEditorObjectContext* ObjectContext = nullptr;
     FEditorTransformGizmo TransformGizmo;
 
     FEditorSettings* EditorSettings = nullptr;
     FAssetManager* AssetManager = nullptr;
-    URenderer* Renderer = nullptr;
+    FRHI* Renderer = nullptr;
 
     FEditorViewportPane* Viewports = nullptr;
 

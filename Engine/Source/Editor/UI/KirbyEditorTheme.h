@@ -1,4 +1,3 @@
-
 #pragma once
 
 #include "imgui.h"
@@ -7,80 +6,122 @@
 #include <cmath>
 #include <cstdint>
 
+// Editor theme.
+//   - Kirby  : pink theme (default)
+//   - Unreal : dark, flat, blue-accent editor look (Window > Theme)
+// Panels ask this namespace for accent colors, so switching the style at runtime
+// re-colors custom-drawn widgets (selection bars, badges, splitters) as well.
 namespace KirbyEditorTheme
 {
+    enum class EStyle : uint8_t
+    {
+        Unreal,
+        Kirby
+    };
+
+    inline EStyle& CurrentStyleRef()
+    {
+        static EStyle Style = EStyle::Kirby;
+        return Style;
+    }
+
+    inline EStyle GetStyle()
+    {
+        return CurrentStyleRef();
+    }
+
+    inline bool IsKirby()
+    {
+        return CurrentStyleRef() == EStyle::Kirby;
+    }
+
+    // Rounding for custom-drawn shapes: Kirby keeps its soft corners, Unreal stays nearly square.
+    inline float Rounding(float KirbyRounding)
+    {
+        return IsKirby() ? KirbyRounding : (std::min)(KirbyRounding, 2.0f);
+    }
+
     // ============================================================
-    // Kirby Pink Palette
+    // Accent colors (style-aware)
     // ============================================================
 
     inline ImVec4 PinkText()
     {
-        return ImVec4(0.96f, 0.30f, 0.56f, 1.0f);
+        return IsKirby() ? ImVec4(0.96f, 0.30f, 0.56f, 1.0f) : ImVec4(0.90f, 0.90f, 0.90f, 1.0f);
     }
 
     inline ImVec4 CreamText()
     {
-        return ImVec4(1.0f, 0.96f, 0.98f, 1.0f);
+        return IsKirby() ? ImVec4(1.0f, 0.96f, 0.98f, 1.0f) : ImVec4(0.55f, 0.55f, 0.55f, 1.0f);
     }
 
     inline ImVec4 PrimaryButton()
     {
-        return ImVec4(0.94f, 0.43f, 0.65f, 1.0f);
+        return IsKirby() ? ImVec4(0.94f, 0.43f, 0.65f, 1.0f) : ImVec4(0.22f, 0.22f, 0.22f, 1.0f);
     }
 
     inline ImVec4 PrimaryButtonHovered()
     {
-        return ImVec4(1.0f, 0.53f, 0.73f, 1.0f);
+        return IsKirby() ? ImVec4(1.0f, 0.53f, 0.73f, 1.0f) : ImVec4(0.34f, 0.34f, 0.34f, 1.0f);
     }
 
     inline ImVec4 PrimaryButtonActive()
     {
-        return ImVec4(0.84f, 0.25f, 0.49f, 1.0f);
+        return IsKirby() ? ImVec4(0.84f, 0.25f, 0.49f, 1.0f) : ImVec4(0.0f, 0.44f, 0.88f, 1.0f);
     }
 
     inline ImVec4 BlueButton()
     {
-        return ImVec4(0.48f, 0.72f, 0.89f, 1.0f);
+        return IsKirby() ? ImVec4(0.48f, 0.72f, 0.89f, 1.0f) : ImVec4(0.22f, 0.22f, 0.22f, 1.0f);
     }
 
     inline ImVec4 BlueButtonHovered()
     {
-        return ImVec4(0.58f, 0.81f, 0.96f, 1.0f);
+        return IsKirby() ? ImVec4(0.58f, 0.81f, 0.96f, 1.0f) : ImVec4(0.34f, 0.34f, 0.34f, 1.0f);
     }
 
     inline ImVec4 BlueButtonActive()
     {
-        return ImVec4(0.34f, 0.61f, 0.81f, 1.0f);
+        return IsKirby() ? ImVec4(0.34f, 0.61f, 0.81f, 1.0f) : ImVec4(0.0f, 0.44f, 0.88f, 1.0f);
     }
 
+    // Selection accent (selected rows, tiles)
     inline ImU32 PinkU32()
     {
-        return IM_COL32(255, 91, 153, 255);
+        return IsKirby() ? IM_COL32(255, 91, 153, 255) : IM_COL32(0, 112, 224, 255);
     }
 
+    // Secondary accent (active splitter, sparkles)
     inline ImU32 GoldU32()
     {
-        return IM_COL32(255, 211, 79, 255);
+        return IsKirby() ? IM_COL32(255, 211, 79, 255) : IM_COL32(242, 163, 31, 255);
     }
 
     inline ImU32 CreamU32()
     {
-        return IM_COL32(255, 245, 249, 255);
+        return IsKirby() ? IM_COL32(255, 245, 249, 255) : IM_COL32(210, 210, 210, 255);
     }
 
     inline ImU32 BorderU32()
     {
-        return IM_COL32(225, 139, 176, 255);
+        return IsKirby() ? IM_COL32(225, 139, 176, 255) : IM_COL32(58, 58, 58, 255);
     }
 
     inline ImU32 BadgeBackgroundU32()
     {
-        return IM_COL32(111, 54, 83, 235);
+        return IsKirby() ? IM_COL32(111, 54, 83, 235) : IM_COL32(16, 16, 16, 215);
+    }
+
+    // Idle viewport splitter
+    inline ImU32 SplitterU32()
+    {
+        return IsKirby() ? PinkU32() : IM_COL32(10, 10, 10, 255);
     }
 
     // ============================================================
     // Kirby Star
     // ============================================================
+
 
     inline void DrawStar(ImDrawList* DrawList, const ImVec2& Center, float Radius, ImU32 Color)
     {
@@ -103,9 +144,10 @@ namespace KirbyEditorTheme
         DrawList->AddConvexPolyFilled(Points, 10, Color);
     }
 
+    // Decorative only: drawn in the Kirby style, skipped in the Unreal style.
     inline void DrawSparkle(ImDrawList* DrawList, const ImVec2& Center, float Radius, ImU32 Color)
     {
-        if (DrawList == nullptr)
+        if (DrawList == nullptr || !IsKirby())
         {
             return;
         }
@@ -177,8 +219,7 @@ namespace KirbyEditorTheme
     // ============================================================
     // Global Kirby Editor Theme
     // ============================================================
-
-    inline void Apply()
+    inline void ApplyKirby()
     {
         ImGui::StyleColorsLight();
 
@@ -330,5 +371,184 @@ namespace KirbyEditorTheme
         Colors[ImGuiCol_PlotLinesHovered] = Pink;
         Colors[ImGuiCol_PlotHistogram] = Mint;
         Colors[ImGuiCol_PlotHistogramHovered] = Gold;
+    }
+
+    // ============================================================
+    // Unreal-style Editor Theme
+    // ============================================================
+
+    inline void ApplyUnreal()
+    {
+        ImGui::StyleColorsDark();
+
+        ImGuiStyle& Style = ImGui::GetStyle();
+
+        // Dense, flat layout
+        Style.WindowPadding = ImVec2(8.0f, 6.0f);
+        Style.FramePadding = ImVec2(6.0f, 4.0f);
+        Style.ItemSpacing = ImVec2(6.0f, 4.0f);
+        Style.ItemInnerSpacing = ImVec2(4.0f, 4.0f);
+        Style.CellPadding = ImVec2(4.0f, 2.0f);
+        Style.IndentSpacing = 14.0f;
+
+        // Nearly square corners
+        Style.WindowRounding = 0.0f;
+        Style.ChildRounding = 2.0f;
+        Style.FrameRounding = 3.0f;
+        Style.PopupRounding = 3.0f;
+        Style.ScrollbarRounding = 6.0f;
+        Style.GrabRounding = 2.0f;
+        Style.TabRounding = 3.0f;
+
+        // Thin dark borders
+        Style.WindowBorderSize = 1.0f;
+        Style.ChildBorderSize = 1.0f;
+        Style.FrameBorderSize = 0.0f;
+        Style.PopupBorderSize = 1.0f;
+        Style.TabBorderSize = 0.0f;
+        Style.TabBarBorderSize = 1.0f;
+        Style.TabBarOverlineSize = 2.0f;
+        Style.DockingSeparatorSize = 2.0f;
+
+        Style.ScrollbarSize = 12.0f;
+        Style.GrabMinSize = 10.0f;
+        Style.ButtonTextAlign = ImVec2(0.5f, 0.5f);
+        Style.WindowMenuButtonPosition = ImGuiDir_None;
+        Style.SeparatorTextBorderSize = 1.0f;
+
+        const ImVec4 Text(0.78f, 0.78f, 0.78f, 1.0f);
+        const ImVec4 TextBright(0.95f, 0.95f, 0.95f, 1.0f);
+        const ImVec4 TextDisabled(0.44f, 0.44f, 0.44f, 1.0f);
+
+        // Background layers, darkest to lightest
+        const ImVec4 Darkest(0.059f, 0.059f, 0.059f, 1.0f);   // #0F0F0F  input fields, separators
+        const ImVec4 Dark(0.082f, 0.082f, 0.082f, 1.0f);      // #151515  menu bar, tab strip
+        const ImVec4 Panel(0.141f, 0.141f, 0.141f, 1.0f);     // #242424  panel body
+        const ImVec4 PanelAlt(0.102f, 0.102f, 0.102f, 1.0f);  // #1A1A1A  child regions
+        const ImVec4 Raised(0.188f, 0.188f, 0.188f, 1.0f);    // #303030  headers
+        const ImVec4 Control(0.220f, 0.220f, 0.220f, 1.0f);   // #383838  buttons
+        const ImVec4 ControlHover(0.341f, 0.341f, 0.341f, 1.0f);
+
+        const ImVec4 Accent(0.0f, 0.44f, 0.88f, 1.0f);        // selection blue
+        const ImVec4 AccentHover(0.13f, 0.55f, 0.98f, 1.0f);
+        const ImVec4 AccentDim(0.0f, 0.44f, 0.88f, 0.55f);
+        const ImVec4 Orange(0.95f, 0.64f, 0.12f, 1.0f);
+
+        const ImVec4 Border(0.035f, 0.035f, 0.035f, 1.0f);
+
+        ImVec4* Colors = Style.Colors;
+
+        Colors[ImGuiCol_Text] = Text;
+        Colors[ImGuiCol_TextDisabled] = TextDisabled;
+
+        Colors[ImGuiCol_WindowBg] = Panel;
+        Colors[ImGuiCol_ChildBg] = PanelAlt;
+        Colors[ImGuiCol_PopupBg] = ImVec4(0.11f, 0.11f, 0.11f, 0.98f);
+
+        Colors[ImGuiCol_Border] = Border;
+        Colors[ImGuiCol_BorderShadow] = ImVec4(0.0f, 0.0f, 0.0f, 0.0f);
+
+        Colors[ImGuiCol_FrameBg] = Darkest;
+        Colors[ImGuiCol_FrameBgHovered] = ImVec4(0.12f, 0.12f, 0.12f, 1.0f);
+        Colors[ImGuiCol_FrameBgActive] = ImVec4(0.15f, 0.15f, 0.15f, 1.0f);
+
+        Colors[ImGuiCol_TitleBg] = Dark;
+        Colors[ImGuiCol_TitleBgActive] = Dark;
+        Colors[ImGuiCol_TitleBgCollapsed] = Dark;
+        Colors[ImGuiCol_MenuBarBg] = Dark;
+
+        Colors[ImGuiCol_ScrollbarBg] = ImVec4(0.0f, 0.0f, 0.0f, 0.0f);
+        Colors[ImGuiCol_ScrollbarGrab] = Control;
+        Colors[ImGuiCol_ScrollbarGrabHovered] = ControlHover;
+        Colors[ImGuiCol_ScrollbarGrabActive] = ImVec4(0.45f, 0.45f, 0.45f, 1.0f);
+
+        Colors[ImGuiCol_CheckMark] = TextBright;
+        Colors[ImGuiCol_CheckboxSelectedBg] = Accent;
+        Colors[ImGuiCol_SliderGrab] = ControlHover;
+        Colors[ImGuiCol_SliderGrabActive] = Accent;
+
+        Colors[ImGuiCol_Button] = Control;
+        Colors[ImGuiCol_ButtonHovered] = ControlHover;
+        Colors[ImGuiCol_ButtonActive] = Accent;
+
+        // Selectable rows / tree nodes / collapsing headers
+        Colors[ImGuiCol_Header] = AccentDim;
+        Colors[ImGuiCol_HeaderHovered] = ImVec4(0.26f, 0.26f, 0.26f, 1.0f);
+        Colors[ImGuiCol_HeaderActive] = Accent;
+
+        Colors[ImGuiCol_Separator] = Border;
+        Colors[ImGuiCol_SeparatorHovered] = Accent;
+        Colors[ImGuiCol_SeparatorActive] = AccentHover;
+
+        Colors[ImGuiCol_ResizeGrip] = ImVec4(0.0f, 0.0f, 0.0f, 0.0f);
+        Colors[ImGuiCol_ResizeGripHovered] = AccentDim;
+        Colors[ImGuiCol_ResizeGripActive] = Accent;
+
+        Colors[ImGuiCol_InputTextCursor] = TextBright;
+
+        // Tabs: dark strip, the selected tab merges with the panel body
+        Colors[ImGuiCol_Tab] = Dark;
+        Colors[ImGuiCol_TabHovered] = Raised;
+        Colors[ImGuiCol_TabSelected] = Panel;
+        Colors[ImGuiCol_TabSelectedOverline] = Accent;
+        Colors[ImGuiCol_TabDimmed] = Dark;
+        Colors[ImGuiCol_TabDimmedSelected] = Panel;
+        Colors[ImGuiCol_TabDimmedSelectedOverline] = ImVec4(0.0f, 0.0f, 0.0f, 0.0f);
+
+        // Docking
+        Colors[ImGuiCol_DockingPreview] = ImVec4(0.0f, 0.44f, 0.88f, 0.35f);
+        Colors[ImGuiCol_DockingEmptyBg] = Darkest;
+
+        // Tables
+        Colors[ImGuiCol_TableHeaderBg] = Raised;
+        Colors[ImGuiCol_TableBorderStrong] = Border;
+        Colors[ImGuiCol_TableBorderLight] = ImVec4(0.09f, 0.09f, 0.09f, 1.0f);
+        Colors[ImGuiCol_TableRowBg] = ImVec4(0.0f, 0.0f, 0.0f, 0.0f);
+        Colors[ImGuiCol_TableRowBgAlt] = ImVec4(1.0f, 1.0f, 1.0f, 0.02f);
+
+        // Interaction
+        Colors[ImGuiCol_TextLink] = AccentHover;
+        Colors[ImGuiCol_TextSelectedBg] = ImVec4(0.0f, 0.44f, 0.88f, 0.40f);
+        Colors[ImGuiCol_TreeLines] = ImVec4(0.25f, 0.25f, 0.25f, 1.0f);
+
+        Colors[ImGuiCol_DragDropTarget] = Orange;
+        Colors[ImGuiCol_DragDropTargetBg] = ImVec4(0.95f, 0.64f, 0.12f, 0.15f);
+        Colors[ImGuiCol_UnsavedMarker] = TextBright;
+
+        Colors[ImGuiCol_NavCursor] = Accent;
+        Colors[ImGuiCol_NavWindowingHighlight] = Accent;
+        Colors[ImGuiCol_NavWindowingDimBg] = ImVec4(0.0f, 0.0f, 0.0f, 0.35f);
+        Colors[ImGuiCol_ModalWindowDimBg] = ImVec4(0.0f, 0.0f, 0.0f, 0.55f);
+
+        // Graphs
+        Colors[ImGuiCol_PlotLines] = AccentHover;
+        Colors[ImGuiCol_PlotLinesHovered] = Orange;
+        Colors[ImGuiCol_PlotHistogram] = AccentHover;
+        Colors[ImGuiCol_PlotHistogramHovered] = Orange;
+    }
+
+    // ============================================================
+    // Entry point
+    // ============================================================
+
+    inline void Apply(EStyle NewStyle)
+    {
+        CurrentStyleRef() = NewStyle;
+
+        if (NewStyle == EStyle::Kirby)
+        {
+            ApplyKirby();
+        }
+        else
+        {
+            ApplyUnreal();
+        }
+
+        ImGui::GetStyle().WindowMinSize = ImVec2(230.0f, 180.0f);
+    }
+
+    inline void Apply()
+    {
+        Apply(CurrentStyleRef());
     }
 }

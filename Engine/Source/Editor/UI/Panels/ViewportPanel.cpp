@@ -4,7 +4,7 @@
 #include "UI/KirbyEditorTheme.h"
 #include "EditorSettings.h"
 #include "EditorUndoManager.h"
-#include "TextureAssetImporter.h"
+#include "Importers/TextureAssetImporter.h"
 
 #include "Core/Math/MathUtility.h"
 
@@ -58,7 +58,7 @@ namespace
         return nullptr;
     }
 
-    void ApplyContentBrowserDrop(FEditorObjectContext* Context, const ImGuiPayload* Payload, FAssetManager* AssetManager, URenderer* Renderer)
+    void ApplyContentBrowserDrop(FEditorObjectContext* Context, const ImGuiPayload* Payload, FAssetManager* AssetManager, FRHI* Renderer)
     {
         if (Context == nullptr || Context->World == nullptr || Payload == nullptr || Payload->Data == nullptr || Payload->DataSize != sizeof(UAsset*))
         {
@@ -616,7 +616,7 @@ void FViewportPanel::OnRender()
 
             if (bFourViewports)
             {
-                const ImU32 SplitterColor = KirbyEditorTheme::PinkU32();
+                const ImU32 SplitterColor = KirbyEditorTheme::SplitterU32();
                 const ImU32 SplitterActiveColor = KirbyEditorTheme::GoldU32();
 
                 const ImU32 VerticalColor = bDraggingVerticalSplitter ? SplitterActiveColor : SplitterColor;
@@ -634,8 +634,8 @@ void FViewportPanel::OnRender()
                 const ImVec2 LabelMin(ActivePaneMin.x + 8.0f, ActivePaneMin.y + 8.0f);
                 const ImVec2 LabelMax(LabelMin.x + LabelSize.x + 24.0f, LabelMin.y + LabelSize.y + 8.0f);
 
-                DrawList->AddRectFilled(LabelMin, LabelMax, KirbyEditorTheme::BadgeBackgroundU32(), 7.0f);
-                DrawList->AddRect(LabelMin, LabelMax, KirbyEditorTheme::BorderU32(), 7.0f, 0, 1.0f);
+                DrawList->AddRectFilled(LabelMin, LabelMax, KirbyEditorTheme::BadgeBackgroundU32(), KirbyEditorTheme::Rounding(7.0f));
+                DrawList->AddRect(LabelMin, LabelMax, KirbyEditorTheme::BorderU32(), KirbyEditorTheme::Rounding(7.0f), 0, 1.0f);
                 KirbyEditorTheme::DrawSparkle(DrawList, ImVec2(LabelMin.x + 8.0f, (LabelMin.y + LabelMax.y) * 0.5f), 4.0f, KirbyEditorTheme::GoldU32());
                 DrawList->AddText(ImVec2(LabelMin.x + 17.0f, LabelMin.y + 4.0f), KirbyEditorTheme::CreamU32(), ActivePaneName);
             }

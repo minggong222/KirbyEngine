@@ -8,14 +8,14 @@
 struct FEditorObjectContext;
 class FAssetManager;
 class UCameraComponent;
-class URenderer;
+class FRHI;
 class FPanelManager;
 
 class FMainMenuPanel : public IEditorPanel
 {
 public:
     const char* GetPanelName() const override { return "Main Menu"; }
-    FMainMenuPanel(FEditorObjectContext* InContext, FAssetManager* InAssetManager, HWND InOwnerWindow, UCameraComponent* InViewportCamera, URenderer* InRenderer, FPanelManager* InPanelManager)
+    FMainMenuPanel(FEditorObjectContext* InContext, FAssetManager* InAssetManager, HWND InOwnerWindow, UCameraComponent* InViewportCamera, FRHI* InRenderer, FPanelManager* InPanelManager)
 : Context(InContext), AssetManager(InAssetManager), OwnerWindow(InOwnerWindow), ViewportCamera(InViewportCamera), Renderer(InRenderer), PanelManager(InPanelManager) {}
 
     bool Init() override;
@@ -27,7 +27,7 @@ private:
     void SaveScene(bool bSaveAs);
     void LoadScene();
 
-    URenderer* Renderer = nullptr;
+    FRHI* Renderer = nullptr;
     
     FPanelManager* PanelManager = nullptr;
     

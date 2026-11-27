@@ -7,6 +7,8 @@
 #include "Resources/Asset.generated.h"
 
 class FAssetManager;
+class FArchive;
+class FRHI;
 
 UCLASS()
 class UAsset : public UObject
@@ -20,6 +22,19 @@ public:
     {
         OutDependencies.Reset();
     }
+
+    // ---- Packages (.kasset) -------------------------------------------------
+    // Asset types that can be stored in a package override all three.
+
+    virtual bool SupportsPackage() const { return false; }
+
+    // Reads or writes the asset's data. References to other assets are stored as
+    // asset paths, never pointers.
+    virtual void Serialize(FArchive& Ar) {}
+
+    // After Serialize has loaded the data: resolve asset paths (dependencies are
+    // already loaded) and create GPU resources.
+    virtual bool PostLoad(FAssetManager& AssetManager, FRHI& RHI) { return true; }
 
 private:
     friend class FAssetManager;

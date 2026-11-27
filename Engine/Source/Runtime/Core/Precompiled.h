@@ -9,10 +9,8 @@
 #endif
 
 #include <Windows.h>
-#include <d3d11.h>
-#include <d3dcompiler.h>
 
 #include "Core/STL.h"
 #include "Core/Math/Transform.h"
 #include "Core/Logging/Log.h"
-#include "FVertexSimple.h"
+#include "Renderer/FVertexSimple.h"

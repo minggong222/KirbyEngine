@@ -11,15 +11,16 @@
 #include "Resources/Material.h"
 #include "Resources/Texture2D.h"
 #include "Resources/PrimitiveMeshAssets.h"
-#include "Renderer/Renderer.h"
+#include "RHI/RHI.h"
+#include "RenderCore/RenderingThread.h"
 #include "Actors/Actor.h"
 #include "Actors/StaticMeshActor.h"
 #include "Components/StaticMeshComponent.h"
 #include "World/World.h"
 #include "World/Level.h"
 #include "EditorUndoManager.h"
-#include "OBJStaticMeshImporter.h"
-#include "TextureAssetImporter.h"
+#include "Importers/OBJStaticMeshImporter.h"
+#include "Importers/TextureAssetImporter.h"
 
 #ifndef NOMINMAX
 #define NOMINMAX
@@ -35,6 +36,22 @@
 #include <system_error>
 #include <unordered_set>
 #include <vector>
+
+namespace
+{
+    // Frees a thumbnail's GPU texture through the RHI and clears its handles.
+    template<typename TThumbnail>
+    void ReleaseThumbnailResources(TThumbnail& Thumbnail)
+    {
+        FTexture2DResource Resource;
+        Resource.Texture = Thumbnail.Texture;
+        Resource.ShaderResourceView = Thumbnail.ShaderResourceView;
+        Resource.Release();
+
+        Thumbnail.Texture = nullptr;
+        Thumbnail.ShaderResourceView = nullptr;
+    }
+}
 
 #pragma comment(lib, "Comdlg32.lib")
 
@@ -212,7 +229,7 @@ namespace
         }
     }
 
-    bool DrawContentBrowserTile(const char* Label, EContentBrowserIcon Icon, ID3D11ShaderResourceView* Thumbnail, bool bSelected, const ImVec2& TileSize)
+    bool DrawContentBrowserTile(const char* Label, EContentBrowserIcon Icon, FRHIShaderResourceView* Thumbnail, bool bSelected, const ImVec2& TileSize)
     {
         const bool bClicked = ImGui::InvisibleButton("##AssetTile", TileSize);
         const bool bHovered = ImGui::IsItemHovered();
@@ -221,11 +238,11 @@ namespace
         ImDrawList* DrawList = ImGui::GetWindowDrawList();
         const ImU32 Background = ImGui::GetColorU32(bSelected ? ImGuiCol_HeaderActive : bHovered ? ImGuiCol_HeaderHovered : ImGuiCol_FrameBg);
 
-        DrawList->AddRectFilled(Min, Max, Background, 11.0f);
+        DrawList->AddRectFilled(Min, Max, Background, KirbyEditorTheme::Rounding(11.0f));
 
         if (bSelected)
         {
-            DrawList->AddRect(Min, Max, KirbyEditorTheme::PinkU32(), 11.0f, 0, 2.0f);
+            DrawList->AddRect(Min, Max, KirbyEditorTheme::PinkU32(), KirbyEditorTheme::Rounding(11.0f), 0, 2.0f);
             DrawList->AddRectFilled(ImVec2(Min.x + 2.0f, Min.y + 10.0f), ImVec2(Min.x + 5.0f, Max.y - 10.0f), KirbyEditorTheme::PinkU32(), 2.0f);
             KirbyEditorTheme::DrawSparkle(DrawList, ImVec2(Max.x - 13.0f, Min.y + 13.0f), 5.0f, KirbyEditorTheme::GoldU32());
         }
@@ -274,7 +291,7 @@ namespace
 
         if (bShowPreview)
         {
-            ImGui::GetWindowDrawList()->AddRect(Min, Max, KirbyEditorTheme::PinkU32(), 8.0f, 0, 1.5f);
+            ImGui::GetWindowDrawList()->AddRect(Min, Max, KirbyEditorTheme::PinkU32(), KirbyEditorTheme::Rounding(8.0f), 0, 1.5f);
             KirbyEditorTheme::DrawSparkle(ImGui::GetWindowDrawList(), ImVec2(Max.x - 5.0f, Min.y + 5.0f), 3.0f, KirbyEditorTheme::GoldU32());
         }
         DrawContentBrowserIcon(ImGui::GetWindowDrawList(), EContentBrowserIcon::Preview, ImVec2((Min.x + Max.x) * 0.5f, (Min.y + Max.y) * 0.5f), 22.0f);
@@ -304,7 +321,7 @@ namespace
         return EContentBrowserIcon::Folder;
     }
 
-    UStaticMesh* SelectAndImportOBJ(FAssetManager& AssetManager, URenderer& Renderer)
+    UStaticMesh* SelectAndImportOBJ(FAssetManager& AssetManager, FRHI& Renderer)
     {
         wchar_t FileName[32768] = {};
         static constexpr wchar_t Filter[] = L"Wavefront OBJ (*.obj)\0*.obj\0All Files (*.*)\0*.*\0";
@@ -324,7 +341,7 @@ namespace
         return OBJImporter::ImportExternalOBJ(std::filesystem::path(FileName), AssetManager, Renderer);
     }
 
-    UMaterial* SelectAndImportTexture(FAssetManager& AssetManager, URenderer& Renderer)
+    UMaterial* SelectAndImportTexture(FAssetManager& AssetManager, FRHI& Renderer)
     {
         wchar_t FileName[32768] = {};
         static constexpr wchar_t Filter[] = L"Image Files (*.png;*.jpg;*.jpeg;*.bmp;*.tif;*.tiff;*.gif)\0*.png;*.jpg;*.jpeg;*.bmp;*.tif;*.tiff;*.gif\0All Files (*.*)\0*.*\0";
@@ -364,23 +381,14 @@ FContentBrowserPanel::~FContentBrowserPanel()
 {
     for (auto& Pair : ThumbnailCache)
     {
-        if (Pair.second.ShaderResourceView != nullptr)
-        {
-            Pair.second.ShaderResourceView->Release();
-        }
-
-        if (Pair.second.Texture != nullptr)
-        {
-            Pair.second.Texture->Release();
-        }
+        ReleaseThumbnailResources(Pair.second);
     }
 
     ThumbnailCache.clear();
 
     for (FAssetThumbnail& Thumbnail : DeferredThumbnailReleases)
     {
-        if (Thumbnail.ShaderResourceView != nullptr) Thumbnail.ShaderResourceView->Release();
-        if (Thumbnail.Texture != nullptr) Thumbnail.Texture->Release();
+        ReleaseThumbnailResources(Thumbnail);
     }
 
     DeferredThumbnailReleases.clear();
@@ -470,8 +478,7 @@ void FContentBrowserPanel::FlushDeferredThumbnailReleases()
 {
     for (FAssetThumbnail& Thumbnail : DeferredThumbnailReleases)
     {
-        if (Thumbnail.ShaderResourceView != nullptr) Thumbnail.ShaderResourceView->Release();
-        if (Thumbnail.Texture != nullptr) Thumbnail.Texture->Release();
+        ReleaseThumbnailResources(Thumbnail);
     }
 
     DeferredThumbnailReleases.clear();
@@ -577,9 +584,17 @@ bool FContentBrowserPanel::BuildAssetThumbnail(UAsset* Asset, FAssetThumbnail& O
         return false;
     }
 
+    // GPU work runs on the rendering thread. The game thread waits in FlushRenderingCommands,
+    // so the command may read the mesh and materials directly.
+    bool bThumbnailBuilt = false;
+
+    ENQUEUE_RENDER_COMMAND(BuildAssetThumbnail)([&]()
+    {
+    bThumbnailBuilt = [&]() -> bool
+    {
     Renderer->CreateAssetPreviewRenderTarget(ThumbnailWidth, ThumbnailHeight);
 
-    if (Renderer->GetAssetPreviewSRV() == nullptr || Renderer->GetAssetPreviewTexture() == nullptr)
+    if (Renderer->GetAssetPreviewSRV() == nullptr)
     {
         return false;
     }
@@ -596,7 +611,7 @@ bool FContentBrowserPanel::BuildAssetThumbnail(UAsset* Asset, FAssetThumbnail& O
     const FMatrix View = FMatrix::CreateLookAt(FVector(-4.0f, 0.0f, 0.0f), FVector::Zero, FVector(0.0f, 0.0f, 1.0f));
     const FMatrix Projection = FMatrix::CreatePerspectiveFieldOfView(45.0f * 0.01745329252f, 1.0f, 0.1f, 100.0f);
     UTexture2D* BaseColorTexture = Material != nullptr ? Material->GetBaseColorTexture() : nullptr;
-    ID3D11ShaderResourceView* TextureSRV = BaseColorTexture != nullptr && BaseColorTexture->IsValid() ? BaseColorTexture->GetResource().ShaderResourceView : nullptr;
+    FRHIShaderResourceView* TextureSRV = BaseColorTexture != nullptr && BaseColorTexture->IsValid() ? BaseColorTexture->GetResource().ShaderResourceView : nullptr;
 
     
     Renderer->BeginAssetPreviewRender();
@@ -611,13 +626,13 @@ bool FContentBrowserPanel::BuildAssetThumbnail(UAsset* Asset, FAssetThumbnail& O
 
         UMaterial* SectionMaterial = Material;
 
-        if (SectionMaterial == nullptr && Section.MaterialIndex < RenderData.Materials.Num())
+        if (SectionMaterial == nullptr && Section.MaterialIndex < static_cast<uint32>(RenderData.Materials.Num()))
         {
             SectionMaterial = RenderData.Materials[Section.MaterialIndex];
         }
 
         UTexture2D* SectionTexture = SectionMaterial != nullptr ? SectionMaterial->GetBaseColorTexture() : nullptr;
-        ID3D11ShaderResourceView* SectionTextureSRV = SectionTexture != nullptr && SectionTexture->IsValid() ? SectionTexture->GetResource().ShaderResourceView : nullptr;
+        FRHIShaderResourceView* SectionTextureSRV = SectionTexture != nullptr && SectionTexture->IsValid() ? SectionTexture->GetResource().ShaderResourceView : nullptr;
 
         const FVector4 SectionMaterialColor = SectionMaterial != nullptr ? SectionMaterial->GetBaseColor() : FVector4(1.0f, 1.0f, 1.0f, 1.0f);
         const FVector2D SectionUVOffset = SectionMaterial != nullptr ? SectionMaterial->GetUVOffset() : FVector2D(0.0f, 0.0f);
@@ -629,47 +644,25 @@ bool FContentBrowserPanel::BuildAssetThumbnail(UAsset* Asset, FAssetThumbnail& O
     Renderer->EndAssetPreviewRender();
 
 
-    ID3D11Device* Device = Renderer->GetDevice();
-    ID3D11DeviceContext* DeviceContext = Renderer->GetDeviceContext();
-    ID3D11Texture2D* SourceTexture = Renderer->GetAssetPreviewTexture();
+    // Keep a copy: the preview render target is reused for the next thumbnail.
+    FTexture2DResource Copy;
 
-    if (Device == nullptr || DeviceContext == nullptr || SourceTexture == nullptr)
+    if (!Renderer->CopyAssetPreviewToTexture(Copy))
     {
         return false;
     }
 
-    D3D11_TEXTURE2D_DESC TextureDesc = {};
-    SourceTexture->GetDesc(&TextureDesc);
-    TextureDesc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
-    TextureDesc.MiscFlags = 0;
-    TextureDesc.CPUAccessFlags = 0;
-    TextureDesc.Usage = D3D11_USAGE_DEFAULT;
-
-    if (FAILED(Device->CreateTexture2D(&TextureDesc, nullptr, &OutThumbnail.Texture)))
-    {
-        OutThumbnail.Texture = nullptr;
-        return false;
-    }
-
-    DeviceContext->CopyResource(OutThumbnail.Texture, SourceTexture);
-
-    D3D11_SHADER_RESOURCE_VIEW_DESC ViewDesc = {};
-    ViewDesc.Format = TextureDesc.Format;
-    ViewDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
-    ViewDesc.Texture2D.MipLevels = TextureDesc.MipLevels;
-
-    if (FAILED(Device->CreateShaderResourceView(OutThumbnail.Texture, &ViewDesc, &OutThumbnail.ShaderResourceView)))
-    {
-        OutThumbnail.Texture->Release();
-        OutThumbnail.Texture = nullptr;
-        OutThumbnail.ShaderResourceView = nullptr;
-        return false;
-    }
-
+    OutThumbnail.Texture = Copy.Texture;
+    OutThumbnail.ShaderResourceView = Copy.ShaderResourceView;
     return true;
+    }();
+    });
+
+    FlushRenderingCommands();
+    return bThumbnailBuilt;
 }
 
-ID3D11ShaderResourceView* FContentBrowserPanel::GetAssetThumbnail(UAsset* Asset, bool bForceGeneration)
+FRHIShaderResourceView* FContentBrowserPanel::GetAssetThumbnail(UAsset* Asset, bool bForceGeneration)
 {
     if (Asset == nullptr)
     {
@@ -755,7 +748,7 @@ void FContentBrowserPanel::DrawAssetEditor()
                 PendingMeshReimport = Mesh;
             }
 
-            if (ID3D11ShaderResourceView* MeshPreview = GetAssetThumbnail(Mesh, true))
+            if (FRHIShaderResourceView* MeshPreview = GetAssetThumbnail(Mesh, true))
             {
                 const ImVec2 AvailableSize = ImGui::GetContentRegionAvail();
                 const float PreviewSide = (std::max)(1.0f, (std::min)(320.0f, (std::min)(AvailableSize.x, AvailableSize.y - 60.0f)));
@@ -791,7 +784,7 @@ void FContentBrowserPanel::DrawAssetEditor()
                 ImGui::EndCombo();
             }
 
-            if (ID3D11ShaderResourceView* MaterialPreview = GetAssetThumbnail(EditingAsset, true))
+            if (FRHIShaderResourceView* MaterialPreview = GetAssetThumbnail(EditingAsset, true))
             {
                 const ImVec2 AvailableSize = ImGui::GetContentRegionAvail();
                 const float PreviewSide = (std::max)(1.0f, (std::min)(320.0f, (std::min)(AvailableSize.x, AvailableSize.y - 60.0f)));
@@ -1789,7 +1782,7 @@ void FContentBrowserPanel::OnRender()
                 ImGui::PushID(Asset);
                 const bool bSelected = SelectedAsset == Asset;
                 const ImVec2 TileSize(ImGui::GetContentRegionAvail().x, 96.0f);
-                ID3D11ShaderResourceView* ThumbnailSRV = GetAssetThumbnail(Asset);
+                FRHIShaderResourceView* ThumbnailSRV = GetAssetThumbnail(Asset);
 
                 if (DrawContentBrowserTile(DisplayName.c_str(), GetAssetIcon(Asset), ThumbnailSRV, bSelected, TileSize))
                 {
@@ -1927,7 +1920,7 @@ void FContentBrowserPanel::OnRender()
                     const FStaticMeshRenderData& Data = Mesh->GetRenderData();
                     ImGui::Text("Vertices: %u", Data.VertexCount);
                     ImGui::Text("Indices: %u", Data.IndexCount);
-                    if (ID3D11ShaderResourceView* SRV = GetAssetThumbnail(SelectedAsset, true))
+                    if (FRHIShaderResourceView* SRV = GetAssetThumbnail(SelectedAsset, true))
                     {
                         const float PreviewSide = (std::max)(1.0f, (std::min)(220.0f, ImGui::GetContentRegionAvail().x));
                         ImGui::Image((ImTextureID)SRV, ImVec2(PreviewSide, PreviewSide));
@@ -1943,7 +1936,7 @@ void FContentBrowserPanel::OnRender()
                     AssetManager->GetReferencers(Material, Referencers);
                     ImGui::Text("Dependencies: %d", Dependencies.Num());
                     ImGui::Text("Referencers: %d", Referencers.Num());
-                    if (ID3D11ShaderResourceView* Thumbnail = GetAssetThumbnail(SelectedAsset, true))
+                    if (FRHIShaderResourceView* Thumbnail = GetAssetThumbnail(SelectedAsset, true))
                     {
                         const ImVec2 AvailableSize = ImGui::GetContentRegionAvail();
                         const float PreviewSide = (std::max)(1.0f, (std::min)(220.0f, (std::min)(AvailableSize.x, AvailableSize.y - 30.0f)));

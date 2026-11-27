@@ -10,7 +10,7 @@ class FStatsPanel;
 struct FLogData
 {
     FString Massage;
-    ImVec4 Color;
+    ELogVerbosity Verbosity = ELogVerbosity::Info;  // color is resolved from the active theme when drawn
 };
 
 class FConsolePanel : public IEditorPanel
@@ -18,7 +18,7 @@ class FConsolePanel : public IEditorPanel
 public:
     bool Init() override;
     void Tick(float DeltaTime) override;
-    const char* GetPanelName() const override { return "Console"; }
+    const char* GetPanelName() const override { return "Output Log"; }
     void OnRender() override;
 
     void ClearLog();

@@ -3,7 +3,21 @@
 #include "Class.h"
 #include "Core/EngineStatics.h"
 
+#include <unordered_map>
+
 TArray<UObject*> GUObjectArray;
+
+namespace
+{
+    // Live object address -> serial number, for weak pointer validation.
+    std::unordered_map<const UObject*, uint32>& GetLiveObjectSerials()
+    {
+        static std::unordered_map<const UObject*, uint32> LiveObjectSerials;
+        return LiveObjectSerials;
+    }
+
+    uint32 GNextObjectSerialNumber = 1;
+}
 
 UObject::UObject(UObject* InOuter, FName InName)
     : ObjectName(InName)
@@ -15,12 +29,29 @@ UObject::UObject(UObject* InOuter, FName InName)
     }
 
     UUID = FEngineStatics::GenUUID();
+    SerialNumber = GNextObjectSerialNumber++;
+    GetLiveObjectSerials()[this] = SerialNumber;
+
     InternalIndex = static_cast<uint32>(GUObjectArray.size());
     GUObjectArray.Add(this);
 }
 
+bool UObject::IsAlive(const UObject* Object, uint32 InSerialNumber)
+{
+    if (Object == nullptr || InSerialNumber == 0)
+    {
+        return false;
+    }
+
+    const auto& LiveObjectSerials = GetLiveObjectSerials();
+    const auto Found = LiveObjectSerials.find(Object);
+    return Found != LiveObjectSerials.end() && Found->second == InSerialNumber;
+}
+
 UObject::~UObject()
 {
+    GetLiveObjectSerials().erase(this);
+
     const int32 Index = static_cast<uint32>(InternalIndex);
     if (!GUObjectArray.IsValidIndex(Index))
     {

@@ -1,6 +1,8 @@
 ﻿#include "Renderer/WorldRenderer.h"
+#include "Renderer/Scene.h"
+#include "Renderer/PrimitiveSceneProxy.h"
 
-#include "Renderer/Renderer.h"
+#include "RHI/RHI.h"
 
 #include "World/World.h"
 #include "World/Level.h"
@@ -18,101 +20,33 @@
 #include <cmath>
 #include <unordered_set>
 
-void FWorldRenderer::Render(UWorld* World, URenderer& Renderer, const FMatrix& View, const FMatrix& Projection, UObject* SelectedObject, const FEngineShowFlags& ShowFlags) const
+void FWorldRenderer::Render(const FScene& Scene, FRHI& Renderer, const FMatrix& View, const FMatrix& Projection, const void* SelectedObject, const FEngineShowFlags& ShowFlags) const
 {
-    if (World == nullptr || !Renderer.IsReady() || !ShowFlags.IsEnabled(EEngineShowFlag::Primitives))
+    if (!Renderer.IsReady() || !ShowFlags.IsEnabled(EEngineShowFlag::Primitives))
     {
         return;
     }
 
-    ULevel* Level = World->GetPersistentLevel();
+    TArray<const FPrimitiveSceneProxy*> OutlineProxies;
 
-    if (Level == nullptr)
+    for (const FPrimitiveSceneProxy* Proxy : Scene.GetPrimitives())
     {
-        return;
-    }
-
-    TArray<UStaticMeshComponent*> OutlineComponents;
-
-    for (AActor* Actor : Level->GetActors())
-    {
-        if (Actor == nullptr)
+        if (Proxy == nullptr)
         {
             continue;
         }
 
-        const bool bActorSelected = SelectedObject == Actor;
+        Proxy->Draw(Renderer, View, Projection, false);
 
-        for (UActorComponent* ActorComponent : Actor->GetComponents())
+        if (SelectedObject != nullptr && (Proxy->GetPrimitiveId() == SelectedObject || Proxy->GetOwnerId() == SelectedObject))
         {
-            UStaticMeshComponent* Component = Cast<UStaticMeshComponent>(ActorComponent);
-
-            if (Component == nullptr)
-            {
-                continue;
-            }
-
-            RenderStaticMesh(Component, Renderer, View, Projection, false);
-
-            if (bActorSelected || SelectedObject == Component)
-            {
-                OutlineComponents.Add(Component);
-            }
+            OutlineProxies.Add(Proxy);
         }
     }
 
-    for (UStaticMeshComponent* Component : OutlineComponents)
+    for (const FPrimitiveSceneProxy* Proxy : OutlineProxies)
     {
-        RenderStaticMesh(Component, Renderer, View, Projection, true);
-    }
-}
-
-void FWorldRenderer::RenderStaticMesh(UStaticMeshComponent* Component, URenderer& Renderer, const FMatrix& View, const FMatrix& Projection, bool bRenderOutline) const
-{
-    if (Component == nullptr)
-    {
-        return;
-    }
-
-    UStaticMesh* Mesh = Component->GetStaticMesh();
-
-    if (Mesh == nullptr)
-    {
-        return;
-    }
-
-    const FStaticMeshRenderData& RenderData = Mesh->GetRenderData();
-
-    if (RenderData.VertexBuffer == nullptr || RenderData.IndexBuffer == nullptr || RenderData.IndexCount == 0)
-    {
-        return;
-    }
-
-    FMatrix WorldMatrix = Component->GetWorldMatrix();
-
-    if (bRenderOutline)
-    {
-        const FMatrix OutlineScale = FMatrix::CreateScale(FVector(1.03f, 1.03f, 1.03f));
-        WorldMatrix = OutlineScale * WorldMatrix;
-    }
-
-    for (const FStaticMeshSection& Section : RenderData.Sections)
-    {
-        if (Section.IndexCount == 0 || Section.FirstIndex > RenderData.IndexCount || Section.IndexCount > RenderData.IndexCount - Section.FirstIndex)
-        {
-            continue;
-        }
-
-        UMaterial* Material = bRenderOutline ? nullptr : Component->GetMaterial(static_cast<int32>(Section.MaterialIndex));
-        UTexture2D* Texture = Material != nullptr ? Material->GetBaseColorTexture() : nullptr;
-
-        ID3D11ShaderResourceView* TextureSRV = Texture != nullptr && Texture->IsValid() ? Texture->GetResource().ShaderResourceView : nullptr;
-
-        const FVector4 MaterialColor = Material != nullptr ? Material->GetBaseColor() : FVector4(1.0f, 1.0f, 1.0f, 1.0f);
-        const FVector2D UVOffset = Material != nullptr ? Material->GetUVOffset() : FVector2D(0.0f, 0.0f);
-
-        Renderer.UpdateConstant(WorldMatrix, View, Projection, bRenderOutline, TextureSRV != nullptr && !bRenderOutline, false, MaterialColor, UVOffset, RenderData.bHasVertexNormals);
-        Renderer.RenderPrimitive(RenderData.VertexBuffer, RenderData.IndexBuffer, Section.IndexCount, bRenderOutline, bRenderOutline ? nullptr : TextureSRV, Section.FirstIndex);
+        Proxy->Draw(Renderer, View, Projection, true);
     }
 }
 

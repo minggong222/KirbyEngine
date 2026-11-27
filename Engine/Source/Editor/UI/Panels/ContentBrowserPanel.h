@@ -9,17 +9,17 @@
 
 class UAsset;
 class FAssetManager;
-class URenderer;
+class FRHI;
 class UStaticMesh;
 class UMaterial;
 class UTexture2D;
-struct ID3D11Texture2D;
-struct ID3D11ShaderResourceView;
+struct FRHITexture;
+struct FRHIShaderResourceView;
 
 class FContentBrowserPanel : public IEditorPanel
 {
 public:
-    FContentBrowserPanel(FEditorObjectContext* InContext, FAssetManager* InAssetManager, URenderer* InRenderer) : Context(InContext), AssetManager(InAssetManager), Renderer(InRenderer) {}
+    FContentBrowserPanel(FEditorObjectContext* InContext, FAssetManager* InAssetManager, FRHI* InRenderer) : Context(InContext), AssetManager(InAssetManager), Renderer(InRenderer) {}
     ~FContentBrowserPanel() override;
 
     const char* GetPanelName() const override { return "Content Browser"; }
@@ -31,8 +31,8 @@ public:
 private:
     struct FAssetThumbnail
     {
-        ID3D11Texture2D* Texture = nullptr;
-        ID3D11ShaderResourceView* ShaderResourceView = nullptr;
+        FRHITexture* Texture = nullptr;
+        FRHIShaderResourceView* ShaderResourceView = nullptr;
     };
 
     void RefreshContent();
@@ -41,7 +41,7 @@ private:
     void FlushDeferredThumbnailReleases();
     void ProcessPendingAssetOperations();
     void PruneThumbnailCache(const TArray<UAsset*>& LiveAssets);
-    ID3D11ShaderResourceView* GetAssetThumbnail(UAsset* Asset, bool bForceGeneration = false);
+    FRHIShaderResourceView* GetAssetThumbnail(UAsset* Asset, bool bForceGeneration = false);
     bool BuildAssetThumbnail(UAsset* Asset, FAssetThumbnail& OutThumbnail);
     void DrawAssetEditor();
 
@@ -56,7 +56,7 @@ private:
 
     FEditorObjectContext* Context = nullptr;
     FAssetManager* AssetManager = nullptr;
-    URenderer* Renderer = nullptr;
+    FRHI* Renderer = nullptr;
 
     std::string CurrentFolder = "Content";
     UAsset* SelectedAsset = nullptr;

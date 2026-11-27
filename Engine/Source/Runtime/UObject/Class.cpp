@@ -1,5 +1,8 @@
 ﻿#include "Class.h"
 
+#include <string>
+#include <unordered_map>
+
 FProperty::FProperty(const char* InName, EPropertyType InType, SIZE_T InSize, uint32 InFlags, const char* InDisplayName, const char* InCategory, const FTypeInfo* InValueTypeInfo)
     : Name(InName), DisplayName(InDisplayName != nullptr ? InDisplayName : InName), Category(InCategory != nullptr ? InCategory : "Default"), Type(InType), Size(InSize), Flags(InFlags), ValueTypeInfo(InValueTypeInfo) {}
 
@@ -145,9 +148,26 @@ const UFunction* FTypeInfo::FindFunction(const char* InName) const
     return SuperType != nullptr ? SuperType->FindFunction(InName) : nullptr;
 }
 
+namespace
+{
+    std::unordered_map<std::string, const UClass*>& GetClassRegistry()
+    {
+        static std::unordered_map<std::string, const UClass*> Registry;
+        return Registry;
+    }
+}
+
 UClass::UClass(const char* InName, const UClass* InSuperClass, SIZE_T InClassSize, FObjectConstructor InConstructor)
     : UObject(nullptr, FName(InName)), FTypeInfo(InName, InClassSize, InSuperClass), Constructor(InConstructor)
 {
+    GetClassRegistry()[InName != nullptr ? InName : ""] = this;
+}
+
+const UClass* UClass::FindClass(const FString& ClassName)
+{
+    const auto& Registry = GetClassRegistry();
+    const auto Found = Registry.find(ClassName.ToStd());
+    return Found != Registry.end() ? Found->second : nullptr;
 }
 
 UClass* UClass::StaticClass()

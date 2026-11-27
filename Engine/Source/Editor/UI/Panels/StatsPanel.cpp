@@ -67,8 +67,8 @@ void FStatsPanel::RenderOverlay()
     const ImVec2 BackgroundMax(Position.x + TextSize.x + Padding.x * 2.0f, Position.y + TextSize.y + Padding.y * 2.0f);
     const ImVec2 TextPosition(Position.x + Padding.x, Position.y + Padding.y);
 
-    DrawList->AddRectFilled(Position, BackgroundMax, KirbyEditorTheme::BadgeBackgroundU32(), 9.0f);
-    DrawList->AddRect(Position, BackgroundMax, KirbyEditorTheme::BorderU32(), 9.0f, 0, 1.0f);
+    DrawList->AddRectFilled(Position, BackgroundMax, KirbyEditorTheme::BadgeBackgroundU32(), KirbyEditorTheme::Rounding(9.0f));
+    DrawList->AddRect(Position, BackgroundMax, KirbyEditorTheme::BorderU32(), KirbyEditorTheme::Rounding(9.0f), 0, 1.0f);
     KirbyEditorTheme::DrawSparkle(DrawList, ImVec2(Position.x + 5.0f, Position.y + 5.0f), 4.0f, KirbyEditorTheme::GoldU32());
     DrawList->AddText(ImGui::GetFont(), ImGui::GetFontSize(), TextPosition, KirbyEditorTheme::CreamU32(), Buffer, nullptr, MaxTextWidth);
 }

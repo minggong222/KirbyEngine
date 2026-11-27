@@ -1,6 +1,8 @@
 #pragma once
 
 #include "Asset.h"
+
+class FRHI;
 #include "Core/STL.h"
 
 #include <filesystem>
@@ -121,11 +123,31 @@ public:
     void GetAssetRegistryEntries(TArray<FAssetRegistryEntry>& OutEntries) const;
     bool FindAssetRegistryEntry(const std::string& AssetPath, FAssetRegistryEntry& OutEntry) const;
 
+    // ---- Packages (.kasset) -------------------------------------------------
+    // A package holds an asset's data in engine format, so the runtime can load it
+    // without the source file's importer (OBJ parser, image decoder...).
+
+    // Loads every up-to-date package under ContentDirectory (default: ./Content),
+    // dependencies first. A package older than its source file is skipped, so the
+    // importer rebuilds the asset from the source. Returns the number loaded.
+    int32 LoadPackages(FRHI& RHI, const std::filesystem::path& ContentDirectory = {});
+
+    // Writes the package for one asset.
+    bool SavePackage(UAsset* Asset);
+
+    // Writes packages for loaded Content assets whose package is missing or older than
+    // the source file. Returns the number written.
+    int32 SaveOutdatedPackages();
+
     int32 GetLoadedAssetCount() const { return LoadedAssets.Num(); }
     int32 GetRegisteredAssetCount() const { return AssetRegistry.Num(); }
     void Shutdown();
 
 private:
+    struct FPackageLoadState;
+    UAsset* LoadPackageRecursive(const std::string& AssetPath, FRHI& RHI, FPackageLoadState& State);
+    static bool IsPackageUpToDate(const FString& AssetPath);
+
     bool IsValidContentPath(const std::string& AssetPath) const;
     static std::string GetAssetTypeFromExtension(const std::string& Extension);
     static std::string PathToUTF8(const std::filesystem::path& Path);

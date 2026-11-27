@@ -285,9 +285,15 @@ public:
 
     static UClass* StaticClass();
     UClass* GetClass() const override;
+
+    // Finds a class by name (e.g. "UStaticMesh"). A class is known once its StaticClass()
+    // has run at least once; asset loading touches the asset classes before looking up.
+    static const UClass* FindClass(const FString& ClassName);
+
 private:
     friend UObject* NewObject(const UClass* InClass, UObject* InOuter, FName InName);
     UObject* ConstructObject() const;
+
     FObjectConstructor Constructor = nullptr;
 };
 

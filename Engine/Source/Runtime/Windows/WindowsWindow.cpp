@@ -35,7 +35,7 @@ void FWindowsWindow::Destroy()
 
 LRESULT FWindowsWindow::WndProc(HWND hWnd, uint32 message, WPARAM wParam, LPARAM lParam)
 {
-    if (ImGui_ImplWin32_WndProcHandler(hWnd, message, wParam, lParam))
+    if (MessageHook != nullptr && MessageHook(hWnd, message, wParam, lParam))
     {
         return true;
     }

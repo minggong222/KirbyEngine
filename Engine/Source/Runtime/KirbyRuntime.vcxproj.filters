@@ -1,0 +1,382 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Actors">
+      <UniqueIdentifier>{FAD89DF1-DFC4-4FC2-607A-A6EB2A45E800}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Components">
+      <UniqueIdentifier>{22CD82D4-E960-8C41-B5C6-482CD07593AE}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Core">
+      <UniqueIdentifier>{A6A973C5-2C9F-778A-C0A8-9A5DED746A35}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Core\Logging">
+      <UniqueIdentifier>{4D5CCA67-9C46-70B1-7813-B1464CC347AB}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Core\Math">
+      <UniqueIdentifier>{ECBD7597-BEA4-1E2B-690A-E2D350C8A820}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Core\Stats">
+      <UniqueIdentifier>{8147CEA1-D53C-F0F6-536B-60943E233664}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Core\Time">
+      <UniqueIdentifier>{79AE99A0-FE70-3629-9860-2FF6F7266C83}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Engine">
+      <UniqueIdentifier>{6FEE2E34-FEFD-F8DA-3C9C-BCC4F72D938A}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Json">
+      <UniqueIdentifier>{24B12993-CF52-2E06-90A0-55003E95C84D}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Json\Dom">
+      <UniqueIdentifier>{D3847E50-6ED3-C54D-C98E-64E7978A2AC6}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Json\Serialization">
+      <UniqueIdentifier>{389074AA-E8E3-E76D-5CDB-9E8B8FC69EEF}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="RHI">
+      <UniqueIdentifier>{B339D8C2-6EF6-57FF-6BC4-F956D081FC5D}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="RHI\D3D11">
+      <UniqueIdentifier>{6990ED61-93C3-9359-C4D9-1B03236E6C85}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="RenderCore">
+      <UniqueIdentifier>{F125CE4C-CDAB-4F4C-8C8D-0F49481A1B2B}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Renderer">
+      <UniqueIdentifier>{7CB24A3A-C10F-A84F-D4BC-7DB9D79215A3}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Resources">
+      <UniqueIdentifier>{534C9F62-FC18-11BD-24FB-180201EEE5B1}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Serialization">
+      <UniqueIdentifier>{1E28D7C4-6478-610E-7AB6-6EF1D3CC337A}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="UObject">
+      <UniqueIdentifier>{3921ED62-8911-9F4D-1CF8-36DE7FD3A1AE}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Windows">
+      <UniqueIdentifier>{CDB956E6-F2C1-4EE1-4732-EFAF5A8A8E38}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="World">
+      <UniqueIdentifier>{B257D5C4-9C4E-A835-C3A3-3D18F1AC4BAA}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="Actors\Actor.cpp">
+      <Filter>Actors</Filter>
+    </ClCompile>
+    <ClInclude Include="Actors\Actor.h">
+      <Filter>Actors</Filter>
+    </ClInclude>
+    <ClCompile Include="Actors\CameraActor.cpp">
+      <Filter>Actors</Filter>
+    </ClCompile>
+    <ClInclude Include="Actors\CameraActor.h">
+      <Filter>Actors</Filter>
+    </ClInclude>
+    <ClCompile Include="Actors\StaticMeshActor.cpp">
+      <Filter>Actors</Filter>
+    </ClCompile>
+    <ClInclude Include="Actors\StaticMeshActor.h">
+      <Filter>Actors</Filter>
+    </ClInclude>
+    <ClCompile Include="Components\ActorComponent.cpp">
+      <Filter>Components</Filter>
+    </ClCompile>
+    <ClInclude Include="Components\ActorComponent.h">
+      <Filter>Components</Filter>
+    </ClInclude>
+    <ClCompile Include="Components\CameraComponent.cpp">
+      <Filter>Components</Filter>
+    </ClCompile>
+    <ClInclude Include="Components\CameraComponent.h">
+      <Filter>Components</Filter>
+    </ClInclude>
+    <ClCompile Include="Components\PrimitiveComponent.cpp">
+      <Filter>Components</Filter>
+    </ClCompile>
+    <ClInclude Include="Components\PrimitiveComponent.h">
+      <Filter>Components</Filter>
+    </ClInclude>
+    <ClCompile Include="Components\SceneComponent.cpp">
+      <Filter>Components</Filter>
+    </ClCompile>
+    <ClInclude Include="Components\SceneComponent.h">
+      <Filter>Components</Filter>
+    </ClInclude>
+    <ClCompile Include="Components\StaticMeshComponent.cpp">
+      <Filter>Components</Filter>
+    </ClCompile>
+    <ClInclude Include="Components\StaticMeshComponent.h">
+      <Filter>Components</Filter>
+    </ClInclude>
+    <ClCompile Include="Core\EngineStatics.cpp">
+      <Filter>Core</Filter>
+    </ClCompile>
+    <ClInclude Include="Core\EngineStatics.h">
+      <Filter>Core</Filter>
+    </ClInclude>
+    <ClCompile Include="Core\Logging\Log.cpp">
+      <Filter>Core\Logging</Filter>
+    </ClCompile>
+    <ClInclude Include="Core\Logging\Log.h">
+      <Filter>Core\Logging</Filter>
+    </ClInclude>
+    <ClInclude Include="Core\Math\Box.h">
+      <Filter>Core\Math</Filter>
+    </ClInclude>
+    <ClInclude Include="Core\Math\Math.h">
+      <Filter>Core\Math</Filter>
+    </ClInclude>
+    <ClInclude Include="Core\Math\MathUtility.h">
+      <Filter>Core\Math</Filter>
+    </ClInclude>
+    <ClCompile Include="Core\Math\Rotator.cpp">
+      <Filter>Core\Math</Filter>
+    </ClCompile>
+    <ClInclude Include="Core\Math\Rotator.h">
+      <Filter>Core\Math</Filter>
+    </ClInclude>
+    <ClCompile Include="Core\Math\SimpleMath.cpp">
+      <Filter>Core\Math</Filter>
+    </ClCompile>
+    <ClInclude Include="Core\Math\SimpleMath.h">
+      <Filter>Core\Math</Filter>
+    </ClInclude>
+    <ClInclude Include="Core\Math\SimpleMath.inl">
+      <Filter>Core\Math</Filter>
+    </ClInclude>
+    <ClCompile Include="Core\Math\Transform.cpp">
+      <Filter>Core\Math</Filter>
+    </ClCompile>
+    <ClInclude Include="Core\Math\Transform.h">
+      <Filter>Core\Math</Filter>
+    </ClInclude>
+    <ClCompile Include="Core\Name.cpp">
+      <Filter>Core</Filter>
+    </ClCompile>
+    <ClInclude Include="Core\Name.h">
+      <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="Core\PathUtils.h">
+      <Filter>Core</Filter>
+    </ClInclude>
+    <ClCompile Include="Core\Precompiled.cpp">
+      <Filter>Core</Filter>
+    </ClCompile>
+    <ClInclude Include="Core\Precompiled.h">
+      <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="Core\STL.h">
+      <Filter>Core</Filter>
+    </ClInclude>
+    <ClCompile Include="Core\Stats\FrameStats.cpp">
+      <Filter>Core\Stats</Filter>
+    </ClCompile>
+    <ClInclude Include="Core\Stats\FrameStats.h">
+      <Filter>Core\Stats</Filter>
+    </ClInclude>
+    <ClCompile Include="Core\Time\PlatformTime.cpp">
+      <Filter>Core\Time</Filter>
+    </ClCompile>
+    <ClInclude Include="Core\Time\PlatformTime.h">
+      <Filter>Core\Time</Filter>
+    </ClInclude>
+    <ClCompile Include="Engine\Engine.cpp">
+      <Filter>Engine</Filter>
+    </ClCompile>
+    <ClInclude Include="Engine\Engine.h">
+      <Filter>Engine</Filter>
+    </ClInclude>
+    <ClCompile Include="Json\Dom\JsonObject.cpp">
+      <Filter>Json\Dom</Filter>
+    </ClCompile>
+    <ClInclude Include="Json\Dom\JsonObject.h">
+      <Filter>Json\Dom</Filter>
+    </ClInclude>
+    <ClCompile Include="Json\Dom\JsonValue.cpp">
+      <Filter>Json\Dom</Filter>
+    </ClCompile>
+    <ClInclude Include="Json\Dom\JsonValue.h">
+      <Filter>Json\Dom</Filter>
+    </ClInclude>
+    <ClCompile Include="Json\Serialization\JsonReader.cpp">
+      <Filter>Json\Serialization</Filter>
+    </ClCompile>
+    <ClInclude Include="Json\Serialization\JsonReader.h">
+      <Filter>Json\Serialization</Filter>
+    </ClInclude>
+    <ClCompile Include="Json\Serialization\JsonSerializer.cpp">
+      <Filter>Json\Serialization</Filter>
+    </ClCompile>
+    <ClInclude Include="Json\Serialization\JsonSerializer.h">
+      <Filter>Json\Serialization</Filter>
+    </ClInclude>
+    <ClInclude Include="Json\Serialization\JsonUTF8.h">
+      <Filter>Json\Serialization</Filter>
+    </ClInclude>
+    <ClCompile Include="Json\Serialization\JsonWriter.cpp">
+      <Filter>Json\Serialization</Filter>
+    </ClCompile>
+    <ClInclude Include="Json\Serialization\JsonWriter.h">
+      <Filter>Json\Serialization</Filter>
+    </ClInclude>
+    <ClCompile Include="RHI\D3D11\D3D11RHI.cpp">
+      <Filter>RHI\D3D11</Filter>
+    </ClCompile>
+    <ClInclude Include="RHI\D3D11\D3D11RHI.h">
+      <Filter>RHI\D3D11</Filter>
+    </ClInclude>
+    <ClCompile Include="RHI\RHI.cpp">
+      <Filter>RHI</Filter>
+    </ClCompile>
+    <ClInclude Include="RHI\RHI.h">
+      <Filter>RHI</Filter>
+    </ClInclude>
+    <ClInclude Include="RHI\RHIResources.h">
+      <Filter>RHI</Filter>
+    </ClInclude>
+    <ClCompile Include="RenderCore\RenderingThread.cpp">
+      <Filter>RenderCore</Filter>
+    </ClCompile>
+    <ClInclude Include="RenderCore\RenderingThread.h">
+      <Filter>RenderCore</Filter>
+    </ClInclude>
+    <ClCompile Include="Renderer\BatchLineRenderer.cpp">
+      <Filter>Renderer</Filter>
+    </ClCompile>
+    <ClInclude Include="Renderer\BatchLineRenderer.h">
+      <Filter>Renderer</Filter>
+    </ClInclude>
+    <ClCompile Include="Renderer\BillboardRenderer.cpp">
+      <Filter>Renderer</Filter>
+    </ClCompile>
+    <ClInclude Include="Renderer\BillboardRenderer.h">
+      <Filter>Renderer</Filter>
+    </ClInclude>
+    <ClInclude Include="Renderer\FVertexSimple.h">
+      <Filter>Renderer</Filter>
+    </ClInclude>
+    <ClCompile Include="Renderer\PrimitiveSceneProxy.cpp">
+      <Filter>Renderer</Filter>
+    </ClCompile>
+    <ClInclude Include="Renderer\PrimitiveSceneProxy.h">
+      <Filter>Renderer</Filter>
+    </ClInclude>
+    <ClInclude Include="Renderer\RenderSettings.h">
+      <Filter>Renderer</Filter>
+    </ClInclude>
+    <ClCompile Include="Renderer\Scene.cpp">
+      <Filter>Renderer</Filter>
+    </ClCompile>
+    <ClInclude Include="Renderer\Scene.h">
+      <Filter>Renderer</Filter>
+    </ClInclude>
+    <ClCompile Include="Renderer\TextRenderer.cpp">
+      <Filter>Renderer</Filter>
+    </ClCompile>
+    <ClInclude Include="Renderer\TextRenderer.h">
+      <Filter>Renderer</Filter>
+    </ClInclude>
+    <ClCompile Include="Renderer\WorldRenderer.cpp">
+      <Filter>Renderer</Filter>
+    </ClCompile>
+    <ClInclude Include="Renderer\WorldRenderer.h">
+      <Filter>Renderer</Filter>
+    </ClInclude>
+    <ClCompile Include="Resources\Asset.cpp">
+      <Filter>Resources</Filter>
+    </ClCompile>
+    <ClInclude Include="Resources\Asset.h">
+      <Filter>Resources</Filter>
+    </ClInclude>
+    <ClCompile Include="Resources\AssetManager.cpp">
+      <Filter>Resources</Filter>
+    </ClCompile>
+    <ClInclude Include="Resources\AssetManager.h">
+      <Filter>Resources</Filter>
+    </ClInclude>
+    <ClCompile Include="Resources\AssetManagerPackages.cpp">
+      <Filter>Resources</Filter>
+    </ClCompile>
+    <ClCompile Include="Resources\Material.cpp">
+      <Filter>Resources</Filter>
+    </ClCompile>
+    <ClInclude Include="Resources\Material.h">
+      <Filter>Resources</Filter>
+    </ClInclude>
+    <ClCompile Include="Resources\PrimitiveMeshAssets.cpp">
+      <Filter>Resources</Filter>
+    </ClCompile>
+    <ClInclude Include="Resources\PrimitiveMeshAssets.h">
+      <Filter>Resources</Filter>
+    </ClInclude>
+    <ClCompile Include="Resources\StaticMesh.cpp">
+      <Filter>Resources</Filter>
+    </ClCompile>
+    <ClInclude Include="Resources\StaticMesh.h">
+      <Filter>Resources</Filter>
+    </ClInclude>
+    <ClInclude Include="Resources\StaticMeshData.h">
+      <Filter>Resources</Filter>
+    </ClInclude>
+    <ClCompile Include="Resources\Texture2D.cpp">
+      <Filter>Resources</Filter>
+    </ClCompile>
+    <ClInclude Include="Resources\Texture2D.h">
+      <Filter>Resources</Filter>
+    </ClInclude>
+    <ClInclude Include="Resources\TextureResource.h">
+      <Filter>Resources</Filter>
+    </ClInclude>
+    <ClInclude Include="Serialization\Archive.h">
+      <Filter>Serialization</Filter>
+    </ClInclude>
+    <ClCompile Include="Serialization\Package.cpp">
+      <Filter>Serialization</Filter>
+    </ClCompile>
+    <ClInclude Include="Serialization\Package.h">
+      <Filter>Serialization</Filter>
+    </ClInclude>
+    <ClCompile Include="UObject\Class.cpp">
+      <Filter>UObject</Filter>
+    </ClCompile>
+    <ClInclude Include="UObject\Class.h">
+      <Filter>UObject</Filter>
+    </ClInclude>
+    <ClCompile Include="UObject\Object.cpp">
+      <Filter>UObject</Filter>
+    </ClCompile>
+    <ClInclude Include="UObject\Object.h">
+      <Filter>UObject</Filter>
+    </ClInclude>
+    <ClInclude Include="UObject\ObjectMacros.h">
+      <Filter>UObject</Filter>
+    </ClInclude>
+    <ClInclude Include="UObject\WeakObjectPtr.h">
+      <Filter>UObject</Filter>
+    </ClInclude>
+    <ClCompile Include="Windows\WindowsWindow.cpp">
+      <Filter>Windows</Filter>
+    </ClCompile>
+    <ClInclude Include="Windows\WindowsWindow.h">
+      <Filter>Windows</Filter>
+    </ClInclude>
+    <ClCompile Include="World\Level.cpp">
+      <Filter>World</Filter>
+    </ClCompile>
+    <ClInclude Include="World\Level.h">
+      <Filter>World</Filter>
+    </ClInclude>
+    <ClCompile Include="World\World.cpp">
+      <Filter>World</Filter>
+    </ClCompile>
+    <ClInclude Include="World\World.h">
+      <Filter>World</Filter>
+    </ClInclude>
+    <ClInclude Include="World\WorldType.h">
+      <Filter>World</Filter>
+    </ClInclude>
+  </ItemGroup>
+</Project>

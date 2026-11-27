@@ -2,7 +2,7 @@
 
 #include "AssetManager.h"
 #include "StaticMesh.h"
-#include "Renderer/Renderer.h"
+#include "RHI/RHI.h"
 
 #include <cmath>
 #include <vector>
@@ -400,7 +400,7 @@ namespace
         return Data;
     }
 
-    UStaticMesh* CreatePrimitiveMesh(URenderer& Renderer, FStaticMeshBuildData&& BuildData)
+    UStaticMesh* CreatePrimitiveMesh(FRHI& Renderer, FStaticMeshBuildData&& BuildData)
     {
         UStaticMesh* Mesh = NewObject<UStaticMesh>();
 
@@ -419,7 +419,7 @@ namespace
     }
 }
 
-bool RegisterBuiltinStaticMeshes(FAssetManager& AssetManager, URenderer& Renderer)
+bool RegisterBuiltinStaticMeshes(FAssetManager& AssetManager, FRHI& Renderer)
 {
     UStaticMesh* Cube = AssetManager.Load<UStaticMesh>(BuiltinAssetPaths::Cube, [&Renderer]() { return CreatePrimitiveMesh(Renderer, CreateCubeMeshData()); });
     UStaticMesh* Sphere = AssetManager.Load<UStaticMesh>(BuiltinAssetPaths::Sphere, [&Renderer]() { return CreatePrimitiveMesh(Renderer, CreateSphereMeshData()); });

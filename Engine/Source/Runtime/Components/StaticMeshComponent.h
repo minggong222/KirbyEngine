@@ -17,6 +17,7 @@ public:
     UStaticMesh* GetStaticMesh() const { return StaticMesh; }
 
     FBox CalcBounds() const override;
+    FPrimitiveSceneProxy* CreateSceneProxy() const override;
 
     void SetMaterial(int32 MaterialIndex, UMaterial* InMaterial);
     UMaterial* GetMaterial(int32 MaterialIndex) const;

@@ -1,13 +1,13 @@
 ﻿#pragma once
 
 #include "Core/Math/Math.h"
-#include "FVertexSimple.h"
+#include "Renderer/FVertexSimple.h"
 #include "Resources/TextureResource.h"
 
 #include <unordered_map>
 #include <Windows.h>
 
-class URenderer;
+class FRHI;
 
 class FTextRenderer
 {
@@ -20,7 +20,7 @@ public:
     FVector2D MeasureText(const FString& Text);
     void AddText(const FString& Text, const FVector& Position, const FVector& CameraRight, const FVector& CameraUp, float WorldUnitsPerPixel, const FVector4& Color);
 
-    bool Flush(URenderer& Renderer, const FMatrix& View, const FMatrix& Projection);
+    bool Flush(FRHI& Renderer, const FMatrix& View, const FMatrix& Projection);
 
 private:
     struct FTextGlyph
@@ -36,7 +36,7 @@ private:
     };
 
     bool GetGlyph(uint32 Character, FTextGlyph& OutGlyph);
-    bool RebuildAtlas(URenderer& Renderer);
+    bool RebuildAtlas(FRHI& Renderer);
     bool DecodeUTF8(const FString& Text, std::wstring& OutText) const;
 
     static constexpr int32 AtlasSize = 2048;

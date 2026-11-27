@@ -1,6 +1,6 @@
 ﻿#pragma once
 
-#include "Core/SimpleMath.h"
+#include "Core/Math/SimpleMath.h"
 
 #include <cmath>
 

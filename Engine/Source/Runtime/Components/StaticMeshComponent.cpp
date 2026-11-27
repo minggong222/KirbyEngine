@@ -2,6 +2,7 @@
 
 #include "Resources/StaticMesh.h"
 #include "Resources/StaticMeshData.h"
+#include "Renderer/PrimitiveSceneProxy.h"
 
 #include <algorithm>
 
@@ -219,4 +220,8 @@ FBox UStaticMeshComponent::CalcBounds() const
     }
 
     return WorldBounds;
+}
+FPrimitiveSceneProxy* UStaticMeshComponent::CreateSceneProxy() const
+{
+    return new FStaticMeshSceneProxy(*this);
 }

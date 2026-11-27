@@ -59,6 +59,10 @@ public:
     virtual void EndPlay();
     virtual void Tick(float DeltaTime);
 
+    // Override to return true for actors that should also tick in editor worlds
+    // (previews, procedural helpers). Gameplay actors leave it false.
+    virtual bool ShouldTickIfViewportsOnly() const { return false; }
+
 private:
     TArray<UActorComponent*> Components;
     USceneComponent* RootComponent = nullptr;

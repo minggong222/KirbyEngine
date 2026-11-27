@@ -1,13 +1,20 @@
 ﻿#include "World/World.h"
 
+#include "Renderer/Scene.h"
+
 UWorld::UWorld()
 {
     PersistentLevel = NewObject<ULevel>(this, FName("PersistentLevel"));
+    Scene = new FScene();
 }
 
 UWorld::~UWorld()
 {
     EndPlay();
+    FlushPendingDestroy();
+
+    delete Scene;
+    Scene = nullptr;
 
     delete PersistentLevel;
     PersistentLevel = nullptr;
@@ -37,16 +44,38 @@ FName UWorld::MakeUniqueActorName(FName RequestedName, const UClass* ActorClass)
 
 bool UWorld::DestroyActor(AActor* Actor)
 {
-    if (PersistentLevel == nullptr || Actor == nullptr || !PersistentLevel->GetActors().Contains(Actor))
+    if (PersistentLevel == nullptr || !IsValid(Actor) || !PersistentLevel->GetActors().Contains(Actor))
     {
         return false;
     }
 
     Actor->EndPlay();
     PersistentLevel->RemoveActor(Actor);
-    delete Actor;
 
+    Actor->MarkAsGarbage();
+
+    for (UActorComponent* Component : Actor->GetComponents())
+    {
+        if (Component != nullptr)
+        {
+            Component->MarkAsGarbage();
+        }
+    }
+
+    PendingDestroyActors.Add(Actor);
     return true;
+}
+
+void UWorld::FlushPendingDestroy()
+{
+    // Swap first so destructors that destroy more actors queue them for the next flush.
+    TArray<AActor*> ActorsToDelete;
+    std::swap(ActorsToDelete, PendingDestroyActors);
+
+    for (AActor* Actor : ActorsToDelete)
+    {
+        delete Actor;
+    }
 }
 
 void UWorld::BeginPlay()
@@ -93,18 +122,33 @@ void UWorld::EndPlay()
 
 void UWorld::Tick(float DeltaTime)
 {
-    if (!bHasBegunPlay || PersistentLevel == nullptr)
+    if (PersistentLevel != nullptr)
     {
-        return;
+        const bool bGameplayTick = bHasBegunPlay && WorldType != EWorldType::Editor;
+
+        const TArray<AActor*> CurrentActors = PersistentLevel->GetActors();
+
+        for (AActor* Actor : CurrentActors)
+        {
+            if (!IsValid(Actor) || !PersistentLevel->GetActors().Contains(Actor))
+            {
+                continue;
+            }
+
+            if (bGameplayTick || Actor->ShouldTickIfViewportsOnly())
+            {
+                Actor->Tick(DeltaTime);
+            }
+        }
     }
 
-    const TArray<AActor*> CurrentActors = PersistentLevel->GetActors();
+    FlushPendingDestroy();
+}
 
-    for (AActor* Actor : CurrentActors)
+void UWorld::SendAllEndOfFrameUpdates()
+{
+    if (Scene != nullptr)
     {
-        if (Actor != nullptr && PersistentLevel->GetActors().Contains(Actor))
-        {
-            Actor->Tick(DeltaTime);
-        }
+        Scene->UpdatePrimitives(*this);
     }
 }

@@ -1,10 +1,9 @@
 ﻿#pragma once
 
-#include <d3d11.h>
-
 #include "Core/STL.h"
 #include "Core/Math/Box.h"
-#include "FVertexSimple.h"
+#include "Renderer/FVertexSimple.h"
+#include "RHI/RHIResources.h"
 
 class UMaterial;
 
@@ -36,8 +35,8 @@ struct FStaticMeshRenderData
 
     FBox LocalBounds;
 
-    ID3D11Buffer* VertexBuffer = nullptr;
-    ID3D11Buffer* IndexBuffer = nullptr;
+    FRHIBuffer* VertexBuffer = nullptr;
+    FRHIBuffer* IndexBuffer = nullptr;
 
     uint32 VertexCount = 0;
     uint32 IndexCount = 0;

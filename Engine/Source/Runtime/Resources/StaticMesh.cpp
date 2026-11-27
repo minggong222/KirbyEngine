@@ -1,12 +1,60 @@
 #include "StaticMesh.h"
 
-#include "Renderer/Renderer.h"
+#include "RHI/RHI.h"
+#include "Resources/AssetManager.h"
 #include "Resources/Material.h"
+#include "Serialization/Archive.h"
 
 #include <limits>
 #include <utility>
 
-bool UStaticMesh::Initialize(URenderer& Renderer, FStaticMeshBuildData&& SourceData)
+FArchive& operator<<(FArchive& Ar, FStaticMeshSection& Section)
+{
+    Ar << Section.FirstIndex << Section.IndexCount << Section.MaterialIndex << Section.MaterialName;
+    return Ar;
+}
+
+void UStaticMesh::Serialize(FArchive& Ar)
+{
+    if (Ar.IsSaving())
+    {
+        TArray<FVertexSimple> Vertices = SourceVertices;
+        TArray<uint32> Indices = RenderData.Indices;
+        TArray<FStaticMeshSection> Sections = RenderData.Sections;
+        TArray<FString> MaterialPaths = RenderData.MaterialAssetPaths;
+
+        // Prefer the material's current asset path (it may have been renamed).
+        for (int32 Index = 0; Index < MaterialPaths.Num() && Index < RenderData.Materials.Num(); ++Index)
+        {
+            if (const UMaterial* Material = RenderData.Materials[Index])
+            {
+                MaterialPaths[Index] = Material->GetAssetPath();
+            }
+        }
+
+        bool bHasVertexNormals = RenderData.bHasVertexNormals;
+        Ar << Vertices << Indices << Sections << MaterialPaths << bHasVertexNormals;
+    }
+    else
+    {
+        PendingLoadData = FStaticMeshBuildData();
+        Ar << PendingLoadData.Vertices << PendingLoadData.Indices << PendingLoadData.Sections << PendingLoadData.MaterialAssetPaths << PendingLoadData.bHasVertexNormals;
+    }
+}
+
+bool UStaticMesh::PostLoad(FAssetManager& AssetManager, FRHI& RHI)
+{
+    PendingLoadData.Materials.Reset();
+
+    for (const FString& MaterialPath : PendingLoadData.MaterialAssetPaths)
+    {
+        PendingLoadData.Materials.Add(AssetManager.Find<UMaterial>(MaterialPath));
+    }
+
+    return Initialize(RHI, std::move(PendingLoadData));
+}
+
+bool UStaticMesh::Initialize(FRHI& Renderer, FStaticMeshBuildData&& SourceData)
 {
     if (RenderData.VertexBuffer != nullptr || RenderData.IndexBuffer != nullptr || !RenderData.Positions.IsEmpty() || !RenderData.Indices.IsEmpty())
     {
@@ -16,7 +64,7 @@ bool UStaticMesh::Initialize(URenderer& Renderer, FStaticMeshBuildData&& SourceD
     return Reinitialize(Renderer, std::move(SourceData));
 }
 
-bool UStaticMesh::Reinitialize(URenderer& Renderer, FStaticMeshBuildData&& SourceData)
+bool UStaticMesh::Reinitialize(FRHI& Renderer, FStaticMeshBuildData&& SourceData)
 {
     if (SourceData.Vertices.Num() < 3 || SourceData.Indices.Num() < 3 || SourceData.Indices.Num() % 3 != 0)
     {
@@ -80,14 +128,14 @@ bool UStaticMesh::Reinitialize(URenderer& Renderer, FStaticMeshBuildData&& Sourc
         return false;
     }
 
-    ID3D11Buffer* NewVertexBuffer = Renderer.CreateVertexBuffer(SourceData.Vertices.GetData(), static_cast<UINT>(VertexByteWidth));
+    FRHIBuffer* NewVertexBuffer = Renderer.CreateVertexBuffer(SourceData.Vertices.GetData(), static_cast<UINT>(VertexByteWidth));
 
     if (NewVertexBuffer == nullptr)
     {
         return false;
     }
 
-    ID3D11Buffer* NewIndexBuffer = Renderer.CreateIndexBuffer(SourceData.Indices.GetData(), static_cast<UINT>(SourceData.Indices.Num()));
+    FRHIBuffer* NewIndexBuffer = Renderer.CreateIndexBuffer(SourceData.Indices.GetData(), static_cast<UINT>(SourceData.Indices.Num()));
 
     if (NewIndexBuffer == nullptr)
     {
@@ -116,6 +164,8 @@ bool UStaticMesh::Reinitialize(URenderer& Renderer, FStaticMeshBuildData&& Sourc
     {
         Renderer.ReleaseIndexBuffer(RenderData.IndexBuffer);
     }
+
+    SourceVertices = SourceData.Vertices;
 
     RenderData.Positions = std::move(NewPositions);
     RenderData.Indices = std::move(SourceData.Indices);
@@ -149,13 +199,19 @@ UStaticMesh::~UStaticMesh()
 {
     if (RenderData.VertexBuffer != nullptr)
     {
-        RenderData.VertexBuffer->Release();
+        if (GRHI != nullptr)
+        {
+            GRHI->ReleaseVertexBuffer(RenderData.VertexBuffer);
+        }
         RenderData.VertexBuffer = nullptr;
     }
 
     if (RenderData.IndexBuffer != nullptr)
     {
-        RenderData.IndexBuffer->Release();
+        if (GRHI != nullptr)
+        {
+            GRHI->ReleaseIndexBuffer(RenderData.IndexBuffer);
+        }
         RenderData.IndexBuffer = nullptr;
     }
 }

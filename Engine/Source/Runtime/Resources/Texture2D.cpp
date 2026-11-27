@@ -1,6 +1,7 @@
 #include "Texture2D.h"
 
-#include "Renderer/Renderer.h"
+#include "RHI/RHI.h"
+#include "Serialization/Archive.h"
 
 #include <Windows.h>
 #include <objbase.h>
@@ -90,7 +91,7 @@ namespace
         UINT Height = 0;
         hr = Frame->GetSize(&Width, &Height);
 
-        if (FAILED(hr) || Width == 0 || Height == 0 || Width > D3D11_REQ_TEXTURE2D_U_OR_V_DIMENSION || Height > D3D11_REQ_TEXTURE2D_U_OR_V_DIMENSION)
+        if (FAILED(hr) || Width == 0 || Height == 0 || Width > 16384u || Height > 16384u)
         {
             return false;
         }
@@ -134,7 +135,7 @@ namespace
     }
 }
 
-bool UTexture2D::Initialize(URenderer& Renderer, const std::filesystem::path& SourcePath)
+bool UTexture2D::Initialize(FRHI& Renderer, const std::filesystem::path& SourcePath)
 {
     if (Resource.IsValid() || Resource.Texture != nullptr || Resource.ShaderResourceView != nullptr)
     {
@@ -150,10 +151,40 @@ bool UTexture2D::Initialize(URenderer& Renderer, const std::filesystem::path& So
         return false;
     }
 
-    return Renderer.CreateTexture2D(Pixels.GetData(), Width, Height, Resource);
+    if (!Renderer.CreateTexture2D(Pixels.GetData(), Width, Height, Resource))
+    {
+        return false;
+    }
+
+    SourcePixels = std::move(Pixels);
+    SourceWidth = Width;
+    SourceHeight = Height;
+    return true;
 }
 
-bool UTexture2D::Reload(URenderer& Renderer, const std::filesystem::path& SourcePath)
+void UTexture2D::Serialize(FArchive& Ar)
+{
+    Ar << SourceWidth << SourceHeight << SourcePixels;
+
+    if (Ar.IsLoading() && static_cast<uint64>(SourcePixels.Num()) != static_cast<uint64>(SourceWidth) * SourceHeight * 4)
+    {
+        Ar.SetError();
+    }
+}
+
+bool UTexture2D::PostLoad(FAssetManager& AssetManager, FRHI& RHI)
+{
+    (void)AssetManager;
+
+    if (Resource.IsValid() || SourcePixels.IsEmpty())
+    {
+        return false;
+    }
+
+    return RHI.CreateTexture2D(SourcePixels.GetData(), SourceWidth, SourceHeight, Resource);
+}
+
+bool UTexture2D::Reload(FRHI& Renderer, const std::filesystem::path& SourcePath)
 {
     TArray<uint8> Pixels;
     uint32 Width = 0;
@@ -170,6 +201,10 @@ bool UTexture2D::Reload(URenderer& Renderer, const std::filesystem::path& Source
     {
         return false;
     }
+
+    SourcePixels = std::move(Pixels);
+    SourceWidth = Width;
+    SourceHeight = Height;
 
     Resource.Release();
     Resource.Texture = NewResource.Texture;

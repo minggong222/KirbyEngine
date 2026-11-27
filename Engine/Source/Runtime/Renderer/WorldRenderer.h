@@ -6,15 +6,16 @@
 class UStaticMeshComponent;
 class UWorld;
 class UObject;
-class URenderer;
+class FRHI;
+class FScene;
 
 class FWorldRenderer
 {
 public:
-    void Render(UWorld* World, URenderer& Renderer, const FMatrix& View, const FMatrix& Projection, UObject* SelectedObject = nullptr, const FEngineShowFlags& ShowFlags = FEngineShowFlags()) const;
+    // Rendering thread: draws every primitive proxy in the scene, then outlines the
+    // proxies whose component or owning actor is SelectedObject (compared, never dereferenced).
+    void Render(const FScene& Scene, FRHI& Renderer, const FMatrix& View, const FMatrix& Projection, const void* SelectedObject = nullptr, const FEngineShowFlags& ShowFlags = FEngineShowFlags()) const;
 
     void TickMaterials(UWorld* World, float DeltaTime) const;
 
-private:
-    void RenderStaticMesh(UStaticMeshComponent* Component, URenderer& Renderer, const FMatrix& View, const FMatrix& Projection, bool bRenderOutline) const;
 };

@@ -22,7 +22,7 @@
 #include "Resources/StaticMesh.h"
 #include "Resources/Material.h"
 #include "Resources/Texture2D.h"
-#include "TextureAssetImporter.h"
+#include "Importers/TextureAssetImporter.h"
 
 #include "UObject/Object.h"
 #include "UObject/Class.h"
@@ -30,9 +30,9 @@
 #include "Json/Dom/JsonObject.h"
 #include "Json/Serialization/JsonSerializer.h"
 
-#include "OBJStaticMeshImporter.h"
-#include "Renderer/Renderer.h"
-#include "EditorTransformGizmo.h"
+#include "Importers/OBJStaticMeshImporter.h"
+#include "RHI/RHI.h"
+#include "Viewport/EditorTransformGizmo.h"
 #include <algorithm>
 #include <charconv>
 #include <cmath>
@@ -448,7 +448,8 @@ namespace
     {
         for (UObject* ExistingObject : GUObjectArray)
         {
-            if (ExistingObject == nullptr)
+            // Destroyed objects waiting for deletion no longer own their UUID.
+            if (!IsValid(ExistingObject))
             {
                 continue;
             }
@@ -470,7 +471,7 @@ namespace
         return false;
     }
 
-    bool ReadActorMap(const FJsonObject& ActorMap, double Version, FAssetManager& AssetManager, URenderer& Renderer, TArray<FSceneActorRecord>& OutRecords, TSet<uint32>& SeenUUIDs, uint32& OutMaxUUID)
+    bool ReadActorMap(const FJsonObject& ActorMap, double Version, FAssetManager& AssetManager, FRHI& Renderer, TArray<FSceneActorRecord>& OutRecords, TSet<uint32>& SeenUUIDs, uint32& OutMaxUUID)
     {
         for (const auto& Pair : ActorMap.GetValues())
         {
@@ -749,7 +750,7 @@ namespace
         return true;
     }
     
-    bool ReadLegacyObjectMap(const FJsonObject& ObjectMap, bool bIsCamera, FAssetManager& AssetManager, URenderer& Renderer, TArray<FSceneActorRecord>& OutRecords, TSet<uint32>& SeenUUIDs, uint32& OutMaxUUID)
+    bool ReadLegacyObjectMap(const FJsonObject& ObjectMap, bool bIsCamera, FAssetManager& AssetManager, FRHI& Renderer, TArray<FSceneActorRecord>& OutRecords, TSet<uint32>& SeenUUIDs, uint32& OutMaxUUID)
     {
         for (const auto& Pair : ObjectMap.GetValues())
         {
@@ -1129,7 +1130,7 @@ bool FSceneSerializer::Save(const std::filesystem::path& FilePath, const FEditor
     return true;
 }
 
-bool FSceneSerializer::Load(const std::filesystem::path& FilePath, FEditorObjectContext& Context, FAssetManager& AssetManager, UCameraComponent& ViewportCamera, URenderer& Renderer)
+bool FSceneSerializer::Load(const std::filesystem::path& FilePath, FEditorObjectContext& Context, FAssetManager& AssetManager, UCameraComponent& ViewportCamera, FRHI& Renderer)
 {
     if (FilePath.empty())
     {
@@ -1342,6 +1343,9 @@ bool FSceneSerializer::Load(const std::filesystem::path& FilePath, FEditorObject
     {
         return false;
     }
+
+    // The loaded world replaces the editor world, so it is an editor world too.
+    StagedWorld->SetWorldType(EWorldType::Editor);
 
     for (const FSceneActorRecord& Record : Records)
     {

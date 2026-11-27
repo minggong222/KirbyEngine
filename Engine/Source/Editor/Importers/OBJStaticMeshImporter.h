@@ -1,6 +1,6 @@
 ﻿#pragma once
 
-#include "Renderer/Renderer.h"
+#include "RHI/RHI.h"
 #include "Core/PathUtils.h"
 #include "Core/Logging/Log.h"
 #include "Resources/AssetManager.h"
@@ -8,7 +8,7 @@
 #include "Resources/PrimitiveMeshAssets.h"
 #include "Resources/StaticMesh.h"
 #include "Resources/Texture2D.h"
-#include "TextureAssetImporter.h"
+#include "Importers/TextureAssetImporter.h"
 
 #include "UObject/Object.h"
 
@@ -651,7 +651,7 @@ namespace OBJImporter
         return FString("Content/Materials/OBJ_" + OBJStem + "_" + SafeMaterialName + ".kmat");
     }
 
-    inline UMaterial* LoadOrCreateMaterialAsset(const FObjMaterialInfo& MaterialInfo, const std::filesystem::path& OBJPath, FAssetManager& AssetManager, URenderer& Renderer, FString& OutAssetPath)
+    inline UMaterial* LoadOrCreateMaterialAsset(const FObjMaterialInfo& MaterialInfo, const std::filesystem::path& OBJPath, FAssetManager& AssetManager, FRHI& Renderer, FString& OutAssetPath)
     {
         OutAssetPath = MakeMaterialAssetPath(OBJPath, MaterialInfo.Name);
 
@@ -736,7 +736,7 @@ namespace OBJImporter
         }
     };
 
-    inline bool BuildCookedGeometry(const FObjRawData& RawData, const std::filesystem::path& OBJPath, FAssetManager& AssetManager, URenderer& Renderer, FObjCookedData& OutCookedData)
+    inline bool BuildCookedGeometry(const FObjRawData& RawData, const std::filesystem::path& OBJPath, FAssetManager& AssetManager, FRHI& Renderer, FObjCookedData& OutCookedData)
     {
         OutCookedData.MeshData = {};
 
@@ -1247,7 +1247,7 @@ namespace OBJImporter
         return true;
     }
 
-    inline bool LoadCookedCache(const std::filesystem::path& SourcePath, FAssetManager& AssetManager, URenderer& Renderer, FStaticMeshBuildData& OutMeshData)
+    inline bool LoadCookedCache(const std::filesystem::path& SourcePath, FAssetManager& AssetManager, FRHI& Renderer, FStaticMeshBuildData& OutMeshData)
     {
         const std::filesystem::path CachePath = GetCookedCachePath(SourcePath);
 
@@ -1403,7 +1403,7 @@ namespace OBJImporter
         return true;
     }
 
-    inline bool BuildOBJ(const std::filesystem::path& OBJPath, FAssetManager& AssetManager, URenderer& Renderer, FObjCookedData& OutCookedData)
+    inline bool BuildOBJ(const std::filesystem::path& OBJPath, FAssetManager& AssetManager, FRHI& Renderer, FObjCookedData& OutCookedData)
     {
         FObjRawData RawData;
 
@@ -1455,7 +1455,7 @@ namespace OBJImporter
         return true;
     }
 
-    inline UStaticMesh* LoadOBJAsset(const FString& AssetPath, FAssetManager& AssetManager, URenderer& Renderer)
+    inline UStaticMesh* LoadOBJAsset(const FString& AssetPath, FAssetManager& AssetManager, FRHI& Renderer)
     {
         if (UStaticMesh* ExistingMesh = AssetManager.Find<UStaticMesh>(AssetPath))
         {
@@ -1505,7 +1505,7 @@ namespace OBJImporter
         });
     }
 
-    inline bool ReimportOBJAsset(UStaticMesh* Mesh, FAssetManager& AssetManager, URenderer& Renderer)
+    inline bool ReimportOBJAsset(UStaticMesh* Mesh, FAssetManager& AssetManager, FRHI& Renderer)
     {
         if (Mesh == nullptr)
         {
@@ -1538,7 +1538,7 @@ namespace OBJImporter
         return true;
     }
 
-    inline void RegisterImportedStaticMeshes(FAssetManager& AssetManager, URenderer& Renderer)
+    inline void RegisterImportedStaticMeshes(FAssetManager& AssetManager, FRHI& Renderer)
     {
         const std::filesystem::path ContentDirectory = std::filesystem::current_path() / "Content";
         std::error_code DirectoryError;
@@ -1603,7 +1603,7 @@ namespace OBJImporter
         return !FileSystemError;
     }
 
-    inline UStaticMesh* ImportExternalOBJ(const std::filesystem::path& SourcePath, FAssetManager& AssetManager, URenderer& Renderer)
+    inline UStaticMesh* ImportExternalOBJ(const std::filesystem::path& SourcePath, FAssetManager& AssetManager, FRHI& Renderer)
     {
         if (SourcePath.empty() || !HasOBJExtension(SourcePath))
         {

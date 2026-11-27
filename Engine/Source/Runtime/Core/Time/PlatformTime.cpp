@@ -1,5 +1,4 @@
 ﻿#include "PlatformTime.h"
-#include "EditorEngine.h"
 
 double FPlatformTime::Seconds()
 {

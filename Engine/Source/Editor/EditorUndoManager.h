@@ -9,7 +9,7 @@
 #include "Core/EngineStatics.h"
 #include "UObject/Class.h"
 #include "UObject/Object.h"
-#include "EditorTransformGizmo.h"
+#include "Viewport/EditorTransformGizmo.h"
 #include "Core/Math/MathUtility.h"
 #include "Resources/Material.h"
 

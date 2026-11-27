@@ -5,11 +5,11 @@
 struct FEditorObjectContext;
 class FAssetManager;
 class UCameraComponent;
-class URenderer;
+class FRHI;
 
 class FSceneSerializer
 {
 public:
     static bool Save(const std::filesystem::path& FilePath, const FEditorObjectContext& Context, const UCameraComponent& ViewportCamera);
-    static bool Load(const std::filesystem::path& FilePath, FEditorObjectContext& Context, FAssetManager& AssetManager, UCameraComponent& ViewportCamera, URenderer& Renderer);
+    static bool Load(const std::filesystem::path& FilePath, FEditorObjectContext& Context, FAssetManager& AssetManager, UCameraComponent& ViewportCamera, FRHI& Renderer);
 };

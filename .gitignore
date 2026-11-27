@@ -436,6 +436,9 @@ FodyWeavers.xsd
 *.vcxproj
 *.vcxproj.filters
 *.vcxproj.user
+# Project files made by Tools/GenerateProjectFiles.pl are committed
+!Engine/Source/Runtime/KirbyRuntime.vcxproj
+!Engine/Source/Runtime/KirbyRuntime.vcxproj.filters
 
 # ImGui
 imgui.ini

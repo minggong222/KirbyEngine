@@ -2,8 +2,11 @@
 
 #include "Actors/Actor.h"
 #include "World/Level.h"
+#include "World/WorldType.h"
 #include "UObject/ObjectMacros.h"
 #include "World/World.generated.h"
+
+class FScene;
 
 UCLASS()
 class UWorld : public UObject
@@ -56,16 +59,39 @@ public:
         return Actor;
     }
 
+    // Removes the actor from the level and marks it (and its components) as garbage.
+    // The memory is freed later by FlushPendingDestroy, so pointers held elsewhere
+    // during this frame stay safe to compare and IsValid() reports false.
     bool DestroyActor(AActor* Actor);
+
+    // Deletes actors destroyed since the last flush. Called at the end of Tick.
+    void FlushPendingDestroy();
 
     void BeginPlay();
     void EndPlay();
+
+    // Game worlds tick every actor after BeginPlay. Editor worlds only tick actors
+    // whose ShouldTickIfViewportsOnly() returns true (Unreal's LEVELTICK_ViewportsOnly).
     void Tick(float DeltaTime);
+
+    // Render-side mirror of this world (one proxy per primitive component).
+    FScene* GetScene() const { return Scene; }
+
+    // Pushes this frame's component changes to the scene (Unreal's SendAllEndOfFrameUpdates).
+    // Call on the game thread after all gameplay/editor changes and before rendering.
+    void SendAllEndOfFrameUpdates();
+
+    EWorldType GetWorldType() const { return WorldType; }
+    void SetWorldType(EWorldType InWorldType) { WorldType = InWorldType; }
+    bool IsEditorWorld() const { return WorldType == EWorldType::Editor; }
 
 private:
     FName MakeUniqueActorName(FName RequestedName, const UClass* ActorClass) const;
 
     ULevel* PersistentLevel = nullptr;
+    FScene* Scene = nullptr;
+    TArray<AActor*> PendingDestroyActors;
 
+    EWorldType WorldType = EWorldType::None;
     bool bHasBegunPlay = false;
 };

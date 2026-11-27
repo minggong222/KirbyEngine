@@ -10,6 +10,30 @@
 #include <cstdio>
 #include <cstring>
 
+// Log colors per theme: deep, saturated tones on the light pink Kirby background,
+// light tones on the dark Unreal background.
+static ImVec4 GetLogColor(ELogVerbosity Verbosity)
+{
+    const bool bLightBackground = KirbyEditorTheme::IsKirby();
+
+    switch (Verbosity)
+    {
+    case ELogVerbosity::Error:
+        return bLightBackground ? ImVec4(0.78f, 0.06f, 0.20f, 1.0f) : ImVec4(1.0f, 0.39f, 0.45f, 1.0f);
+
+    case ELogVerbosity::Warning:
+        return bLightBackground ? ImVec4(0.66f, 0.38f, 0.0f, 1.0f) : ImVec4(1.0f, 0.79f, 0.38f, 1.0f);
+
+    case ELogVerbosity::Input:
+        return bLightBackground ? ImVec4(0.10f, 0.38f, 0.70f, 1.0f) : ImVec4(0.52f, 0.80f, 0.98f, 1.0f);
+
+    case ELogVerbosity::Info:
+    default:
+        // Same as the normal panel text so info lines read like body text
+        return ImGui::GetStyleColorVec4(ImGuiCol_Text);
+    }
+}
+
 static int TextEditCallbackStub(ImGuiInputTextCallbackData* Data)
 {
     FConsolePanel* OutputLog = static_cast<FConsolePanel*>(Data->UserData);
@@ -107,7 +131,7 @@ void FConsolePanel::OnRender()
 
     ImGui::SetNextWindowSize(ImVec2(520.0f, 600.0f), ImGuiCond_FirstUseEver);
 
-    if (!ImGui::Begin("Console", &bIsOpen))
+    if (!ImGui::Begin(GetPanelName(), &bIsOpen))
     {
         SetOpen(bIsOpen);
         ImGui::End();
@@ -182,7 +206,7 @@ void FConsolePanel::OnRender()
                 continue;
             }
 
-            ImGui::PushStyleColor(ImGuiCol_Text, Item.Color);
+            ImGui::PushStyleColor(ImGuiCol_Text, GetLogColor(Item.Verbosity));
             ImGui::TextWrapped("%s", Item.Massage.c_str());
             ImGui::PopStyleColor();
         }
@@ -492,7 +516,6 @@ void FConsolePanel::ExecCommand(const char* CommandLine)
 
 void FConsolePanel::AddLog(ELogVerbosity Verbosity, const char* Format, ...)
 {
-    ImVec4 Color;
     char Buffer[1024] = {};
 
     va_list Arguments;
@@ -501,29 +524,6 @@ void FConsolePanel::AddLog(ELogVerbosity Verbosity, const char* Format, ...)
     Buffer[IM_COUNTOF(Buffer) - 1] = '\0';
     va_end(Arguments);
 
-    switch (Verbosity)
-    {
-    case ELogVerbosity::Info:
-        Color = ImVec4(0.57f, 0.91f, 0.75f, 1.0f);
-        break;
-
-    case ELogVerbosity::Error:
-        Color = ImVec4(1.0f, 0.39f, 0.55f, 1.0f);
-        break;
-
-    case ELogVerbosity::Warning:
-        Color = ImVec4(1.0f, 0.79f, 0.38f, 1.0f);
-        break;
-
-    case ELogVerbosity::Input:
-        Color = ImVec4(0.52f, 0.80f, 0.98f, 1.0f);
-        break;
-
-    default:
-        Color = ImVec4(0.95f, 0.90f, 0.96f, 1.0f);
-        break;
-    }
-
     constexpr int32 MaxConsoleLogEntries = 5000;
 
     if (Items.Num() >= MaxConsoleLogEntries)
@@ -531,7 +531,7 @@ void FConsolePanel::AddLog(ELogVerbosity Verbosity, const char* Format, ...)
         Items.RemoveAt(0, 1);
     }
 
-    Items.Add({FString(Buffer), Color});
+    Items.Add({FString(Buffer), Verbosity});
 }
 
 void FConsolePanel::HandleLogOutput(void* UserData, ELogVerbosity Verbosity, const char* Message)

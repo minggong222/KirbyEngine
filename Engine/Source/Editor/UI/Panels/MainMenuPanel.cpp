@@ -114,22 +114,46 @@ void FMainMenuPanel::OnRender()
     {
         ImDrawList* DrawList = ImGui::GetWindowDrawList();
 
-        ImGui::PushStyleColor(ImGuiCol_Text, KirbyEditorTheme::PinkText());
-        ImGui::TextUnformatted("KIRBY");
+        if (KirbyEditorTheme::IsKirby())
+        {
+            ImGui::PushStyleColor(ImGuiCol_Text, KirbyEditorTheme::PinkText());
+            ImGui::TextUnformatted("KIRBY");
 
-        const ImVec2 BrandMin = ImGui::GetItemRectMin();
-        const ImVec2 BrandMax = ImGui::GetItemRectMax();
+            const ImVec2 BrandMin = ImGui::GetItemRectMin();
+            const ImVec2 BrandMax = ImGui::GetItemRectMax();
 
-        KirbyEditorTheme::DrawPuffBadge(DrawList, ImVec2(BrandMax.x + 11.0f, (BrandMin.y + BrandMax.y) * 0.5f), 8.0f);
-        ImGui::PopStyleColor();
+            KirbyEditorTheme::DrawPuffBadge(DrawList, ImVec2(BrandMax.x + 11.0f, (BrandMin.y + BrandMax.y) * 0.5f), 8.0f);
+            ImGui::PopStyleColor();
 
-        ImGui::SameLine(0.0f, 22.0f);
+            ImGui::SameLine(0.0f, 22.0f);
 
-        ImGui::PushStyleColor(ImGuiCol_Text, KirbyEditorTheme::CreamText());
-        ImGui::TextUnformatted("ENGINE");
-        ImGui::PopStyleColor();
+            ImGui::PushStyleColor(ImGuiCol_Text, KirbyEditorTheme::CreamText());
+            ImGui::TextUnformatted("ENGINE");
+            ImGui::PopStyleColor();
 
-        ImGui::SameLine(0.0f, 20.0f);
+            ImGui::SameLine(0.0f, 20.0f);
+        }
+        else
+        {
+            // Small square badge + plain engine name, like a desktop editor title area
+            const float BadgeSize = ImGui::GetFrameHeight() - 6.0f;
+            const ImVec2 Cursor = ImGui::GetCursorScreenPos();
+            const ImVec2 BadgeMin(Cursor.x, Cursor.y + 3.0f);
+            const ImVec2 BadgeMax(BadgeMin.x + BadgeSize, BadgeMin.y + BadgeSize);
+
+            DrawList->AddRectFilled(BadgeMin, BadgeMax, IM_COL32(230, 230, 230, 255), 3.0f);
+            const char* BadgeLetter = "K";
+            const ImVec2 LetterSize = ImGui::CalcTextSize(BadgeLetter);
+            DrawList->AddText(ImVec2(BadgeMin.x + (BadgeSize - LetterSize.x) * 0.5f, BadgeMin.y + (BadgeSize - LetterSize.y) * 0.5f), IM_COL32(15, 15, 15, 255), BadgeLetter);
+            ImGui::Dummy(ImVec2(BadgeSize, BadgeSize));
+
+            ImGui::SameLine(0.0f, 8.0f);
+            ImGui::PushStyleColor(ImGuiCol_Text, KirbyEditorTheme::PinkText());
+            ImGui::TextUnformatted("KirbyEngine");
+            ImGui::PopStyleColor();
+
+            ImGui::SameLine(0.0f, 16.0f);
+        }
 
         if (ImGui::BeginMenu("File"))
         {
@@ -158,10 +182,10 @@ void FMainMenuPanel::OnRender()
             const char* PanelNames[] =
             {
                 "Viewport",
-                "World Outliner",
+                "Outliner",
                 "Details",
                 "Content Browser",
-                "Console",
+                "Output Log",
                 "Stats"
             };
 
@@ -182,19 +206,75 @@ void FMainMenuPanel::OnRender()
                 }
             }
 
+            ImGui::Separator();
+
+            if (ImGui::BeginMenu("Theme"))
+            {
+                const KirbyEditorTheme::EStyle CurrentStyle = KirbyEditorTheme::GetStyle();
+
+                if (ImGui::MenuItem("Unreal Dark", nullptr, CurrentStyle == KirbyEditorTheme::EStyle::Unreal))
+                {
+                    KirbyEditorTheme::Apply(KirbyEditorTheme::EStyle::Unreal);
+                }
+
+                if (ImGui::MenuItem("Kirby Pink", nullptr, CurrentStyle == KirbyEditorTheme::EStyle::Kirby))
+                {
+                    KirbyEditorTheme::Apply(KirbyEditorTheme::EStyle::Kirby);
+                }
+
+                ImGui::EndMenu();
+            }
+
+            if (ImGui::MenuItem("Reset Layout"))
+            {
+                for (const char* PanelName : PanelNames)
+                {
+                    PanelManager->SetPanelOpen(PanelName, true);
+                }
+
+                PanelManager->RequestLayoutReset();
+            }
+
             ImGui::EndMenu();
         }
 
         ImGui::EndMainMenuBar();
     }
-    
-    if (ImGui::BeginViewportSideBar("##MainToolbar", ImGui::GetMainViewport(), ImGuiDir_Up, 36.0f, ImGuiWindowFlags_NoSavedSettings))
+
+    // Toolbar strip under the menu bar.
+    // Unreal style: flat buttons that only show a background on hover.
+    // Kirby style: colored pink/blue buttons.
+    const bool bFlatToolbar = !KirbyEditorTheme::IsKirby();
+
+    if (bFlatToolbar)
+    {
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(8.0f, 4.0f));
+    }
+
+    const bool bToolbarOpen = ImGui::BeginViewportSideBar("##MainToolbar", ImGui::GetMainViewport(), ImGuiDir_Up, 36.0f, ImGuiWindowFlags_NoSavedSettings);
+
+    if (bFlatToolbar)
+    {
+        ImGui::PopStyleVar();
+    }
+
+    if (bToolbarOpen)
     {
         FEditorUndoManager* UndoManager = Context != nullptr ? Context->UndoManager : nullptr;
 
-        ImGui::PushStyleColor(ImGuiCol_Button, KirbyEditorTheme::PrimaryButton());
-        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, KirbyEditorTheme::PrimaryButtonHovered());
-        ImGui::PushStyleColor(ImGuiCol_ButtonActive, KirbyEditorTheme::PrimaryButtonActive());
+        auto PushToolbarButtonColors = [bFlatToolbar](const ImVec4& Normal, const ImVec4& Hovered, const ImVec4& Active)
+        {
+            ImGui::PushStyleColor(ImGuiCol_Button, bFlatToolbar ? ImVec4(0.0f, 0.0f, 0.0f, 0.0f) : Normal);
+            ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Hovered);
+            ImGui::PushStyleColor(ImGuiCol_ButtonActive, Active);
+        };
+
+        if (bFlatToolbar)
+        {
+            ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(10.0f, 4.0f));
+        }
+
+        PushToolbarButtonColors(KirbyEditorTheme::PrimaryButton(), KirbyEditorTheme::PrimaryButtonHovered(), KirbyEditorTheme::PrimaryButtonActive());
 
         if (ImGui::Button("Save"))
         {
@@ -203,11 +283,15 @@ void FMainMenuPanel::OnRender()
 
         ImGui::PopStyleColor(3);
 
+        if (bFlatToolbar)
+        {
+            ImGui::SameLine();
+            ImGui::TextDisabled("|");
+        }
+
         ImGui::SameLine();
 
-        ImGui::PushStyleColor(ImGuiCol_Button, KirbyEditorTheme::BlueButton());
-        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, KirbyEditorTheme::BlueButtonHovered());
-        ImGui::PushStyleColor(ImGuiCol_ButtonActive, KirbyEditorTheme::BlueButtonActive());
+        PushToolbarButtonColors(KirbyEditorTheme::BlueButton(), KirbyEditorTheme::BlueButtonHovered(), KirbyEditorTheme::BlueButtonActive());
 
         ImGui::BeginDisabled(UndoManager == nullptr || !UndoManager->CanUndo());
 
@@ -231,8 +315,14 @@ void FMainMenuPanel::OnRender()
 
         ImGui::PopStyleColor(3);
 
-        ImGui::End();
+        if (bFlatToolbar)
+        {
+            ImGui::PopStyleVar();
+        }
     }
+
+    // Begin/End must always be paired, even when the sidebar is clipped.
+    ImGui::End();
 
     const ImGuiIO& IO = ImGui::GetIO();
 

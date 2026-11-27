@@ -1,6 +1,6 @@
 ﻿#include "Core/Precompiled.h"
 #include "Renderer/TextRenderer.h"
-#include "Renderer/Renderer.h"
+#include "RHI/RHI.h"
 
 #include <Windows.h>
 #include <algorithm>
@@ -359,7 +359,7 @@ void FTextRenderer::AddText(const FString& Text, const FVector& Position, const 
     }
 }
 
-bool FTextRenderer::RebuildAtlas(URenderer& Renderer)
+bool FTextRenderer::RebuildAtlas(FRHI& Renderer)
 {
     if (!bAtlasDirty)
     {
@@ -378,7 +378,7 @@ bool FTextRenderer::RebuildAtlas(URenderer& Renderer)
     return true;
 }
 
-bool FTextRenderer::Flush(URenderer& Renderer, const FMatrix& View, const FMatrix& Projection)
+bool FTextRenderer::Flush(FRHI& Renderer, const FMatrix& View, const FMatrix& Projection)
 {
     if (PendingVertices.IsEmpty())
     {
@@ -391,7 +391,7 @@ bool FTextRenderer::Flush(URenderer& Renderer, const FMatrix& View, const FMatri
         return false;
     }
 
-    const bool bDrawn = Renderer.DrawDynamicVertices(PendingVertices.GetData(), static_cast<UINT>(PendingVertices.Num()), D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST, FMatrix::Identity, View, Projection, AtlasResource.ShaderResourceView, true, true);
+    const bool bDrawn = Renderer.DrawDynamicVertices(PendingVertices.GetData(), static_cast<UINT>(PendingVertices.Num()), ERHIPrimitiveTopology::TriangleList, FMatrix::Identity, View, Projection, AtlasResource.ShaderResourceView, true, true);
 
     if (!bDrawn)
     {

@@ -1,9 +1,9 @@
 #pragma once
 
-#include <d3d11.h>
-
 #include "Core/STL.h"
+#include "RHI/RHIResources.h"
 
+// GPU side of a 2D texture: backend handles plus size. Created and released through GRHI.
 struct FTexture2DResource
 {
     FTexture2DResource() = default;
@@ -11,9 +11,9 @@ struct FTexture2DResource
     FTexture2DResource& operator=(const FTexture2DResource&) = delete;
     FTexture2DResource(FTexture2DResource&&) = delete;
     FTexture2DResource& operator=(FTexture2DResource&&) = delete;
-    
-    ID3D11Texture2D* Texture = nullptr;
-    ID3D11ShaderResourceView* ShaderResourceView = nullptr;
+
+    FRHITexture* Texture = nullptr;
+    FRHIShaderResourceView* ShaderResourceView = nullptr;
 
     uint32 Width = 0;
     uint32 Height = 0;
@@ -23,21 +23,6 @@ struct FTexture2DResource
         return Texture != nullptr && ShaderResourceView != nullptr;
     }
 
-    void Release()
-    {
-        if (ShaderResourceView != nullptr)
-        {
-            ShaderResourceView->Release();
-            ShaderResourceView = nullptr;
-        }
-
-        if (Texture != nullptr)
-        {
-            Texture->Release();
-            Texture = nullptr;
-        }
-
-        Width = 0;
-        Height = 0;
-    }
+    // Frees the GPU objects (through GRHI) and resets the handles.
+    void Release();
 };

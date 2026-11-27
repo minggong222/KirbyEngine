@@ -1,13 +1,17 @@
 ﻿#pragma once
-#include <d3d11.h>
 
 #include "PanelManager.h"
 
 class FImGuiRenderer
 {
 public:
-    bool Init(HWND Hwnd, ID3D11Device* Device, ID3D11DeviceContext* DeviceContext);
-    void OnRender();
+    // NativeDevice / NativeDeviceContext come from GRHI->GetNativeDevice*() (D3D11 objects).
+    bool Init(HWND Hwnd, void* NativeDevice, void* NativeDeviceContext);
+
+    // Game thread: runs the panels and builds this frame's ImGui draw lists.
+    void BuildFrame();
+    // Rendering thread: submits the draw lists built by BuildFrame.
+    void RenderDrawData();
     void Shutdown();
     void DrawDockHost();
     FPanelManager* GetPanelManager() const {return PanelManager;}

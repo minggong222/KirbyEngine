@@ -1,7 +1,7 @@
 ﻿#pragma once
 
 class FAssetManager;
-class URenderer;
+class FRHI;
 
 namespace BuiltinAssetPaths
 {
@@ -13,4 +13,4 @@ namespace BuiltinAssetPaths
     inline constexpr char Capsule[] = "/Engine/BasicShapes/Capsule";
 }
 
-bool RegisterBuiltinStaticMeshes(FAssetManager& AssetManager, URenderer& Renderer);
+bool RegisterBuiltinStaticMeshes(FAssetManager& AssetManager, FRHI& Renderer);

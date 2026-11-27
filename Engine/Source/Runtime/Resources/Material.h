@@ -83,7 +83,14 @@ public:
         }
     }
 
+    bool SupportsPackage() const override { return true; }
+    void Serialize(FArchive& Ar) override;
+    bool PostLoad(FAssetManager& AssetManager, FRHI& RHI) override;
+
 private:
+    // Texture asset path read by Serialize, resolved by PostLoad.
+    FString PendingBaseColorTexturePath;
+
     UTexture2D* BaseColorTexture = nullptr;
     FVector4 BaseColor = FVector4(1.0f, 1.0f, 1.0f, 1.0f);
     FVector2D UVScrollSpeed = FVector2D(0.0f, 0.0f);
